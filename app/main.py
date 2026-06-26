@@ -11,11 +11,18 @@ def main():
 
     client = OllamaClient(model=DEFAULT_MODEL)
 
-    prompt = input("You: ")
+    while True:
 
-    answer = client.ask(prompt)
+        prompt = input("You: ")
 
-    print(f"\nJarvis: {answer}")
+        if prompt == 'quit':
+            print("Good Bye")
+            break
+
+        answer = client.ask(prompt)
+
+        print(f"\nJarvis: {answer}")
+
 
 
 if __name__ == "__main__":
