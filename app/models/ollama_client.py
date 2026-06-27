@@ -11,6 +11,10 @@ class OllamaClient:
             model=self.model,
             messages=[
                 {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
+                {
                     "role": "user",
                     "content": prompt,
                 }
