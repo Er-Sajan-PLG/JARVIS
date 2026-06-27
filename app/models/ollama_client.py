@@ -1,4 +1,5 @@
 from ollama import chat
+from app.config.prompts import SYSTEM_PROMPT
 
 
 class OllamaClient:
