@@ -1,17 +1,12 @@
 from ollama import chat
-from app.config.prompt import SYSTEM_PROMPT
+
 
 
 class OllamaClient:
 
-    def __init__(self, model: str):
+    def __init__(self, model: str, conversation : str):
         self.model = model
-        self.conversation = [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT,
-            }
-        ] 
+        self.conversation = conversation
 
     def ask(self, prompt: str) -> str:
 

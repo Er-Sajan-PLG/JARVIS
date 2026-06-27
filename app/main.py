@@ -2,6 +2,7 @@ print("Starting Jarvis...")
 
 from app.config.settings import DEFAULT_MODEL
 from app.models.ollama_client import OllamaClient
+from app.memory.manager import MemoryManager
 
 
 def main():
@@ -9,7 +10,9 @@ def main():
     print("      JARVIS")
     print("=" * 40)
 
-    client = OllamaClient(model=DEFAULT_MODEL)
+    memory = MemoryManager(path="app/memory/conversation.json")
+    conversation = memory.load()
+    client = OllamaClient(model=DEFAULT_MODEL,conversation=conversation)
 
     while True:
 
@@ -20,6 +23,7 @@ def main():
             break
 
         answer = client.ask(prompt)
+        memory.save(client.conversation)
 
         print(f"\nJarvis: {answer}")
 

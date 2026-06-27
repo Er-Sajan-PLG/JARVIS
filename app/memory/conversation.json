@@ -1,0 +1,30 @@
+[
+    {
+        "role": "system",
+        "content": "Temporary"
+    },
+    {
+        "role": "user",
+        "content": "hello jarvis, my name is SAJAN and i iced-latte is my bes coffee."
+    },
+    {
+        "role": "assistant",
+        "content": "Hello, Sajan! It's a pleasure to meet you. Iced-latte sounds like a perfect choice\u2014what kind of iced-latte do you prefer? Do you like it with whole milk, almond milk, or something else? And why do you think it's your favorite? I'd love to hear more about your coffee preferences! \u2615\u2728"
+    },
+    {
+        "role": "user",
+        "content": "what is my name  and what is my favourite coffee!?"
+    },
+    {
+        "role": "assistant",
+        "content": "Your name is **Sajan**, and your favorite coffee is the **iced-latte**! \u2615\u2728  \nI love that you\u2019ve got a strong preference for it\u2014do you have a specific type of iced-latte, like with almond milk or a splash of vanilla? I\u2019d love to hear more about your coffee routine! \ud83d\ude0a"
+    },
+    {
+        "role": "user",
+        "content": "what is my name and what is my favourite coffee!?"
+    },
+    {
+        "role": "assistant",
+        "content": "Your name is **Sajan**, and your favorite coffee is the **iced-latte**! \u2615\u2728 Let me know if you'd like to share more about your coffee preferences! \ud83d\ude0a"
+    }
+]
