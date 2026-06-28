@@ -15,7 +15,7 @@ class OllamaClient:
     def build_messages(self) -> list:
         
         messages=[]
-
+        # 1. System prompt
         messages.append(
                 {
                     "role": "system",
@@ -24,35 +24,45 @@ class OllamaClient:
         )
         # fixed
         if self.facts:
-            facts_text = "Here are some known facts:\n"
-            for fact in self.facts:        # singular 'fact' — one item per iteration
-               facts_text += f"- {fact}\n"  # append to facts_text, print the single item
+            facts_text = "Known user facts:\n"
+
+            for fact in self.facts:
+                facts_text += (
+                    f"- [{fact['category']}] "
+                    f"{fact['type']} → {fact['value']}\n"
+                )
 
             messages.append({
                 "role": "system",
                 "content": facts_text
             })
-       
-        messages.extend(self.conversation)
 
+        # messages.extend(self.conversation)
+        print("Conversation extension is DISABLED")
         return messages
 
     def ask(self, prompt: str) -> str:
-
+        # add user message to memory
         self.conversation.append(
                 {
                     "role": "user",
                     "content": prompt,
                 }
             )
+        # build full prompt
         messages = self.build_messages()
         response = chat(
             model=self.model,
             messages=messages,  
         )
+        from pprint import pprint
+
+        print("=== Messages being sent ===")
+        pprint(messages)
+        print("===========================")
         
         answer = response["message"]["content"]
-
+        # store assistant response
         self.conversation.append(
                 {
                     "role": "assistant",

@@ -291,3 +291,196 @@ Begin trimming conversation while preserving important knowledge.
 ⭐ Personal Note
 
 This version marks the point where Jarvis became more than a simple wrapper around an LLM. It now has its own memory layer, a context-building pipeline, and a clear separation of responsibilities between storage, orchestration, and inference.
+
+
+
+## v0.8 -
+
+
+
+1. Objective
+
+The goal of v0.8.0 was to redesign Jarvis' memory architecture by replacing plain string facts with structured memory objects.
+
+Previous versions stored facts as simple strings such as:
+
+"user likes football"
+
+This made searching, filtering, and extending memory difficult.
+
+The objective was to move toward a scalable memory system.
+
+---
+
+2. Major Architectural Changes
+
+a. Structured Memory
+
+Changed fact storage from:
+
+* string
+
+to
+
+* dictionary
+
+Each memory now contains:
+
+* category
+* type
+* value
+
+Example:
+
+{
+"category": "preference",
+"type": "like",
+"value": "football"
+}
+
+This allows future querying and filtering of memories.
+
+---
+
+b. Rule-Based Extraction
+
+Created a dedicated rules.py.
+
+Instead of hardcoded if-statements, memory extraction now loops through a configurable list of rules.
+
+Benefits:
+
+* easier to extend
+* easier to maintain
+* central place for extraction rules
+
+---
+
+c. Updated Memory Pipeline
+
+Updated:
+
+* fact_extractor.py
+* ollama_client.py
+* memory.py
+
+The complete memory flow is now:
+
+User Prompt
+
+↓
+
+Rule Matching
+
+↓
+
+Fact Extraction
+
+↓
+
+Structured Dictionary
+
+↓
+
+Memory Storage
+
+↓
+
+Conversation JSON
+
+↓
+
+Message Builder
+
+↓
+
+LLM
+
+---
+
+3. Bugs Encountered
+
+a. Variable Scope
+
+Attempted to use "rule" before it existed.
+
+Learned that variables created inside a loop only exist after the loop begins.
+
+---
+
+b. Missing Imports
+
+Forgot to import RULES into fact_extractor.py.
+
+Learned that every Python module has its own namespace.
+
+---
+
+c. Old Memory Format
+
+v0.7 memories were stored as strings.
+
+The new message builder expected dictionaries.
+
+Result:
+
+TypeError:
+string indices must be integers
+
+Solved by clearing the old facts and starting with the new format.
+
+---
+
+d. Memory Investigation
+
+Suspected Ollama had persistent memory.
+
+Performed an experiment.
+
+Removed:
+
+messages.extend(self.conversation)
+
+Printed every message being sent.
+
+Confirmed that Ollama only receives exactly what Jarvis sends.
+
+Conclusion:
+
+Ollama is stateless.
+
+All memory comes from Jarvis' own architecture.
+
+---
+
+4. Current Limitations
+
+Current extractor only extracts one fact from a message.
+
+Example:
+
+"I like football. I like music. I can code."
+
+becomes
+
+one large extracted fact.
+
+This will be redesigned in v0.9.
+
+---
+
+5. Lessons Learned
+
+* Separate architecture from implementation.
+* Verify assumptions with experiments instead of guessing.
+* Print internal state when debugging.
+* Memory and conversation serve different purposes.
+* LLMs do not remember anything unless you provide context.
+
+---
+
+6. Result
+
+v0.8.0 successfully introduced structured long-term memory and established the foundation for future intelligent memory extraction.
+
+

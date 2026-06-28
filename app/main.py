@@ -4,11 +4,14 @@ from app.config.settings import DEFAULT_MODEL
 from app.models.ollama_client import OllamaClient
 from app.memory.manager import MemoryManager
 from app.memory.fact_extractor import extract_fact
+from app.config.version import VERSION
+
+
 
 
 def main():
     print("=" * 40)
-    print("      JARVIS v0.6")
+    print(f"JARVIS {VERSION}")
     print("=" * 40)
 
     memory = MemoryManager(path="app/memory/conversation.json")
