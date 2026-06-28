@@ -146,3 +146,63 @@ v0.5 transforms Jarvis into a persistent conversational agent.
 It now has:
 
 continuity, identity, and memory across sessions.
+
+
+## v0.06 - JARVIS Development
+
+ 🎯 Goal
+
+Teach Jarvis to distinguish between conversation history and long-term facts.
+
+ 1. Features Added
+
+* Implemented a rule-based fact extraction system.
+* Added persistent fact storage alongside conversation history.
+* Introduced `MemoryManager.add_fact()`.
+* Updated memory format to store:
+
+  * Conversation history
+  * Long-term facts
+* Added support for loading both the old conversation-only format and the new structured memory format.
+* Successfully verified that facts persist after restarting Jarvis.
+
+ 2. Architecture Changes
+
+```
+User
+  ↓
+OllamaClient
+  ↓
+Conversation Memory
+  ↓
+Fact Extractor
+  ↓
+MemoryManager
+  ↓
+conversation.json
+```
+
+3. Memory now contains:
+
+* Conversation (short-term context)
+* Facts (long-term memory)
+
+4. Lessons Learned
+
+* Conversation and knowledge are different kinds of memory.
+* Persistent storage requires thinking about data structure evolution.
+* Schema changes require migration or backward compatibility.
+* Separating responsibilities (AI, memory, extraction) makes the system easier to extend.
+
+5. Current Status
+
+  Jarvis can:
+
+* Hold conversations.
+* Remember conversations across restarts.
+* Extract simple facts from user input.
+* Store long-term information independently of chat history.
+
+6. Next Goal (v0.7)
+
+Teach Jarvis to **use** remembered facts during conversation instead of only storing them.

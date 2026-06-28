@@ -1,25 +1,33 @@
 import json
+from app.config.prompt import SYSTEM_PROMPT
 
 
 class MemoryManager:
 
     def __init__(self, path: str):
         self.path = path
-        self.facts = []  # IMPORTANT: initialize facts
+        self.facts = []
 
     def load(self):
         try:
             with open(self.path, "r") as file:
                 data = json.load(file)
 
-            conversation = data.get("conversation", [])
-            self.facts = data.get("facts", [])
+            # OLD FORMAT (list)
+            if isinstance(data, list):
+                conversation = data
+                self.facts = []
+
+            # NEW FORMAT (dict)
+            else:
+                conversation = data.get("conversation", [])
+                self.facts = data.get("facts", [])
 
         except FileNotFoundError:
             conversation = [
                 {
                     "role": "system",
-                    "content": "SYSTEM_PROMPT"
+                    "content": SYSTEM_PROMPT
                 }
             ]
             self.facts = []
@@ -39,7 +47,7 @@ class MemoryManager:
         conversation = [
             {
                 "role": "system",
-                "content": "SYSTEM_PROMPT"
+                "content": SYSTEM_PROMPT
             }
         ]
         self.facts = []

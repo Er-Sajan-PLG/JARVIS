@@ -41,7 +41,7 @@ def main():
 
         # 3. Save updated conversation
         memory.save(
-            chat=client.conversation,
+            conversation=client.conversation,
             facts=memory.facts
         )
 
