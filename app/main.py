@@ -17,7 +17,8 @@ def main():
 
     client = OllamaClient(
         model=DEFAULT_MODEL,
-        conversation=conversation
+        conversation=conversation,
+        facts=facts
     )
 
     while True:

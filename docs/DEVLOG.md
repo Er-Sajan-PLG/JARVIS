@@ -206,3 +206,88 @@ conversation.json
 6. Next Goal (v0.7)
 
 Teach Jarvis to **use** remembered facts during conversation instead of only storing them.
+
+
+## v0.7 - Context Builder & Long-Term Memory Integration
+
+
+Date: 2026-06-28
+
+🚀 Major Milestone
+
+Jarvis no longer sends only the conversation to the LLM.
+
+A dedicated Context Builder (build_messages()) now prepares the complete context for every request by combining:
+
+System Prompt
+Persistent Facts (Long-Term Memory)
+Conversation History
+
+before sending it to the model.
+
+✅ Features
+Context Builder
+Added build_messages() to OllamaClient.
+Centralized all prompt construction in one place.
+Returns a complete messages list for the LLM.
+Long-Term Memory
+Persistent facts are now injected into every request.
+Facts remain separate from conversation history.
+Facts are formatted into a structured system message.
+Cleaner Architecture
+
+Responsibilities are now clearly separated:
+
+MemoryManager
+Load conversation
+Save conversation
+Store facts
+Clear memory
+OllamaClient
+Build LLM context
+Send requests
+Update conversation
+main.py
+Coordinate communication between components
+🧠 Architecture
+User
+ │
+ ▼
+main.py
+ │
+ ▼
+MemoryManager
+ │
+ ├── Conversation
+ └── Facts
+ │
+ ▼
+OllamaClient
+ │
+ ├── build_messages()
+ │      ├── System Prompt
+ │      ├── Facts
+ │      └── Conversation
+ │
+ ▼
+chat()
+ │
+ ▼
+Assistant Response
+ │
+ ▼
+MemoryManager.save()
+📚 Lessons Learned
+Objects own state (self.conversation, self.facts).
+Methods should use object state instead of passing everything as parameters.
+Separate building context from sending requests.
+Long-term memory and conversation history serve different purposes.
+Designing architecture first makes implementation much easier.
+🔜 Next (v0.8)
+Intelligent memory retrieval.
+Send only relevant facts instead of every stored fact.
+Introduce memory categories (preferences, identity, projects, goals, etc.).
+Begin trimming conversation while preserving important knowledge.
+⭐ Personal Note
+
+This version marks the point where Jarvis became more than a simple wrapper around an LLM. It now has its own memory layer, a context-building pipeline, and a clear separation of responsibilities between storage, orchestration, and inference.

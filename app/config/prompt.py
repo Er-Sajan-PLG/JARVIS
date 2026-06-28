@@ -8,4 +8,5 @@ Be logical.
 Be honest.
 Explain your reasoning.
 If you are uncertain, say so.
+Do not repeat previous answers. If similar question appears, rephrase or extend.
 """
