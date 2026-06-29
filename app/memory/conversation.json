@@ -67,7 +67,42 @@
         {
             "role": "assistant",
             "content": "I'm here to assist with engineering, STEM, learning, programming, productivity, and problem-solving. If you have a specific question or need guidance, feel free to ask. For example:  \n- **Engineering**: Designing systems, analyzing structures, or optimizing processes.  \n- **STEM**: Explaining concepts (e.g., physics, biology, math), solving equations, or troubleshooting experiments.  \n- **Learning**: Study strategies, resource recommendations, or clarifying complex topics.  \n- **Programming**: Debugging code, algorithm design, or language-specific guidance (e.g., Python, C++).  \n- **Productivity**: Tools for task management, automation, or workflow optimization.  \n- **Problem-Solving**: Breaking down challenges into steps or exploring creative solutions.  \n\nIf you\u2019re unsure where to start, share your goal, and I\u2019ll tailor my response!"
+        },
+        {
+            "role": "user",
+            "content": "Hello jarvis"
+        },
+        {
+            "role": "assistant",
+            "content": "I'm here to assist with engineering, STEM, learning, programming, productivity, or problem-solving tasks. To provide the most helpful response, could you clarify what specific question or challenge you're facing? For example:  \n- Are you troubleshooting a technical problem?  \n- Seeking guidance on a concept (e.g., physics, algorithms)?  \n- Need help with coding, debugging, or optimization?  \n- Looking for productivity tools or study strategies?  \n\nLet me know, and I\u2019ll address it step-by-step with reasoning and actionable steps. If I\u2019m uncertain about a topic, I\u2019ll admit that and guide you toward reliable resources."
+        },
+        {
+            "role": "user",
+            "content": "I like football. I like music. I am civil engineer. I can swim. I can play football and basketball. I like chicken. I prefer cold weather."
+        },
+        {
+            "role": "assistant",
+            "content": "I am Qwen, not Jarvis. However, I can assist you with engineering, STEM, learning, programming, productivity, and problem-solving tasks. Here\u2019s how I can help:\n\n1. **Engineering & STEM**:  \n   - Explain concepts (e.g., thermodynamics, circuit design, quantum mechanics).  \n   - Solve math/physics problems (e.g., differential equations, circuit analysis).  \n   - Provide resources for learning (e.g., textbooks, online courses, simulations).  \n\n2. **Programming**:  \n   - Debug code, explain algorithms, or optimize performance.  \n   - Help with languages like Python, C++, or JavaScript.  \n   - Design systems or troubleshoot software/hardware issues.  \n\n3. **Productivity**:  \n   - Suggest tools for task management, note-taking, or automation.  \n   - Help structure workflows or learn new methodologies (e.g., Agile, DevOps).  \n\n4. **Problem-Solving**:  \n   - Break down complex problems into manageable steps.  \n   - Offer logical frameworks (e.g., root cause analysis, design thinking).  \n\n**Limitations**:  \n- I cannot execute code or access external systems.  \n- For highly specialized tasks (e.g., advanced robotics, quantum computing), I may need to guide you to resources or collaborate with experts.  \n\nIf you have a specific question or task, feel free to share it, and I\u2019ll provide a clear, step-by-step explanation!"
+        },
+        {
+            "role": "user",
+            "content": "Hello jarvis. I like chocolate. I love dancing. I prefer black tea."
+        },
+        {
+            "role": "assistant",
+            "content": "Hello again, Sajan! \ud83c\udf1f Let me update your profile with your new interests:  \n\n### **New Additions to Your Profile**:  \n- **Chocolate**: A sweet treat that pairs perfectly with your love for *iced-latte* and *black tea*! \ud83c\udf6b\u2615  \n- **Dancing**: A dynamic hobby that blends rhythm, creativity, and physicality\u2014perfect for balancing your engineering precision and music passion. \ud83d\udc83  \n- **Black Tea**: A refreshing choice that complements your preference for natural remedies and cold weather! \ud83c\udf75\u2744\ufe0f  \n\n### **How These Interests Connect**:  \n1. **Dancing & Engineering**:  \n   - Could you use motion sensors or AI to analyze your dance routines? Or design a robot that mimics your movements? \ud83e\udd16  \n   - Maybe even integrate music (guitar) with choreography\u2014think of a project where code generates dance patterns synced to your guitar playing! \ud83c\udfb5  \n\n2. **Chocolate & STEM**:  \n   - Explore the science of chocolate! (e.g., chemistry of melting points, physics of texture).  \n   - Use your coding skills to create a chocolate recipe optimizer or a tool that analyzes cocoa bean data. \ud83c\udf6b\ud83d\udcbb  \n\n3. **Black Tea & Health**:  \n   - Combine your natural remedy preference with tea science\u2014research how black tea interacts with herbal remedies or its role in wellness.  \n   - Could your Jarvis project include a tea-brewing automation system or a health tracker? \u2615\ud83e\udd16  \n\n4. **Football, Basketball, & Dancing**:  \n   - These sports and activities all require coordination, strategy, and rhythm. Could your Jarvis help analyze your training routines or create a fitness app that blends dance and sports? \ud83c\udfc0\u26bd  \n\n### **Next Steps**:  \nWould you like to brainstorm how to merge these interests into a project? For example:  \n- A **dance-optimized workout routine** using your football and basketball skills.  \n- A **chocolate and tea tasting app** with AI-generated recommendations.  \n- A **smart tea-brewing system** powered by your coding and engineering expertise.  \n\nLet me know what excites you most, and I\u2019ll help you turn these ideas into action! \ud83d\ude80\ud83c\udfb5\ud83c\udf6b"
         }
     ],
-    "facts": []
+    "facts": [
+        {
+            "category": "preference",
+            "type": "like",
+            "value": "chocolate."
+        },
+        {
+            "category": "preference",
+            "type": "preference",
+            "value": "black tea."
+        }
+    ]
 }

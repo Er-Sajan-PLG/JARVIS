@@ -1,21 +1,49 @@
 from app.memory.rules import RULES
 
-def extract_fact(message: str):
-     msg = message.lower()
 
-     for rule in RULES:
-        if rule["trigger"] in msg:
-            trigger = rule["trigger"]
-            category = rule["category"]
-            type_ = rule["type"]
-            idx = msg.find(trigger)          # Finds the starting index (0)
-            value = msg[idx + len(trigger):]  # Starts after the trigger, goes to end 
-            return {
-                        "category": category,
-                        "type": type_,
-                        "value": value
-            }
-     return None
+
+def _split_into_sentences(message: str) -> list[str]:
+    sentences = []
+    current = []
+
+    for char in message:
+        current.append(char)
+        if char in ".!?":
+            sentence = "".join(current).strip()
+            if sentence:
+                sentences.append(sentence)
+            current = []
+
+    if current:                          # trailing text with no punctuation
+        leftover = "".join(current).strip()
+        if leftover:
+            sentences.append(leftover)
+
+    return sentences
+
+def extract_facts(message: str) -> list[dict]:
+    """
+    Split message into sentences and extract all rule-matching facts.
+    Returns a list of fact dicts (one per matched sentence).
+    """
+    sentences = _split_into_sentences(message)
+    facts = []
+
+    for sentence in sentences:
+        lowered = sentence.lower()
+        for rule in RULES:
+            if rule["trigger"] in lowered:
+                idx = lowered.find(rule["trigger"])
+                value = lowered[idx + len(rule["trigger"]):].strip()
+                facts.append({
+                    "category": rule["category"],
+                    "type":     rule["type"],
+                    "value":    value,
+                })
+                break  # first matching rule wins per sentence
+
+    return facts  # empty list if nothing matched
+
         
 
 

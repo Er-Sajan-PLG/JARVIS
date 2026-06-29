@@ -294,7 +294,7 @@ This version marks the point where Jarvis became more than a simple wrapper arou
 
 
 
-## v0.8 -
+## v0.8 - feat(v0.8): implement structured memory pipeline
 
 
 

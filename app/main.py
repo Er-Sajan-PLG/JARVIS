@@ -3,7 +3,7 @@ print("Starting Jarvis...")
 from app.config.settings import DEFAULT_MODEL
 from app.models.ollama_client import OllamaClient
 from app.memory.manager import MemoryManager
-from app.memory.fact_extractor import extract_fact
+from app.memory.fact_extractor import extract_facts
 from app.config.version import VERSION
 
 
@@ -38,10 +38,10 @@ def main():
         print(f"\nJarvis: {answer}")
 
         # 2. Extract fact from USER message (important!)
-        fact = extract_fact(prompt)
+        facts = extract_facts(prompt)
 
-        if fact:
-            memory.add_fact(fact)
+        for fact in facts:
+             memory.add_fact(fact)
 
         # 3. Save updated conversation
         memory.save(

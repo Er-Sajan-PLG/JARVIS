@@ -26,6 +26,13 @@ class OllamaClient:
         if self.facts:
             facts_text = "Known user facts:\n"
 
+            print("self.facts =", self.facts)
+            print("type(self.facts) =", type(self.facts))
+
+            for i, fact in enumerate(self.facts):
+                 print(f"fact[{i}] =", fact)
+                 print(f"type(fact[{i}]) =", type(fact))
+
             for fact in self.facts:
                 facts_text += (
                     f"- [{fact['category']}] "
@@ -37,7 +44,7 @@ class OllamaClient:
                 "content": facts_text
             })
 
-        # messages.extend(self.conversation)
+        messages.extend(self.conversation)
         print("Conversation extension is DISABLED")
         return messages
 
