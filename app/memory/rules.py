@@ -1,185 +1,149 @@
 RULES = [
     # ===== IDENTITY =====
     {
-        "trigger": "i am ",
+        "triggers": ["i am ", "i'm "],
         "category": "identity",
         "type": "state",
         "behavior": "append"
-
     },
     {
-        "trigger": "my name is ",
+        "triggers": ["my name is ", "my name's ", "call me ", "i go by "],
         "category": "identity",
         "type": "name",
         "behavior": "append"
-
     },
     {
-        "trigger": "i identify as ",
+        "triggers": ["i identify as ", "i see myself as ", "i consider myself "],
         "category": "identity",
         "type": "self_identification",
         "behavior": "append"
-
     },
 
     # ===== PREFERENCES =====
     {
-        "trigger": "i like ",
+        "triggers": ["i like ", "i love ", "i enjoy ", "i prefer ", "i'm into ", "i'm a fan of "],
         "category": "preference",
         "type": "like",
         "behavior": "append"
-
-    },
-    {
-        "trigger": "i prefer ",
-        "category": "preference",
-        "type": "preference",
-        "behavior": "append"
-        
-    },
-    {
-        "trigger": "i enjoy ",
-        "category": "preference",
-        "type": "enjoyment",
-        "behavior": "append"
-
     },
 
     # ===== SKILLS =====
     {
-        "trigger": "i can ",
+        "triggers": ["i can ", "i know how to ", "i'm able to "],
         "category": "skills",
         "type": "ability",
         "behavior": "append"
-
     },
     {
-        "trigger": "i am skilled at ",
+        "triggers": ["i am skilled at ", "i'm good at ", "i excel at ", "i specialize in "],
         "category": "skills",
         "type": "proficiency",
         "behavior": "append"
-
     },
     {
-        "trigger": "i have experience with ",
+        "triggers": ["i have experience with ", "i've worked with ", "i've used "],
         "category": "skills",
         "type": "experience",
         "behavior": "append"
-
     },
 
     # ===== GOALS =====
     {
-        "trigger": "i want to ",
+        "triggers": ["i want to ", "i'd like to ", "i wish to "],
         "category": "goals",
         "type": "desire",
         "behavior": "append"
-
     },
     {
-        "trigger": "my goal is ",
+        "triggers": ["my goal is ", "my aim is ", "my objective is "],
         "category": "goals",
         "type": "objective",
         "behavior": "append"
-
     },
     {
-        "trigger": "i aspire to ",
+        "triggers": ["i aspire to ", "i dream of ", "i hope to "],
         "category": "goals",
         "type": "aspiration",
         "behavior": "append"
-
     },
 
     # ===== PLANS =====
     {
-        "trigger": "i plan to ",
+        "triggers": ["i plan to ", "i'm planning to ", "i intend to "],
         "category": "plans",
         "type": "intention",
         "behavior": "append"
-
     },
     {
-        "trigger": "i will ",
+        "triggers": ["i will ", "i'll "],
         "category": "plans",
         "type": "future_action",
         "behavior": "append"
-
     },
     {
-        "trigger": "i am going to ",
+        "triggers": ["i am going to ", "i'm going to ", "i'm about to "],
         "category": "plans",
         "type": "near_future",
         "behavior": "append"
-
     },
 
     # ===== TASKS =====
     {
-        "trigger": "i need to ",
+        "triggers": ["i need to ", "i must ", "i should "],
         "category": "tasks",
         "type": "requirement",
         "behavior": "append"
-
     },
     {
-        "trigger": "i have to ",
+        "triggers": ["i have to ", "i've got to ", "i'm supposed to "],
         "category": "tasks",
         "type": "obligation",
         "behavior": "append"
-
     },
     {
-        "trigger": "my task is ",
+        "triggers": ["my task is ", "my job is ", "my responsibility is "],
         "category": "tasks",
         "type": "action_item",
         "behavior": "append"
-
     },
 
     # ===== LOCATION =====
     {
-        "trigger": "i am in ",
+        "triggers": ["i am in ", "i'm in ", "i'm currently in "],
         "category": "location",
         "type": "current_position",
         "behavior": "append"
-
     },
     {
-        "trigger": "i live in ",
+        "triggers": ["i live in ", "i'm based in ", "i reside in "],
         "category": "location",
         "type": "residence",
         "behavior": "append"
-
     },
     {
-        "trigger": "i am located at ",
+        "triggers": ["i am located at ", "i'm located at ", "my location is "],
         "category": "location",
         "type": "geographical",
         "behavior": "append"
-
     },
 
     # ===== PROFESSION =====
     {
-        "trigger": "i am a ",
+        "triggers": ["i am a ", "i'm a "],
         "category": "profession",
         "type": "job_title",
         "behavior": "append"
-
     },
     {
-        "trigger": "i work as ",
+        "triggers": ["i work as ", "i work at ", "i'm employed as "],
         "category": "profession",
         "type": "role",
         "behavior": "append"
-
     },
     {
-        "trigger": "my profession is ",
+        "triggers": ["my profession is ", "my career is ", "my occupation is "],
         "category": "profession",
         "type": "career",
         "behavior": "append"
-
     },
 ]
