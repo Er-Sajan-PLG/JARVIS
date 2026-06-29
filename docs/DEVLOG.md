@@ -484,3 +484,116 @@ This will be redesigned in v0.9.
 v0.8.0 successfully introduced structured long-term memory and established the foundation for future intelligent memory extraction.
 
 
+## v0.9 - Multi-Fact Memory Extraction
+
+
+Version: v0.9.0
+Date: 2026-06-29
+
+Goal
+----
+The previous memory system could only extract a single fact from an entire user message.
+If multiple facts were written together, only the first matching rule was saved.
+
+Example:
+
+"I like football. I can swim. I prefer tea."
+
+Previous result:
+✓ "I like football"
+
+Lost:
+✗ "I can swim"
+✗ "I prefer tea"
+
+The objective of this version was to redesign the extraction pipeline so one message could produce multiple structured memories.
+
+Implementation
+--------------
+• Replaced extract_fact() with extract_facts().
+• Extractor now returns List[dict] instead of a single dictionary.
+• Added sentence splitting before extraction.
+• Each sentence is checked independently against RULES.
+• Matching sentences are converted into structured fact dictionaries.
+• Multiple facts are returned together.
+• main.py updated to iterate through extracted facts.
+• Memory manager now stores each fact individually.
+• ollama_client updated to build structured memory prompts from dictionaries instead of plain strings.
+
+Architecture
+
+User Message
+      ↓
+Sentence Splitter
+      ↓
+Sentence 1
+Sentence 2
+Sentence 3
+      ↓
+Rule Matching
+      ↓
+Fact Dictionaries
+      ↓
+Memory Storage
+      ↓
+Prompt Builder
+
+Problems Encountered
+--------------------
+1.
+The extractor initially returned a list while the rest of the pipeline still expected one dictionary.
+
+This caused type errors.
+
+2.
+A nested list bug appeared because an entire list of facts was accidentally stored as a single fact.
+
+Expected:
+
+[
+    fact,
+    fact,
+    fact
+]
+
+Actual:
+
+[
+    fact,
+    [
+        fact,
+        fact
+    ]
+]
+
+Debugging using pprint() and inspecting self.facts exposed the issue.
+
+3.
+Conversation history caused misleading memory tests.
+
+Disabling conversation extension proved that the model itself has no persistent memory.
+
+Only conversation history and extracted facts provide memory.
+
+Lessons Learned
+---------------
+• Returning List[T] instead of T requires updating the entire pipeline.
+• Debugging data structures is often easier than debugging code.
+• Printing actual runtime objects is extremely valuable.
+• Structured dictionaries are far easier to extend than plain strings.
+• Sentence splitting should happen before semantic extraction.
+
+Current Limitations
+-------------------
+• Sentence splitter still uses regex.
+• Decimal numbers and abbreviations are not handled.
+• Facts are not deduplicated.
+• Compound sentences are not decomposed.
+• Temporal information is not extracted.
+
+Next Version (v0.10)
+--------------------
+• Duplicate detection.
+• Better sentence parsing.
+• Compound fact decomposition.
+• Memory metadata.

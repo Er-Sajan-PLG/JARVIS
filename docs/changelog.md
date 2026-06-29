@@ -31,3 +31,35 @@
 * Only one fact extracted per prompt
 * No sentence splitting
 * No duplicate detection
+
+
+
+# v0.9.0
+
+1. Added
+-----
++ extract_facts()
++ Multi-fact extraction
++ Sentence splitting
++ Dictionary-based structured facts
++ Rule-driven extraction pipeline
+
+2. Changed
+-------
+* Extractor now returns List[dict]
+* main.py processes multiple facts
+* Memory storage supports multiple structured facts
+* Prompt builder uses structured memory
+
+3. Fixed
+-----
+* Single-fact extraction limitation
+* Nested list storage bug
+* Dictionary/string incompatibility
+
+4. Known Issues
+------------
+- Regex sentence splitter
+- Duplicate memories
+- Compound facts remain unparsed
+

@@ -53,5 +53,31 @@ class MemoryManager:
         self.facts = []
         self.save(conversation, self.facts)
 
-    def add_fact(self, fact):
-        self.facts.append(fact)
+    def add_fact(self, fact: dict):
+        print("ADDING:", fact)
+        self.apply_behavior(fact)
+
+    def apply_behavior(self, fact: dict):
+        print("APPLY:", fact)
+        behavior = fact.get("behavior", "append")
+
+        if behavior == "append":
+            self.facts.append(fact)
+
+        elif behavior == "replace":
+            self.replace_fact(fact)
+
+        elif behavior == "ignore":
+            return
+
+    def replace_fact(self, new_fact: dict):
+        for i, existing in enumerate(self.facts):
+            if (
+                existing["category"] == new_fact["category"]
+                and existing["type"] == new_fact["type"]
+            ):
+                self.facts[i] = new_fact
+                return
+
+        self.facts.append(new_fact)
+        print(self.facts)

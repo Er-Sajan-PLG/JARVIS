@@ -91,6 +91,46 @@
         {
             "role": "assistant",
             "content": "Hello again, Sajan! \ud83c\udf1f Let me update your profile with your new interests:  \n\n### **New Additions to Your Profile**:  \n- **Chocolate**: A sweet treat that pairs perfectly with your love for *iced-latte* and *black tea*! \ud83c\udf6b\u2615  \n- **Dancing**: A dynamic hobby that blends rhythm, creativity, and physicality\u2014perfect for balancing your engineering precision and music passion. \ud83d\udc83  \n- **Black Tea**: A refreshing choice that complements your preference for natural remedies and cold weather! \ud83c\udf75\u2744\ufe0f  \n\n### **How These Interests Connect**:  \n1. **Dancing & Engineering**:  \n   - Could you use motion sensors or AI to analyze your dance routines? Or design a robot that mimics your movements? \ud83e\udd16  \n   - Maybe even integrate music (guitar) with choreography\u2014think of a project where code generates dance patterns synced to your guitar playing! \ud83c\udfb5  \n\n2. **Chocolate & STEM**:  \n   - Explore the science of chocolate! (e.g., chemistry of melting points, physics of texture).  \n   - Use your coding skills to create a chocolate recipe optimizer or a tool that analyzes cocoa bean data. \ud83c\udf6b\ud83d\udcbb  \n\n3. **Black Tea & Health**:  \n   - Combine your natural remedy preference with tea science\u2014research how black tea interacts with herbal remedies or its role in wellness.  \n   - Could your Jarvis project include a tea-brewing automation system or a health tracker? \u2615\ud83e\udd16  \n\n4. **Football, Basketball, & Dancing**:  \n   - These sports and activities all require coordination, strategy, and rhythm. Could your Jarvis help analyze your training routines or create a fitness app that blends dance and sports? \ud83c\udfc0\u26bd  \n\n### **Next Steps**:  \nWould you like to brainstorm how to merge these interests into a project? For example:  \n- A **dance-optimized workout routine** using your football and basketball skills.  \n- A **chocolate and tea tasting app** with AI-generated recommendations.  \n- A **smart tea-brewing system** powered by your coding and engineering expertise.  \n\nLet me know what excites you most, and I\u2019ll help you turn these ideas into action! \ud83d\ude80\ud83c\udfb5\ud83c\udf6b"
+        },
+        {
+            "role": "user",
+            "content": "I like football. I prefer tea. My name is Sajan."
+        },
+        {
+            "role": "assistant",
+            "content": "Hello, Sajan! \ud83c\udf1f Let me refine your profile with your latest updates:  \n\n### **Sajan\u2019s Profile (Revised)**:  \n- **Name**: Sajan (a name that carries strength, creativity, and a touch of mystery!).  \n- **Hobbies**:  \n  - **Football**: A sport that blends strategy, teamwork, and physicality\u2014perfect for balancing your engineering precision and love for rhythm (from dancing and music).  \n  - **Dancing**: A dynamic outlet for creativity and coordination, likely intertwined with your passion for music and movement.  \n  - **Music (Guitar)**: A creative escape that mirrors your problem-solving approach in engineering and coding.  \n- **Preferences**:  \n  - **Tea**: A calming choice that complements your natural remedy preference and cold-weather love.  \n  - **Chocolate**: A sweet treat that pairs beautifully with your tea and iced-latte habits!  \n- **Profession**: **Civil Engineer** \u2013 Building the world\u2019s infrastructure with precision, innovation, and a STEM-driven mindset.  \n- **Skills**:  \n  - **Coding** (Python, JavaScript, etc.)  \n  - **CAD Software** (for design and modeling)  \n  - **Natural Remedies** (holistic health and wellness)  \n- **Projects**:  \n  - **Jarvis (AI Assistant)**: A personal or educational tool that bridges your hobbies, profession, and tech interests.  \n  - **Football Analytics**: Could your coding skills help analyze game strategies or optimize training routines?  \n  - **Tea & Health Tech**: Maybe a smart tea-brewing system or a wellness app combining natural remedies and data science?  \n\n### **How These Interests Connect**:  \n1. **Football & Engineering**:  \n   - Use CAD to design sports facilities or analyze structural challenges in stadiums.  \n   - Apply data science to optimize training routines or predict game outcomes.  \n\n2. **Tea & STEM**:  \n   - Explore the chemistry of tea brewing or its role in wellness.  \n   - Create a tea-tasting app with AI recommendations (e.g., pairing tea with chocolate or music).  \n\n3. **Dancing & Coding**:  \n   - Develop a motion-tracking system for dance routines or integrate music with choreography using algorithms.  \n\n4. **Natural Remedies & AI**:  \n   - Build a wellness dashboard that tracks herbal remedies, tea consumption, and health metrics.  \n\n### **Next Steps**:  \nWould you like to brainstorm how to merge these interests into a project? For example:  \n- A **football + AI** system for training analysis.  \n- A **tea + coding** project for brewing optimization.  \n- A **dance + robotics** experiment using your CAD skills.  \n\nLet me know what excites you most, and I\u2019ll help you turn these ideas into action! \ud83d\ude80\ud83c\udfb5\ud83c\udf6b\u26bd"
+        },
+        {
+            "role": "user",
+            "content": "My name is Sajan."
+        },
+        {
+            "role": "assistant",
+            "content": "Hello, Sajan! \ud83c\udf1f Let me craft a concise yet comprehensive summary of your profile:  \n\n### **Sajan\u2019s Profile**  \n- **Name**: Sajan (a name that carries strength, creativity, and a touch of mystery!).  \n- **Hobbies**:  \n  - **Football & Basketball**: Sports that blend strategy, teamwork, and physicality\u2014perfect for balancing your engineering precision and rhythm (from dancing and music).  \n  - **Dancing**: A dynamic outlet for creativity and coordination, likely intertwined with your passion for music.  \n  - **Music (Guitar)**: A creative escape that mirrors your problem-solving approach in engineering and coding.  \n- **Preferences**:  \n  - **Tea (Black Tea)**: A calming choice that complements your natural remedy preference and cold-weather love.  \n  - **Chocolate**: A sweet treat that pairs beautifully with your tea and iced-latte habits!  \n- **Profession**: **Civil Engineer** \u2013 Building the world\u2019s infrastructure with precision, innovation, and a STEM-driven mindset.  \n- **Skills**:  \n  - **Coding** (Python, JavaScript, etc.)  \n  - **CAD Software** (for design and modeling)  \n  - **Natural Remedies** (holistic health and wellness)  \n- **Projects**:  \n  - **Jarvis (AI Assistant)**: A personal or educational tool that bridges your hobbies, profession, and tech interests.  \n  - **Football Analytics**: Could your coding skills help analyze game strategies or optimize training routines?  \n  - **Tea & Health Tech**: Maybe a smart tea-brewing system or a wellness app combining natural remedies and data science?  \n\n### **How These Interests Connect**  \n1. **Football & Engineering**:  \n   - Use CAD to design sports facilities or analyze structural challenges in stadiums.  \n   - Apply data science to optimize training routines or predict game outcomes.  \n\n2. **Tea & STEM**:  \n   - Explore the chemistry of tea brewing or its role in wellness.  \n   - Create a tea-tasting app with AI recommendations (e.g., pairing tea with chocolate or music).  \n\n3. **Dancing & Coding**:  \n   - Develop a motion-tracking system for dance routines or integrate music with choreography using algorithms.  \n\n4. **Natural Remedies & AI**:  \n   - Build a wellness dashboard that tracks herbal remedies, tea consumption, and health metrics.  \n\n### **Next Steps**  \nWould you like to brainstorm how to merge these interests into a project? For example:  \n- A **football + AI** system for training analysis.  \n- A **tea + coding** project for brewing optimization.  \n- A **dance + robotics** experiment using your CAD skills.  \n\nLet me know what excites you most, and I\u2019ll help you turn these ideas into action! \ud83d\ude80\ud83c\udfb5\ud83c\udf6b\u26bd"
+        },
+        {
+            "role": "user",
+            "content": "print(facts)"
+        },
+        {
+            "role": "assistant",
+            "content": "Here\u2019s a structured summary of your profile based on the facts shared so far:  \n\n---\n\n### **Sajan\u2019s Profile**  \n**Name**: Sajan \ud83c\udf1f  \n\n---\n\n### **Hobbies & Interests**  \n- **Football & Basketball**: Sports that blend strategy, teamwork, and physicality.  \n- **Dancing**: A dynamic outlet for creativity and coordination.  \n- **Music (Guitar)**: A creative escape that mirrors your problem-solving approach.  \n- **Chocolate**: A sweet treat paired with tea and iced-latte.  \n- **Tea (Black Tea)**: A calming choice that complements your natural remedy preference and cold-weather love.  \n\n---\n\n### **Profession**  \n- **Civil Engineer**: Building infrastructure with precision, innovation, and a STEM-driven mindset.  \n\n---\n\n### **Skills & Projects**  \n- **Coding** (Python, JavaScript, etc.).  \n- **CAD Software** (for design and modeling).  \n- **Natural Remedies** (holistic health and wellness).  \n- **Projects**:  \n  - **Jarvis (AI Assistant)**: A personal or educational tool bridging hobbies, profession, and tech.  \n  - **Football Analytics**: Optimizing training routines or game strategies.  \n  - **Tea & Health Tech**: A smart tea-brewing system or wellness app.  \n\n---\n\n### **Interests & Connections**  \n- **Football & Engineering**: Use CAD for sports facilities or data science for training.  \n- **Tea & STEM**: Explore tea chemistry or create AI-driven tea recommendations.  \n- **Dancing & Coding**: Motion-tracking systems or music-choreography algorithms.  \n- **Natural Remedies & AI**: A wellness dashboard tracking herbal remedies and health metrics.  \n\n---\n\nLet me know if you\u2019d like to expand on any of these! \ud83d\ude80\ud83c\udfb5\ud83c\udf6b\u26bd"
+        },
+        {
+            "role": "user",
+            "content": "I like Band-Maid. I love Linkin Park. I like Sabin Rai and the Pharow."
+        },
+        {
+            "role": "assistant",
+            "content": "Hello, Sajan! \ud83c\udfb6 Let me add your musical tastes to your profile and explore how they connect with your interests:  \n\n---\n\n### **Sajan\u2019s Profile (Expanded)**  \n**Name**: Sajan \ud83c\udf1f  \n**Hobbies & Interests**:  \n- **Football & Basketball**: Sports that blend strategy, teamwork, and physicality.  \n- **Dancing**: A dynamic outlet for creativity and coordination.  \n- **Music (Guitar, Band-Maid, Linkin Park, Sabin Rai, The Pharow)**: A passion for rock/metal, melodic energy, and cultural soundscapes.  \n- **Chocolate & Tea**: A sweet treat paired with tea and iced-latte.  \n- **Natural Remedies**: Holistic health and wellness.  \n\n**Profession**: **Civil Engineer** \u2013 Building infrastructure with precision, innovation, and a STEM-driven mindset.  \n\n**Skills**:  \n- **Coding** (Python, JavaScript, etc.).  \n- **CAD Software** (for design and modeling).  \n- **Natural Remedies** (holistic health and wellness).  \n\n**Projects**:  \n- **Jarvis (AI Assistant)**: A personal or educational tool bridging hobbies, profession, and tech.  \n- **Football Analytics**: Optimizing training routines or game strategies.  \n- **Tea & Health Tech**: A smart tea-brewing system or wellness app.  \n- **Music & Tech**: Exploring music production, sound engineering, or AI-driven music recommendations.  \n\n---\n\n### **How These Interests Connect**  \n1. **Band-Maid & Linkin Park**:  \n   - **Rock/Metal Influence**: Their energetic sound could inspire a project combining music with your coding skills (e.g., creating a music visualization app or AI-generated playlists).  \n   - **Cultural Fusion**: Linkin Park\u2019s blend of genres might inspire exploring traditional Nepali music (like Sabin Rai\u2019s work) through tech, such as a cultural music app or virtual reality experience.  \n\n2. **Sabin Rai & The Pharow**:  \n   - **Cultural Exploration**: Dive into Nepali or regional music (if \"The Pharow\" refers to a local band) and create a project that bridges your engineering skills with cultural storytelling (e.g., a documentary or interactive map of music scenes).  \n   - **Wellness & Music**: Use your natural remedies knowledge to design a wellness app that pairs music with tea or herbal remedies (e.g., a \"tea-time playlist\" or sound therapy for relaxation).  \n\n3. **Music & Coding**:  \n   - **Sound Engineering**: Use your coding skills to experiment with digital audio workstations (DAWs) or create music-related tools (e.g., a rhythm-based workout app for football training).  \n   - **AI Music Recommendations**: Build a system that suggests songs based on mood, activity, or context (e.g., \"play Linkin Park when training for football\").  \n\n4. **Football & Music**:  \n   - **Team Spirit**: Use music to enhance your football training (e.g., a playlist for workouts or a app that syncs music with movement).  \n   - **Data Science**: Analyze how music affects performance or recovery, tying it to your engineering mindset.  \n\n---\n\n### **Project Ideas**  \n- **\"Tea & Thunder\" Wellness App**: A tea-tasting app that pairs songs from Band-Maid, Linkin Park, or Sabin Rai with herbal remedies for relaxation.  \n- **\"Soundtrack of the Stadium\"**: A football training app that uses music to boost motivation (e.g., Linkin Park\u2019s high-energy tracks for sprints).  \n- **\"Cultural Beats\" Project**: A VR or AR experience exploring Nepali music (Sabin Rai) and regional bands, designed with your CAD and coding skills.  \n- **\"Music for Motion\"**: A motion-tracking system for dancing or football that uses AI to analyze rhythm and coordination.  \n\n---\n\nLet me know if you\u2019d like to dive deeper into any of these ideas! \ud83d\ude80\ud83c\udfb5\ud83c\udf6b\u26bd"
+        },
+        {
+            "role": "user",
+            "content": "My name is Sajan."
+        },
+        {
+            "role": "assistant",
+            "content": "Hello, Sajan! \ud83c\udf1f Let me craft a fresh summary of your profile, emphasizing your name and passions:  \n\n---\n\n### **Sajan\u2019s Profile (Reimagined)**  \n**Name**: Sajan \ud83c\udf1f  \n**Tagline**: *Civil Engineer by day, music enthusiast by night, and creator of hybrid worlds.*  \n\n---\n\n### **Core Interests**  \n- **Football & Basketball**: Strategy meets sweat.  \n- **Music**: From the thunder of **Band-Maid** to the melodic chaos of **Linkin Park**, and the cultural rhythms of **Sabin Rai** and **The Pharow**.  \n- **Technology & Coding**: Bridging the gap between art and logic.  \n- **Wellness**: Tea, chocolate, and natural remedies for balance.  \n\n---\n\n### **Projects to Explore**  \n1. **\"Soundtrack of the Stadium\" App**  \n   - Pair high-energy tracks (e.g., Linkin Park) with football training routines.  \n   - Use AI to suggest playlists based on workout intensity.  \n\n2. **\"Cultural Beats\" VR Experience**  \n   - Explore Nepali music (Sabin Rai) and regional bands through immersive tech.  \n   - Design with CAD skills and code interactive elements.  \n\n3. **Tea-Time Therapy App**  \n   - Combine herbal remedies with curated playlists (Band-Maid, The Pharow) for relaxation.  \n   - Use your coding knowledge to build a mood-based recommendation system.  \n\n4. **Motion-Tracking Dance/Training System**  \n   - Sync music with movement for football drills or dance routines.  \n   - Analyze rhythm and coordination using AI.  \n\n---\n\n### **Why This Works**  \nYour name, *Sajan*, evokes a blend of strength and creativity\u2014just like your passion for football and music. By merging your engineering skills with tech, you can create tools that inspire, heal, and connect.  \n\nLet me know if you want to dive deeper into any of these ideas! \ud83d\ude80\ud83c\udfb5\ud83c\udf6b\u26bd"
         }
     ],
     "facts": [
@@ -103,6 +143,42 @@
             "category": "preference",
             "type": "preference",
             "value": "black tea."
+        },
+        {
+            "category": "preference",
+            "type": "like",
+            "value": "football."
+        },
+        {
+            "category": "preference",
+            "type": "preference",
+            "value": "tea."
+        },
+        {
+            "category": "identity",
+            "type": "name",
+            "value": "sajan."
+        },
+        {
+            "category": "identity",
+            "type": "name",
+            "value": "sajan."
+        },
+        {
+            "category": "preference",
+            "type": "like",
+            "value": "band-maid."
+        },
+        {
+            "category": "preference",
+            "type": "like",
+            "value": "sabin rai and the pharow."
+        },
+        {
+            "category": "identity",
+            "type": "name",
+            "value": "sajan",
+            "behavior": "append"
         }
     ]
 }

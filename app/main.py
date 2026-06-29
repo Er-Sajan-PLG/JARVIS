@@ -39,6 +39,8 @@ def main():
 
         # 2. Extract fact from USER message (important!)
         facts = extract_facts(prompt)
+        print("Extracted facts:")
+        print(facts)
 
         for fact in facts:
              memory.add_fact(fact)

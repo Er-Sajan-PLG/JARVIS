@@ -34,11 +34,12 @@ def extract_facts(message: str) -> list[dict]:
         for rule in RULES:
             if rule["trigger"] in lowered:
                 idx = lowered.find(rule["trigger"])
-                value = lowered[idx + len(rule["trigger"]):].strip()
+                value = lowered[idx + len(rule["trigger"]):].strip().rstrip(".!?")
                 facts.append({
                     "category": rule["category"],
                     "type":     rule["type"],
                     "value":    value,
+                    "behavior": rule["behavior"],
                 })
                 break  # first matching rule wins per sentence
 
