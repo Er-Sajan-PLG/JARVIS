@@ -597,3 +597,112 @@ Next Version (v0.10)
 • Better sentence parsing.
 • Compound fact decomposition.
 • Memory metadata.
+
+
+
+##  v1.0 - Rule Based Memory Behavoir
+
+
+1. Summary
+
+Today JARVIS evolved from storing a single memory to extracting and managing multiple structured memories from one user message.
+
+Major milestone:
+- Introduced behavior-driven memory system.
+- Memory logic is now controlled by RULES instead of hardcoded conditions.
+
+---
+
+2. Features Added
+
+- Sentence splitter
+- Multi-fact extraction
+- Behavior field in rules
+- append behavior
+- replace behavior
+- ignore behavior framework
+- Cleaner MemoryManager architecture
+
+---
+
+3. Problems Encountered
+
+- Nested list bug caused by passing the entire fact list into add_fact().
+- Old memory format caused confusion during debugging.
+- Mixed spelling of "behavior" and "behaviour".
+- Forgot to restart Python after editing imported modules, causing old code to continue running.
+
+---
+
+4. Lessons Learned
+
+- Follow the data, not assumptions.
+- Print intermediate states when debugging.
+- Python imports modules once per process.
+- Small naming inconsistencies can waste hours.
+- Behavior-driven architecture scales much better than hardcoded logic.
+
+---
+
+5. Current Status
+
+v1.0 memory pipeline is operational.
+
+User Message
+      ↓
+Sentence Splitter
+      ↓
+Fact Extractor
+      ↓
+Behavior Engine
+      ↓
+Memory Storage
+      ↓
+Prompt Builder
+      ↓
+LLM
+
+
+## v1.1 - Recognize multiple natural language variation
+
+
+1. Goal
+
+Improve the rule system so one rule can recognize multiple natural language variations.
+
+2. Changes
+
+- Replaced `trigger` with `triggers`.
+- Rules now support multiple phrases.
+- Updated extractor to iterate over all triggers.
+- Behavior is now stored inside rules and passed through extraction.
+- Memory manager now follows the behavior specified by each extracted fact.
+
+3. Discoveries
+
+Pressure testing exposed architectural problems rather than programming bugs.
+
+Examples:
+
+- Current location vs permanent residence.
+- Profession vs identity.
+- Duplicate facts.
+- Temporary vs permanent facts.
+- Context-dependent facts.
+
+The extractor performed well.
+
+Most remaining issues are rule design problems rather than implementation bugs.
+
+4. Lesson Learned
+
+Extraction should remain simple.
+
+Memory should become responsible for deciding whether facts are:
+
+- appended
+- replaced
+- ignored
+- merged
+
+This keeps responsibilities separated and makes future improvements easier.

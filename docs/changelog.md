@@ -63,3 +63,53 @@
 - Duplicate memories
 - Compound facts remain unparsed
 
+
+# v1.0.0
+
+1. Added
+
+- Multiple fact extraction
+- Sentence splitting
+- Structured memory objects
+- Behavior-based memory engine
+- append behavior
+- replace behavior
+- ignore behavior framework
+- Cleaner memory architecture
+
+2. Changed
+
+- MemoryManager no longer hardcodes replacement logic.
+- Memory behavior is now controlled entirely by RULES.
+- Fact extraction supports multiple sentences.
+
+3. Fixed
+
+- Nested fact list bug
+- Conversation memory loading issues
+- Behavior persistence
+- Various extractor bugs
+
+
+# v1.1
+
+
+1. Added
+
+- Multiple triggers per rule.
+- Behavior field inside rules.
+- Behavior propagation through extractor.
+- MemoryManager behavior dispatcher.
+- Pressure testing of extraction pipeline.
+
+2. Improved
+
+- Rule flexibility.
+- Natural language coverage.
+- Cleaner extractor architecture.
+
+3. Fixed
+
+- Trigger schema migration (`trigger` → `triggers`).
+- Behavior persistence.
+- Rule iteration logic.

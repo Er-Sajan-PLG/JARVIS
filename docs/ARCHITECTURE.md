@@ -136,3 +136,214 @@ Examples:
 7. Keep the architecture flexible for future growth.
 
 ---
+
+## After v1.0 JARVIS ARCHITECTURE
+
+# JARVIS Architecture
+
+## Purpose
+
+This document defines the stable architecture of JARVIS.
+
+It describes the responsibilities of each component, the contracts between them, and the data flowing through the system.
+
+Implementation details may change over time.
+
+Architecture should remain stable whenever possible.
+
+---
+
+# Core Principles
+
+* Each component should have one responsibility.
+* Components communicate through well-defined data structures.
+* Implementation can change without affecting other layers.
+* Data contracts should remain stable.
+* Prefer extending existing interfaces over rewriting them.
+
+---
+
+# Data Flow
+
+User
+↓
+Orchestrator (main.py)
+↓
+LLM
+↓
+Extractor
+↓
+Memory Manager
+↓
+Persistent Storage
+↓
+Prompt Builder
+↓
+LLM
+
+---
+
+# Components
+
+## Orchestrator
+
+Responsible for coordinating the entire application.
+
+Responsibilities:
+
+* Receive user input.
+* Call the LLM.
+* Extract facts.
+* Update memory.
+* Save state.
+
+The orchestrator should contain as little business logic as possible.
+
+---
+
+## Rules
+
+Rules define how information is recognized.
+
+Rules decide:
+
+* what to detect
+* how to classify it
+* what memory behavior to apply
+
+Rules should contain configuration, not logic.
+
+Adding new rules should not require changes elsewhere.
+
+---
+
+## Extractor
+
+Responsible for converting user messages into structured facts.
+
+Input:
+
+* User message
+
+Output:
+
+* List of Facts
+
+The extractor should not know how memory works.
+
+---
+
+## Fact
+
+A Fact is the fundamental unit of memory.
+
+Current schema:
+
+* category
+* type
+* value
+* behavior
+
+This schema should remain stable whenever possible.
+
+---
+
+## Memory Manager
+
+Responsible for managing stored facts.
+
+Responsibilities:
+
+* append
+* replace
+* ignore
+* load
+* save
+
+The memory manager should not know how facts were extracted.
+
+It only manages facts.
+
+---
+
+## Conversation
+
+Conversation stores dialogue history.
+
+Conversation and Memory are separate systems.
+
+Conversation stores messages.
+
+Memory stores knowledge.
+
+---
+
+## Prompt Builder
+
+Responsible for constructing prompts sent to the LLM.
+
+Uses:
+
+* system prompt
+* memory
+* conversation
+
+Prompt construction should remain isolated from extraction and memory logic.
+
+---
+
+# Stable Contracts
+
+These interfaces should rarely change.
+
+Rules → Extractor
+
+Extractor → List[Fact]
+
+Memory Manager ← Fact
+
+Prompt Builder ← Facts
+
+LLM ← Prompt
+
+---
+
+# Future Evolution
+
+Implementation may evolve from:
+
+Rules
+
+↓
+
+Regex
+
+↓
+
+Synonyms
+
+↓
+
+Embeddings
+
+↓
+
+Intent Detection
+
+↓
+
+LLM-based Extraction
+
+These improvements should not require major changes to downstream components.
+
+---
+
+# Philosophy
+
+Protect interfaces.
+
+Improve implementations.
+
+Keep responsibilities clear.
+
+Small components are easier to reason about, test, debug, and extend.
