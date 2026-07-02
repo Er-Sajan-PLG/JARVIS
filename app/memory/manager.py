@@ -54,11 +54,9 @@ class MemoryManager:
         self.save(conversation, self.facts)
 
     def add_fact(self, fact: dict):
-        print("ADDING:", fact)
         self.apply_behavior(fact)
 
     def apply_behavior(self, fact: dict):
-        print("APPLY:", fact)
         behavior = fact.get("behavior", "append")
 
         if behavior == "append":

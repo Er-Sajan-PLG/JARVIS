@@ -26,13 +26,6 @@ class OllamaClient:
         if self.facts:
             facts_text = "Known user facts:\n"
 
-            print("self.facts =", self.facts)
-            print("type(self.facts) =", type(self.facts))
-
-            for i, fact in enumerate(self.facts):
-                 print(f"fact[{i}] =", fact)
-                 print(f"type(fact[{i}]) =", type(fact))
-
             for fact in self.facts:
                 facts_text += (
                     f"- [{fact['category']}] "
@@ -62,11 +55,6 @@ class OllamaClient:
             model=self.model,
             messages=messages,  
         )
-        from pprint import pprint
-
-        print("=== Messages being sent ===")
-        pprint(messages)
-        print("===========================")
         
         answer = response["message"]["content"]
         # store assistant response
