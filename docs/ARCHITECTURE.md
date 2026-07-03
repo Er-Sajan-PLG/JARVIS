@@ -347,3 +347,185 @@ Improve implementations.
 Keep responsibilities clear.
 
 Small components are easier to reason about, test, debug, and extend.
+
+
+## LATEST ARCHITECTURE V2.0
+
+2nd JULY 2026 10:45 AM
+
+JARVIS — Architecture Reference (v2 / End Game)
+0. Hardware & Infrastructure (measured, not theoretical)
+Component	Spec
+CPU	12th-gen Intel H-series (i7-12700H class, 14 cores: 6P+8E)
+GPU	Intel Arc A370M, 4GB VRAM (discrete) + Iris Xe (integrated)
+RAM	32GB
+Swap	32GB (currently unused — 0B, not the bottleneck)
+OS	Arch Linux, Hyprland
+
+Measured local inference speed (qwen3:8b, Q4_K_M, llama.cpp + Vulkan):
+Backend	ngl	tg (gen speed)	pp (prompt speed)
+Ollama (baseline)	auto (46% GPU)	7.25 t/s	8.58 t/s
+llama.cpp + Vulkan	20	9.37 t/s	163 t/s
+llama.cpp + Vulkan	24	10.66 t/s	168 t/s
+llama.cpp + Vulkan	28 (max for 8b, benchmark)	11.74 t/s	172 t/s
+llama.cpp + Vulkan	32+	❌ OOM crash	—
+
+    • VRAM ceiling: between 28–31 layers for qwen3:8b at Q4_K_M, context-dependent.
+    • Server mode needs a lower -ngl than benchmark mode (KV cache + batch buffers eat extra VRAM) — use -ngl 20 as a safe default for llama-server, tune upward from there.
+    • Fluid conversation threshold: 8–15 t/s is "comfortable," matches natural reading speed. You are in this range with qwen3:8b. 30B/32B models will be noticeably slower — reserve for quality-over-speed tasks.
+Models currently on disk (via Ollama, GGUF blobs extractable):
+Model	Size	Use case
+qwen3:8b	4.9GB	Default driver — fast, fluid, everyday chat
+qwen3-coder:30b	18GB	Coding tasks — slower, use selectively
+deepseek-r1:32b	19GB	Deep reasoning — slowest (also "thinks" before answering)
+
+
+1. Philosophy (carried over, still true)
+    • Each component has one responsibility.
+    • Components talk through stable data contracts, not shared internals.
+    • Protect interfaces. Improve implementations.
+    • Local-first, cloud-compatible.
+    • Optimize only when a real bottleneck is measured (not assumed).
+
+2. End-Game Data Flow
+User (text / voice)
+    │
+    ▼
+Orchestrator (main.py)
+    │
+    ▼
+Router ──────────────────────────► picks backend per task:
+    │                                 - local:qwen3:8b      (default, fast)
+    │                                 - local:qwen3-coder:30b (code tasks)
+    │                                 - local:deepseek-r1:32b (deep reasoning)
+    │                                 - api:claude/openai     (research, needs live data)
+    ▼
+Privacy Pipeline (only when routing to API) ─── STUBBED FOR NOW
+    │   Classifier → Sanitizer → Auditor → [API] → Personalizer
+    ▼
+Prompt Builder
+    │   ├── System Prompt
+    │   ├── Fact Store retrieval (top-k relevant, ChromaDB)
+    │   └── Conversation Store (sliding window, last N messages)
+    ▼
+Model Client (llama.cpp local / API client)
+    ▼
+Response ──────────► Output Layer (CLI today → voice/GUI later)
+    │
+    ▼
+Extractor (rule-based today → spaCy NER next → LLM-based later)
+    │   List[Fact]
+    ▼
+Memory Manager ── applies Behavior (SINGLETON / ACCUMULATE / TEMPORAL)
+    │
+    ▼
+Fact Store (ChromaDB, persisted) + Conversation Store (persisted)
+
+3. Components
+Orchestrator (main.py)
+Runs the loop. Calls Router → Extractor → Memory Manager → Save. Contains as little logic as possible. If you're writing an if statement here that isn't about sequencing calls, it belongs elsewhere.
+Router (router.py) — currently missing, build next
+Decides which model/backend answers a given request.
+class Router:
+    def route(self, prompt: str, task_hint: str = None) -> str:
+        # returns backend key: "local:qwen3:8b", "local:qwen3-coder:30b", etc.
+        if task_hint == "code" or self._looks_like_code_request(prompt):
+            return "local:qwen3-coder:30b"
+        if task_hint == "reasoning":
+            return "local:deepseek-r1:32b"
+        return "local:qwen3:8b"  # default — fast, fluid
+Starts rule-based (keyword/task-hint driven). Can evolve into a small classifier later — same evolution ladder as the Extractor.
+Prompt Builder (prompt_builder.py) — currently leaking into model client, extract it
+Assembles the final message list. Owns no storage — only reads from Fact Store and Conversation Store and formats.
+class PromptBuilder:
+    def __init__(self, system_prompt, fact_store, conversation_store):
+        ...
+    def build(self, query: str) -> list[dict]:
+        messages = [{"role": "system", "content": self.system_prompt}]
+        facts = self.fact_store.retrieve(query, n=5)
+        if facts:
+            messages.append({"role": "system", "content": self._format_facts(facts)})
+        messages.extend(self.conversation_store.recent(n=20))
+        return messages
+Conversation Store (conversation_store.py) — new, extracted from client
+Short-term memory. Sliding window. Never grows unbounded.
+class ConversationStore:
+    def __init__(self, max_messages=20):
+        self.max_messages = max_messages
+        self.full_history = []   # persisted, unbounded (for record-keeping)
+
+    def add(self, role, content):
+        self.full_history.append({"role": role, "content": content})
+
+    def recent(self, n=None):
+        n = n or self.max_messages
+        return self.full_history[-n:]
+Key rule: full history is kept (saved to disk), only what's sent to the model is trimmed.
+Fact Store (fact_store.py) — ChromaDB, built earlier
+Long-term memory. Semantic retrieval via embeddings. Solves the "inject all facts" token bloat problem the same way Conversation Store solves the "inject all history" problem.
+Behavior (behavior.py) — typed enum, replaces raw strings
+class FactBehavior(str, Enum):
+    SINGLETON = "singleton"    # name, residence — overwrite
+    ACCUMULATE = "accumulate"  # likes, skills — append
+    TEMPORAL = "temporal"      # current mood/task — expires
+Rules (rules.py)
+Configuration only — triggers + category + behavior. No logic. Adding a new fact type should never require touching the Extractor's code.
+Extractor (extractor.py) — evolution ladder, not a single choice
+Stage	Technique	Status
+1	Keyword/trigger matching	✅ current (has known bugs — see §4)
+2	Regex	skip-able, marginal gain over #1
+3	spaCy NER	recommended next step — local, fast, no GPU competition
+4	Embeddings-based classification	optional middle step
+5	Intent detection (small classifier)	optional
+6	LLM-based extraction	end-game, highest accuracy, highest cost (extra inference call per message)
+
+Contract that never changes regardless of stage: extract_facts(message: str) -> list[Fact].
+Memory Manager (manager.py)
+Applies behavior. Coordinates persistence. Doesn't know how facts were extracted.
+Model Client (models/llamacpp_client.py)
+Only talks to the provider. No prompt-building logic (that leaked in during v1 — being corrected now). Swappable for an API client with the same .ask() interface.
+Privacy Pipeline (privacy/pipeline.py) — stubbed, build when first API integration happens
+Classifier  → is this query safely genericizable? (yes/no)
+Sanitizer   → strip/bucket private specifics (exact $ → "retail-scale", etc.)
+Auditor     → verify no leakage before it leaves the machine
+[API call]
+Personalizer → merge generic result + private facts + original query
+Applies to any future cloud call (research, current events, anything local models can't do well) — not just financial questions. Build as a reusable pipeline, not a one-off.
+Output Layer
+CLI today. Voice (ASR/TTS) and GUI are swaps at this layer only — nothing upstream changes.
+
+4. Known Bugs To Fix During Rewrite (carried over from v1 audit)
+    1. Extractor rule-loop bug: break only exits the trigger loop, not the rule loop — multiple rules can match one sentence despite the "first match wins" comment. Fix with a matched flag.
+    2. name behavior is append, should be SINGLETON. This caused the "sajan" → "alex" duplicate-name bug.
+    3. Lowercase bug: value is sliced from the lowered sentence, permanently losing capitalization. Slice from the original sentence using the same index.
+    4. No dedup on ACCUMULATE facts — same fact can be stored twice. Fix with a similarity check (embedding-based) before insert.
+    5. reasoner.py is dead code — not called anywhere, just echoes back behavior. Either wire it in as the future embedding-based conflict resolver, or remove it.
+
+5. Stable Contracts (do not break these without a reason)
+Rules            →  Extractor
+Extractor        →  List[Fact]
+Fact             →  {category, type, value, behavior}
+Memory Manager   ←  Fact
+Fact Store       ←  List[Fact]           (persisted, retrievable)
+Conversation Store ← {role, content}     (persisted, windowed on read)
+Prompt Builder   ←  Fact Store + Conversation Store
+Model Client     ←  List[messages]        (OpenAI-compatible shape)
+Router           →  backend key           (string, e.g. "local:qwen3:8b")
+
+6. Future Modules (not yet started, slot into this architecture without breaking it)
+    • Agents/Tools (agents/) — email, calendar, file system, web search. Each tool is called by the Router/Orchestrator when the model requests a function call. Same "one responsibility" rule applies per tool.
+    • Voice (voice/) — ASR in, TTS out. Swaps the Output Layer only.
+    • STEM Tutor mode — a Prompt Builder variant / different system prompt + possibly a dedicated Fact Store namespace for learning progress.
+    • Content creation mode — same pattern as tutor mode: different prompt template, same underlying pipeline.
+
+7. Build Order (recommended)
+    1. behavior.py — typed enum (foundation, zero dependencies)
+    2. rules.py — rewritten using the enum, bugs from §4 fixed
+    3. fact_store.py — ChromaDB wrapper (mostly built already)
+    4. conversation_store.py — sliding window, extracted from client
+    5. prompt_builder.py — extracted from client, wires Fact Store + Conversation Store
+    6. models/llamacpp_client.py — stripped down to provider I/O only
+    7. router.py — starts rule-based, picks model per task
+    8. main.py — rewritten as thin orchestrator using all of the above
+    9. extractor.py upgrade — swap to spaCy NER (stage 3 of the ladder)
+    10. privacy/pipeline.py — build when first API backend is added
