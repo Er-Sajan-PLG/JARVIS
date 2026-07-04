@@ -706,3 +706,152 @@ Memory should become responsible for deciding whether facts are:
 - merged
 
 This keeps responsibilities separated and makes future improvements easier.
+
+
+## v2.0.0 -
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                           MAIN LOOP                                 │
+│                                                                      │
+│  1. add_message()                                                    │
+│  2. extract_facts() ──────────────────────┐                         │
+│  3. memory.store()  ◄─────────────────────┘                         │
+│  4. memory.retrieve()                                                   │
+│  5. prompt_builder.build()                                             │
+│  6. context_manager.fit()                                              │
+│  7. model.generate()                                                  │
+│  8. add_message()                                                     │
+└──────────┬───────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        MemoryManager                                 │
+│                    (Orchestration Layer)                             │
+│                                                                      │
+│  • Behavior logic (append/replace/ignore/delete)                     │
+│  • Coordinates Store + Retriever + Ranker                            │
+│  • Callbacks                                                         │
+└──────┬──────────────────┬──────────────────┬────────────────────────┘
+       │                  │                  │
+       ▼                  ▼                  ▼
+┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+│ MemoryStore │   │  Retriever  │   │   Ranker    │
+│             │   │             │   │             │
+│ • CRUD      │   │ • Keywords  │   │ • Relevance │
+│ • Persist   │   │ • Find      │   │ • Importance│
+│ • Dirty     │   │ • Candidates│   │ • Frequency │
+└─────────────┘   └─────────────┘   │ • Recency   │
+                                     │ • Confidence│
+                                     └─────────────┘
+
+
+                                     JARVIS Development Log
+
+
+The Problem With v1
+v1 worked. But it had one structural flaw that made everything else worse: it sent every memory to the LLM on every turn. That meant the context window filled up fast, older conversation was trimmed silently, and you had no control over what the model actually "knew" in a given turn. Every new feature you could have added — ranking, confidence, importance — was blocked by this single design flaw. Retrieving before sending fixed all of those downstream.
+The other issue was coupling. LlamaCppClient knew about facts. MemoryManager knew about conversation. There was no clear owner for anything. Fixing one thing broke another.
+v2 was a full architectural redesign, not a feature release.
+
+Session 1 — Defining the Interfaces
+Decision made: Protocol classes for every subsystem boundary.
+Before writing any implementation, we wrote the interfaces:
+    • CandidateRetriever — finds memory candidates, no scoring
+    • MemoryRanker — scores candidates, no retrieval
+    • MemoryStore — persistence, no business logic
+    • ModelClient — generates responses, no prompt assembly
+    • ContextWindowManager — fits messages, no LLM knowledge
+The guiding rule: every subsystem should expose one clean interface while hiding its implementation. This means you can swap KeywordRetriever for VectorRetriever without touching MemoryManager. You can swap the JSON store for SQLite without touching anything outside MemoryStore.
+Decision made: Protocol, not ABC.
+Python's Protocol (PEP 544) was chosen over ABC for the retriever and store interfaces. The reason: Protocol gives you structural subtyping — a class satisfies a protocol just by having the right methods, without inheriting anything. This makes testing with mocks trivially easy and means third-party classes (e.g., a ChromaDB wrapper) don't need to know about JARVIS's internal ABC hierarchy to be compatible.
+
+Session 2 — Memory Redesign
+Decision made: Separate MemoryStore, CandidateRetriever, MemoryRanker.
+The v1 MemoryManager did everything: CRUD, persistence, retrieval, behavior logic. In v2, three separate classes own those responsibilities:
+MemoryManager        — orchestrates, applies behavior rules
+├── MemoryStore      — CRUD + JSON persistence
+├── CandidateRetriever — finds candidate memories by keyword
+└── MemoryRanker     — scores and ranks candidates
+MemoryManager is the only class external code should import. The internals can be completely replaced.
+Decision made: Retrieve BEFORE store, store BEFORE retrieve in main loop.
+This was a subtle ordering bug in the initial v2 plan. The original flow was:
+    1. Add user message
+    2. Retrieve memories
+    3. Extract and store facts
+    4. Build prompt
+This meant if you said "My name is Sajan," the fact was stored after the retrieval step. The model wouldn't know your name in the same turn you told it.
+The fix — extract and store before retrieval — means newly introduced facts are immediately available for the current turn's context.
+Decision made: Rich memory schema from day one.
+v1 schema: {category, type, value, behavior}
+v2 schema adds: id, created_at, updated_at, last_used, access_count, source, confidence, importance
+The extra fields cost nothing now and enable memory ranking later. The schema is the contract between all subsystems. Changing it in v3 would require a migration. Better to design it right once.
+Decision made: Separate created_at and updated_at timestamps.
+A single timestamp field (v1 style) loses information the moment you update a memory. You can't tell "when did I first learn this" vs "when was this last corrected." v2 uses three timestamp fields:
+    • created_at — immutable, set once
+    • updated_at — mutable, set on every modification
+    • last_used — mutable, set on retrieval
+
+Session 3 — Ranking System
+Decision made: Two-stage retrieval (candidates → rank).
+The retriever's job is to find candidates cheaply (keyword overlap — O(n) scan). The ranker's job is to score candidates expensively using all available signals. The manager controls how many candidates to fetch (overshoot factor: 3x by default) so the ranker has enough to work with.
+This pattern comes from information retrieval systems. The retriever is like a search index — fast but rough. The ranker is the reranker — slower but precise.
+Decision made: Log scale for frequency scoring.
+Linear frequency scoring would unfairly advantage memories that were retrieved many times early on. A memory accessed 100 times shouldn't score 10x higher than one accessed 10 times. Log scale (log(1+count) / log(1+scale)) keeps frequency relevant but bounded.
+Ranking weights (v2.0 defaults): | Factor     | Weight | Rationale                              | |------------|--------|----------------------------------------| | Relevance  | 0.35   | Most important — is this about the topic? | | Importance | 0.25   | User-set or inferred significance       | | Confidence | 0.10   | How reliable is this fact?              | | Frequency  | 0.15   | Has this been useful before?            | | Recency    | 0.15   | Has this been accessed recently?        |
+These are starting defaults. v2.x will expose them as config.
+
+Session 4 — Context Window
+Decision made: Trim in user/assistant PAIRS, not individual messages.
+v1 trimmed the oldest individual messages. This could cut off a user message while keeping the assistant response that followed it, creating orphaned context that made no sense to the model.
+v2 groups messages into logical pairs before trimming:
+[user: "what's 2+2?", assistant: "4"] ← kept or dropped as a unit
+This preserves conversational coherence. The model always sees complete exchanges.
+Decision made: Real tokenizer with fallback chain.
+Token counting via len(text) // 4 (v1) is wrong in two ways:
+    1. Integer division gives 0 for short strings (4 chars or fewer)
+    2. The ratio is inconsistent across languages, code, and special tokens
+v2 token counting priority:
+    1. tiktoken — most accurate for OpenAI-compatible models
+    2. transformers — good for local Llama models (forced offline)
+    3. Word-based estimation — int(words * 1.3) + 3
+The get_token_counter() result is cached with @lru_cache so the tokenizer is loaded once per process.
+
+Session 5 — Model Layer
+Decision made: Score-based routing, not first-match.
+v1 router checked keywords in order: if any code keyword was found, return CODE. This meant the routing result depended on which category was checked first — order bias.
+v2 scores each category independently, then picks the highest. Ties are broken by a preference order (CODE > STEM > REASONING > GENERAL). The router also returns (ModelClient, TaskType) instead of just ModelClient so callers know which route was taken.
+Decision made: Combine system prompt and memories into ONE system message.
+Some local models handle multiple system messages inconsistently. By combining the base system prompt and the retrieved memory block into a single role: system message, we get consistent behavior across all backends.
+
+
+session6 — Persistence & Dirty Tracking
+Decision made: Dirty tracking on both MemoryStore and ConversationManager.
+Writing to disk on every single operation is wasteful when batching is possible. Both storage components now track whether they have unsaved changes and expose save_if_dirty(). The main loop calls this on exit via _cleanup.
+Decision made: save_on_every_message config flag.
+When voice I/O is added (v3.1), the process might be interrupted mid-session by the OS or a crash. The save_on_every_message config flag lets users opt into eager saving at the cost of more I/O.
+
+Known Issues / v2.0.1 Targets
+Two bugs were found in the final v2.0 code that don't cause crashes but will cause incorrect behavior under specific conditions:
+1. Dirty flag not set on direct memory mutation.
+_handle_replace modifies a Memory object's fields directly (bypassing MemoryStore's CRUD methods) then calls self._store.save(). But save() is gated on _dirty, which was never set to True. The save silently skips.
+touch() has the same issue — it modifies last_used and access_count directly, the store never knows.
+Fix: add force_save() calls, or route mutations through the store, or add a mark_dirty() method and call it whenever a Memory object is mutated outside of store CRUD.
+# In _handle_replace, replace:
+self._store.save()
+# With:
+self._store.force_save()
+
+# In retrieve(), after touch():
+self._store.force_save()
+2. DEFAULT_MODEL is an object, not a string.
+# Current (wrong):
+DEFAULT_MODEL = _DefaultModel()  # truthy object, not a string
+
+# Used like:
+model = DEFAULT_MODEL or "fallback"  # returns _DefaultModel, not string
+LlamaCppClient(model=DEFAULT_MODEL)  # passes object to API
+The _DefaultModel lazy accessor pattern is unnecessarily clever for a value that doesn't need to be lazy. main.py already does get_settings() at startup. The legacy compat property is the only thing that actually uses this, and it would be broken.
+Fix: revert to DEFAULT_MODEL = get_settings().default_model (a plain string). Lazy settings loading is already handled by get_settings().
+
+v1.0.0 — Initial Release
+First working JARVIS: llama.cpp client, simple memory storage, rule-based fact extraction, single conversation file. Functional but context window was unbounded and all memories were sent on every turn.

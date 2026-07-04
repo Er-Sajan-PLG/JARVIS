@@ -44,8 +44,7 @@ class ConversationConfig:
     """Conversation management configuration"""
     max_recent_messages: int = 20
     enable_summarization: bool = False
-    save_on_every_message: bool = False
-
+    save_on_every_message: bool = True
 
 @dataclass
 class RetrievalConfig:
@@ -88,12 +87,19 @@ class Settings:
     """Master configuration container"""
     default_model: str = "qwen3-8b.gguf"
     
-    models: dict = field(default_factory=lambda: {
+        models: dict = field(default_factory=lambda: {
         "general": ModelConfig(
             name="llama-3.2-3b-instruct-q4_k_m.gguf",
-            role="general"
+            role="general",
+            base_url="http://localhost:8080/v1"  # Main brain
         ),
-    })
+        "autocomplete": ModelConfig(
+            name="qwen2.5-1.5b-instruct-q4_k_m.gguf",
+            role="autocomplete",
+            base_url="http://localhost:8082/v1", # Fast brain
+            max_tokens=150
+        ),
+        })
     
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
@@ -131,10 +137,5 @@ def reset_settings():
         _settings = None
 
 
-class _DefaultModel:
-    """Lazy accessor for default model name"""
-    @property
-    def value(self) -> str:
-        return get_settings().default_model
-
-DEFAULT_MODEL = _DefaultModel()
+def get_default_model() -> str:
+    return get_settings().default_model

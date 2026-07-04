@@ -59,15 +59,14 @@ def main():
     print("\nCommands: quit, memories, help, stats\n")
     
     while True:
+        # Fix in main.py:
         try:
-            prompt = input("You: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\n\nGoodbye!")
-            _cleanup(memory, conversation)
-            break
-        
-        if not prompt:
-            continue
+            response = selected_model.generate(fitted_messages)
+        except Exception as e:
+            print(f"\n[Error] Model unavailable: {e}")
+            print("Is llama-server running on port 8080?\n")
+            conversation.pop_last_message()  # remove the user message we just added
+        continue
         
         if prompt == "quit":
             print("\nGoodbye!")
@@ -118,7 +117,8 @@ def main():
         fitted_messages = context_manager.fit(messages)
         
         # 7. Generate response
-        response = model.generate(fitted_messages)
+        selected_model, task_type = router.route(prompt)
+        response = selected_model.generate(fitted_messages)
         
         # 8. Add assistant response to conversation
         conversation.add_message("assistant", response.content)
@@ -129,7 +129,7 @@ def main():
         stats = context_manager.get_stats()
         if stats and stats.was_trimmed:
             print(f"  [Context] Trimmed {stats.pairs_trimmed} pairs ({stats.utilization:.0%} used)")
-
+  
 
 def _cleanup(memory: MemoryManager, conversation: ConversationManager):
     """Ensure all data is saved before exit"""

@@ -113,7 +113,7 @@ class MemoryManager:
         if results:
             for result in results:
                 result.memory.touch()
-            self._store.save_if_dirty()
+            self._store.force_save()
         
         return results
     
@@ -244,7 +244,7 @@ class MemoryManager:
             if self._on_update:
                 self._on_update(memory)
             
-            self._store.save()
+            self._store.force_save()
             return memory
         
         # No match found, append new

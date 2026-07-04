@@ -529,3 +529,332 @@ Router           →  backend key           (string, e.g. "local:qwen3:8b")
     8. main.py — rewritten as thin orchestrator using all of the above
     9. extractor.py upgrade — swap to spaCy NER (stage 3 of the ladder)
     10. privacy/pipeline.py — build when first API backend is added
+
+
+
+
+
+## Final Rough Roadmap
+
+
+
+# JARVIS Long-Term Architecture Roadmap
+
+| Version    | Theme               | Primary Goal                                               |
+| ---------- | ------------------- | ---------------------------------------------------------- |
+| **v2.0.1** | Stability           | Bug fixes, persistence validation, testing                 |
+| **v2.1**   | Semantic Memory     | ChromaDB, embeddings, vector retrieval                     |
+| **v2.2**   | Hybrid Memory       | Keyword + Vector ranking + memory scoring                  |
+| **v2.3**   | Episodic Memory     | Conversation summaries & memory compression                |
+| **v2.4**   | Interaction         | Streaming responses, interruption, UX improvements         |
+| **v2.5**   | Inference Engine    | Multi-model routing, backend abstraction, embeddings       |
+| **v2.6**   | Observability       | Metrics, diagnostics, profiling, benchmarking              |
+| **v3.0**   | Agent Runtime       | Tool calling, execution loop, persistent state             |
+| **v3.1**   | Cognitive Memory    | LLM fact extraction, deduplication, importance, confidence |
+| **v3.2**   | Safety              | Permissions, sandboxing, confirmations, audit logs         |
+| **v4.0**   | Planning            | Goal decomposition, task scheduling, autonomous execution  |
+| **v5.0**   | Learning            | Reflection, adaptive memory, self-improvement              |
+| **v6.0**   | Multi-Agent         | Specialized cooperative agents and orchestration           |
+| **v7.0**   | AI Operating System | Unified personal knowledge and automation platform         |
+
+---
+
+
+
+> **Interaction**
+
+Because it can include:
+
+* Streaming
+* Interruptions
+* Voice preparation
+* Progress updates
+* Better CLI
+* Future GUI
+
+---
+
+
+
+> **Inference Engine**
+
+This version becomes responsible for everything model-related:
+
+* Model Router
+* Backend abstraction
+* Ollama
+* llama.cpp
+* vLLM (future)
+* Embedding models
+* Specialized models
+
+---
+
+### v3.1
+
+Instead of
+
+> Intelligence
+
+I'd call it
+
+> **Cognitive Memory**
+
+Because everything there is really about improving memory quality.
+
+---
+
+## I especially like this progression
+
+```text
+Memory
+
+↓
+
+Agent
+
+↓
+
+Planning
+
+↓
+
+Learning
+
+↓
+
+Multi-Agent
+
+↓
+
+AI Operating System
+```
+
+That's incredibly natural.
+
+---
+
+# One addition I'd make
+
+I think one capability is missing:
+
+## Knowledge
+
+I'd add
+
+| Version  | Theme     | Goal                                        |
+| -------- | --------- | ------------------------------------------- |
+| **v3.3** | Knowledge | RAG, documents, PDFs, notes, project memory |
+
+Because there is a difference between:
+
+Personal Memory
+
+```text
+User:
+My name is Sajan.
+```
+
+and
+
+Knowledge
+
+```text
+Structural Engineering Handbook
+
+↓
+
+Search
+
+↓
+
+Retrieve
+
+↓
+
+Answer
+```
+
+These are two different systems.
+
+Memory answers
+
+> "Who am I?"
+
+Knowledge answers
+
+> "What does Eurocode 2 say about shear?"
+
+I'd keep them separate.
+
+---
+
+# v4
+
+Planning deserves its own major version.
+
+Exactly right.
+
+Planning changes everything.
+
+Instead of
+
+```text
+Question
+
+↓
+
+Answer
+```
+
+it becomes
+
+```text
+Goal
+
+↓
+
+Planner
+
+↓
+
+Tasks
+
+↓
+
+Execution
+
+↓
+
+Monitoring
+
+↓
+
+Completion
+```
+
+That's the birth of a true agent.
+
+---
+
+# v5
+
+Learning.
+
+Exactly where it belongs.
+
+Now JARVIS can improve without you modifying code.
+
+Example
+
+```text
+Repeated correction
+
+↓
+
+Reflection
+
+↓
+
+Rule update
+
+↓
+
+Future improvement
+```
+
+---
+
+# v6
+
+I love this.
+
+Instead of one LLM doing everything:
+
+```text
+Planner
+
+↓
+
+Coder
+
+↓
+
+Researcher
+
+↓
+
+Critic
+
+↓
+
+Memory Manager
+
+↓
+
+Coordinator
+```
+
+Very modern architecture.
+
+---
+
+# v7
+
+This is the part I smiled at.
+
+Because I think your vision has slowly changed.
+
+Originally you were building
+
+```text
+A chatbot.
+```
+
+Now you're describing
+
+```text
+An operating system
+
+for intelligence.
+```
+
+Everything becomes a subsystem.
+
+```text
+Filesystem
+
+Memory
+
+Models
+
+Planner
+
+Voice
+
+Vision
+
+Tools
+
+Networking
+
+Knowledge
+
+Scheduling
+
+Automation
+```
+
+That's exactly how operating systems evolved.
+
+---
+
+# One final suggestion
+
+I would put this at the very top of your roadmap document:
+
+> **Design Philosophy**
+>
+> JARVIS is not designed as a chatbot. It is being built as a modular, local-first AI operating platform where every capability—memory, reasoning, planning, tools, knowledge, and interaction—is an independent subsystem that can evolve without breaking the rest of the architecture.
+
+That single paragraph explains the entire roadmap and serves as a guiding principle for future development. Looking at how you've structured the versions, there's a consistent evolution from **conversation → memory → agency → planning → learning → cooperation → platform**, which is a strong architectural narrative rather than just a list of features.

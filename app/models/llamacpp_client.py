@@ -7,7 +7,7 @@ from typing import Optional
 from openai import OpenAI
 
 from app.models.client import ModelClient, ModelResponse
-from app.config.settings import get_settings
+from app.config.settings import get_settings, get_default_model
 
 
 class LlamaCppClient(ModelClient):
@@ -23,7 +23,7 @@ class LlamaCppClient(ModelClient):
         role: str = "general"
     ):
         settings = get_settings()
-        self._model = model or settings.default_model
+        self._model = model or get_default_model()
         self._role = role
         self._client = OpenAI(base_url=base_url, api_key=api_key)
     
