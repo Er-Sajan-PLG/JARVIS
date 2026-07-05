@@ -1,0 +1,35 @@
+# config.yaml
+default_model: "qwen3-8b.gguf" 
+
+models:
+  general:
+    name: "qwen3-8b.gguf"       
+    role: "general"
+    backend: "llamacpp"
+    base_url: "http://localhost:8080/v1"
+    
+  coder:
+    name: "qwen3:8b"
+    role: "code"
+    backend: "ollama"
+    base_url: "http://localhost:11434"
+    
+  reasoner:
+    name: "deepseek-r1:32b"
+    role: "reasoning"
+    backend: "ollama"
+    base_url: "http://localhost:11434"
+    
+  autocomplete:
+    name: "qwen2.5-coder:1.5b"
+    role: "autocomplete"
+    backend: "ollama"
+    base_url: "http://localhost:11434"
+
+memory:
+  retrieval_limit: 20
+  min_confidence: 0.0
+
+context:
+  max_tokens: 4096
+  safety_margin: 100

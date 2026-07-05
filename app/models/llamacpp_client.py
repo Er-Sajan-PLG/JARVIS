@@ -27,22 +27,48 @@ class LlamaCppClient(ModelClient):
         self._role = role
         self._client = OpenAI(base_url=base_url, api_key=api_key)
     
-    def generate(self, messages: list[dict], **kwargs) -> ModelResponse:
-        """Generate a response from the model."""
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=messages,
-            **kwargs
-        )
+    def generate(
+        self, 
+        messages: list[dict], 
+        stream: bool = False, 
+        on_token: Callable[[str], None] = None,
+        **kwargs
+    ) -> ModelResponse:
         
-        choice = response.choices[0]
+
+        if not stream:
+            # --- STANDARD PATH ---
+            response = self._client.chat.completions.create(
+                model=self._model, 
+                messages=messages, 
+                **kwargs
+            )
+            choice = response.choices[0]
+            return ModelResponse(
+                content=choice.message.content,
+                model=self._model,
+                tokens_used=response.usage.total_tokens if response.usage else None,
+                finish_reason=choice.finish_reason,
+            )
         
-        return ModelResponse(
-            content=choice.message.content,
-            model=self._model,
-            tokens_used=response.usage.total_tokens if response.usage else None,
-            finish_reason=choice.finish_reason,
-        )
+        else:
+            # BUG 2 FIX: Restructured so this isn't dead code after a return statement
+            # --- STREAMING PATH ---
+            full_content = ""
+            stream_response = self._client.chat.completions.create(
+                model=self._model, 
+                messages=messages, 
+                stream=True, 
+                **kwargs
+            )
+            
+            for chunk in stream_response:
+                delta = chunk.choices[0].delta.content or ""
+                full_content += delta
+                if on_token:
+                    on_token(delta)
+                    
+            return ModelResponse(content=full_content, model=self._model)
     
     @property
     def model_name(self) -> str:

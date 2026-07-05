@@ -1,5 +1,5 @@
 """
-JARVIS v2.0 - Main Entry Point
+JARVIS v2.1.0 - Main Entry Point
 
 Architecture:
 1. Extract facts from user input (FIRST - enables immediate personalization)
@@ -7,7 +7,7 @@ Architecture:
 3. Retrieve relevant memories (includes just-stored facts!)
 4. Build prompt with system + memories + conversation
 5. Fit into context window (trimming in pairs)
-6. Generate response
+6. Generate response (with streaming)
 7. Add response to conversation
 
 This order ensures that when a user says "My name is Sajan",
@@ -15,6 +15,7 @@ the fact is stored BEFORE retrieval, so it can be included
 in the same turn's context.
 """
 
+import sys
 from app.config.settings import get_settings
 from app.config.prompt import SYSTEM_PROMPT
 from app.config.version import VERSION
@@ -23,8 +24,22 @@ from app.memory.fact_extractor import extract_facts
 from app.conversation.manager import ConversationManager
 from app.prompt.builder import PromptBuilder
 from app.context.manager import ContextWindowManager
-from app.models.llamacpp_client import LlamaCppClient
+from app.models.factory import create_client  
 from app.models.router import ModelRouter, TaskType
+from app.utils.server_manager import ensure_server_running
+
+# --- AUTO-START LLM SERVER ---
+#LLAMA_SERVER_PATH = "./llama-server"
+#MAIN_MODEL_PATH = "./models/llama-3.2-3b-instruct-q4_k_m.gguf"
+
+#ensure_server_running(
+#    port=8080,
+#    command=[LLAMA_SERVER_PATH, "-m", MAIN_MODEL_PATH, "-c", "4096", "--port", "8080"],
+#    name="Main LLM (3B)"
+#)
+# -------------------------------------------------
+
+print("Starting Jarvis...")
 
 
 def main():
@@ -32,7 +47,7 @@ def main():
     print(f"JARVIS {VERSION}")
     print("=" * 50)
     
-    # Get centralized settings
+    # Get centralized settings (reads config.yaml if it exists)
     settings = get_settings()
     
     # Initialize subsystems with clean interfaces
@@ -45,11 +60,24 @@ def main():
         model_name=settings.default_model,
     )
     
-    # Initialize model
-    model = LlamaCppClient(model=settings.default_model)
+    # === NEW: DYNAMIC MODEL ROUTING FROM CONFIG ===
+    router = ModelRouter()
     
-    # Set up model router (for future multi-model support)
-    router = ModelRouter(default_model=model)
+    for key, model_cfg in settings.models.items():
+        try:
+            client = create_client(model_cfg)
+            task_type = TaskType(model_cfg.role)
+            router.register(task_type, client)
+            print(f"✅ Loaded {model_cfg.role}: {model_cfg.name} ({model_cfg.backend})")
+        except Exception as e:
+            print(f"❌ Failed to load {key}: {e}")
+    
+    # Set fallback default model
+    if "general" in settings.models:
+        router.set_default(create_client(settings.models["general"]))
+    elif settings.models:
+        router.set_default(create_client(list(settings.models.values())[0]))
+    # ===============================================
     
     # Show tokenizer info
     tokenizer_info = context_manager.get_tokenizer_info()
@@ -59,15 +87,17 @@ def main():
     print("\nCommands: quit, memories, help, stats\n")
     
     while True:
-        # Fix in main.py:
+        # FIXED: Put input() back at the top of the loop!
         try:
-            response = selected_model.generate(fitted_messages)
-        except Exception as e:
-            print(f"\n[Error] Model unavailable: {e}")
-            print("Is llama-server running on port 8080?\n")
-            conversation.pop_last_message()  # remove the user message we just added
-        continue
+            prompt = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n\nGoodbye!")
+            _cleanup(memory, conversation)
+            break
         
+        if not prompt:
+            continue
+            
         if prompt == "quit":
             print("\nGoodbye!")
             _cleanup(memory, conversation)
@@ -91,8 +121,6 @@ def main():
         conversation.add_message("user", prompt)
         
         # 2. Extract facts from user input (BEFORE retrieval!)
-        #    This enables immediate personalization: if user says "My name is Sajan",
-        #    we store it now so it can be retrieved for this same turn.
         facts = extract_facts(prompt)
         
         # 3. Store extracted facts
@@ -118,18 +146,33 @@ def main():
         
         # 7. Generate response
         selected_model, task_type = router.route(prompt)
-        response = selected_model.generate(fitted_messages)
+        
+        # FIXED: Moved try/except inside the loop, added streaming
+        try:
+            print(f"\nJarvis: ", end="", flush=True)
+            
+            response = selected_model.generate(
+                fitted_messages,
+                stream=True,  # Enable streaming
+                on_token=lambda t: print(t, end="", flush=True)
+            )
+            
+            print()  # Newline after streaming finishes
+            
+        except Exception as e:
+            print(f"\n[Error] Model unavailable: {e}")
+            print("Is the required server running?\n")
+            conversation.pop_last_message()  # Remove the user message we just added
+            continue  # Skip saving assistant response and go to next loop iteration
         
         # 8. Add assistant response to conversation
         conversation.add_message("assistant", response.content)
-        
-        print(f"\nJarvis: {response.content}\n")
         
         # Show context stats if trimming occurred
         stats = context_manager.get_stats()
         if stats and stats.was_trimmed:
             print(f"  [Context] Trimmed {stats.pairs_trimmed} pairs ({stats.utilization:.0%} used)")
-  
+
 
 def _cleanup(memory: MemoryManager, conversation: ConversationManager):
     """Ensure all data is saved before exit"""

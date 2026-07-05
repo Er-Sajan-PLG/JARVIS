@@ -1,8 +1,9 @@
 """
-Centralized configuration for JARVIS v2.0
+Centralized configuration for JARVIS v2.1
 """
 
 import threading
+import yaml
 from dataclasses import dataclass, field
 from typing import Optional
 from pathlib import Path
@@ -13,6 +14,7 @@ class ModelConfig:
     """Configuration for a single model"""
     name: str
     role: str
+    backend: str = "llamacpp"  # NEW: "llamacpp" or "ollama"
     base_url: str = "http://localhost:8080/v1"
     api_key: str = "not-needed"
     max_tokens: int = 4096
@@ -27,7 +29,7 @@ class MemoryConfig:
     min_relevance_score: float = 0.1
     min_confidence: float = 0.0
     enable_ranking: bool = True
-    candidate_overshoot_factor: int = 3  # Get 3x candidates before ranking
+    candidate_overshoot_factor: int = 3
 
 
 @dataclass
@@ -36,7 +38,7 @@ class ContextConfig:
     max_tokens: int = 4096
     safety_margin: int = 100
     compression_threshold: float = 0.8
-    tokenizer_method: str = "auto"  # "auto", "tiktoken", "transformers", "word"
+    tokenizer_method: str = "auto"
 
 
 @dataclass
@@ -45,6 +47,7 @@ class ConversationConfig:
     max_recent_messages: int = 20
     enable_summarization: bool = False
     save_on_every_message: bool = True
+
 
 @dataclass
 class RetrievalConfig:
@@ -87,19 +90,22 @@ class Settings:
     """Master configuration container"""
     default_model: str = "qwen3-8b.gguf"
     
-        models: dict = field(default_factory=lambda: {
+    # FIXED INDENTATION HERE (4 spaces, not 8)
+    models: dict = field(default_factory=lambda: {
         "general": ModelConfig(
             name="llama-3.2-3b-instruct-q4_k_m.gguf",
             role="general",
-            base_url="http://localhost:8080/v1"  # Main brain
+            backend="llamacpp",
+            base_url="http://localhost:8080/v1"
         ),
         "autocomplete": ModelConfig(
             name="qwen2.5-1.5b-instruct-q4_k_m.gguf",
             role="autocomplete",
-            base_url="http://localhost:8082/v1", # Fast brain
+            backend="llamacpp",
+            base_url="http://localhost:8082/v1",
             max_tokens=150
         ),
-        })
+    })
     
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
@@ -110,9 +116,45 @@ class Settings:
     
     @classmethod
     def load(cls, path: Optional[str] = None) -> "Settings":
-        """Load settings from file, or return defaults"""
-        # Future: Load from YAML/JSON/TOML
-        return cls()
+        """Load settings from YAML file, or return hardcoded defaults"""
+        if path is None:
+            path = "config.yaml"
+            
+        yaml_path = Path(path)
+        if not yaml_path.exists():
+            return cls()  # No config file found, use defaults
+        
+        with open(yaml_path, "r") as f:
+            data = yaml.safe_load(f) or {}
+
+        # Start with default settings instance
+        settings = cls()
+        
+        # Safely override with YAML data
+        if "default_model" in data:
+            settings.default_model = data["default_model"]
+        
+        if "models" in data:
+            settings.models = {}
+            for key, mdata in data["models"].items():
+                settings.models[key] = ModelConfig(**mdata)
+                
+        if "memory" in data:
+            settings.memory = MemoryConfig(**data["memory"])
+            
+        if "context" in data:
+            settings.context = ContextConfig(**data["context"])
+            
+        if "conversation" in data:
+            settings.conversation = ConversationConfig(**data["conversation"])
+
+        if "retrieval" in data:
+            settings.retrieval = RetrievalConfig(**data["retrieval"])
+
+        if "ranking" in data:
+            settings.ranking = RankingConfig(**data["ranking"])
+
+        return settings
 
 
 # Thread-safe singleton

@@ -225,3 +225,245 @@ Fixed
     • Rule-based extract_facts() with trigger matching
     • Single conversation file (system prompt + turns)
     • All memories sent to LLM on every turn (no retrieval)
+
+
+## 2.0.0(forgot to change to v2.0.1) - Minor Bug fixes and added dev log, architect and changelog for v2.0.0
+
+1. [2.0.1] — Stability
+
+Five silent failures discovered through code review. None caused visible crashes.
+All five caused data loss or dead behavior without any error message.
+
+This release is about trust: after these fixes, what JARVIS stores stays stored,
+what JARVIS routes gets routed, and if something goes wrong, the session survives.
+
+---
+
+
+2. **Bug 1 — Replaced memories didn't survive restarts**
+
+`MemoryManager._handle_replace` modified `Memory` object fields directly, then
+called `self._store.save()`. That save is gated on `_dirty`, which only gets set
+when objects pass through the store's `add()` or `remove()` methods — not when
+a memory's fields are mutated in-place. The flag was never set. The save was a
+silent no-op.
+
+Same issue in `retrieve()`: after `touch()` updated `last_used` and
+`access_count`, `save_if_dirty()` did nothing because the store still thought
+it was clean.
+
+Fix: `force_save()` in both places, which bypasses the dirty check.
+
+What this meant for JARVIS before the fix: if you said "My name is Robert" and
+JARVIS already knew a name, the update appeared to work in that session.
+On restart, JARVIS still called you by the old name. JARVIS looked like it was
+learning while quietly forgetting.
+
+3. **Bug 2 — DEFAULT_MODEL was an object, not a string**
+
+`DEFAULT_MODEL = _DefaultModel()` was designed to defer `get_settings()` until
+first access rather than at import time. The idea was right. The implementation
+was wrong: `_DefaultModel()` is a truthy Python object. Any code doing
+`model or DEFAULT_MODEL` would receive the object itself, not a string.
+API calls passed `<_DefaultModel object at 0x...>` as the model name.
+
+The wrong fix: `DEFAULT_MODEL = get_settings().default_model`
+That evaluates at import time — the original problem, just moved.
+
+The right fix: a function.
+```python
+def get_default_model() -> str:
+    return get_settings().default_model
+```
+Functions are callable. There is no ambiguity between what `get_default_model`
+is and what it returns. All callers updated accordingly.
+
+4. **Bug 3 — ModelRouter was initialized but never called**
+
+`main.py` created a `ModelRouter`, classified every prompt by task type, and
+then immediately called `model.generate()` directly. The router did real work —
+it just had no effect on anything.
+
+```python
+# Before: router existed, did nothing
+response = model.generate(fitted_messages)
+
+# After: router determines which model runs
+selected_model, task_type = router.route(prompt)
+response = selected_model.generate(fitted_messages)
+```
+
+At v2.0.1 with only one registered model, routing is transparent. The value
+arrives in v2.5 when additional backends are added. Fixing this now means
+v2.5 is a registration call, not an architecture change.
+
+5. **Bug 4 — Full sessions lost on crash**
+
+`save_on_every_message: bool = False` was the `ConversationConfig` default.
+The intent was to reduce disk I/O by batching saves. The consequence: a crash,
+power cut, or `kill -9` between turns discarded the entire session silently.
+
+Changed default to `True`. Saving a few kilobytes of JSON after each completed
+turn is not a performance bottleneck for a conversational loop. Losing a session
+is not acceptable.
+
+6. **Bug 5 — Model unavailability killed the process before cleanup**
+
+If `llama-server` was offline, `model.generate()` raised a `ConnectionError`
+that propagated through `main()` and bypassed `_cleanup()`. Memories and
+conversation turns from that session were lost.
+
+Wrapped in try/except. On failure: print a diagnostic, remove the user message
+that triggered the failed call (to keep conversation state consistent), and
+continue the loop. `_cleanup()` now always runs on exit regardless of how the
+model responds.
+
+---
+
+7. Changed
+
+- `DEFAULT_MODEL` removed; replaced with `get_default_model() -> str`
+- `ConversationConfig.save_on_every_message` default: `False` → `True`
+- `main.py` model calls now route through `ModelRouter`
+
+This file records every significant change to JARVIS, in order.
+It is written for two readers: the developer who built this system,
+and JARVIS itself — so that JARVIS can understand its own history,
+what it could and couldn't do at each stage, and why it became what it is.
+
+
+# 2.1.0] — Multi-Backend + Streaming + External Config
+
+JARVIS can now run models from two backends simultaneously — llama.cpp and Ollama
+— with each backend routed automatically based on task type. Configuration moved
+from hardcoded Python to an external config.yaml, so the model setup can change
+without touching source code. Responses now stream token by token instead of
+appearing all at once.
+
+
+
+1. OllamaClient (app/models/ollama_client.py)
+
+New model backend using the ollama Python package. Satisfies the same
+ModelClient Protocol as LlamaCppClient — main.py sees no difference
+between the two. Handles both blocking and streaming modes natively:
+
+pythonclient = OllamaClient(model="deepseek-r1:32b", role="reasoning")
+response = client.generate(messages, stream=True, on_token=print)
+
+The import is optional — if ollama is not installed, JARVIS loads without it
+and only crashes if an Ollama model is actually requested. This prevents the
+package from becoming a hard dependency for users running llama.cpp only.
+
+Factory (app/models/factory.py)
+
+Single function that reads a ModelConfig and returns the correct client
+instance. main.py no longer knows what backends exist.
+
+python# Before (main.py knew about backends):
+client = LlamaCppClient(model=cfg.name, base_url=cfg.base_url)
+
+# After (main.py knows nothing):
+client = create_client(cfg)
+
+Adding a new backend in the future (OpenAI API, LM Studio, etc.) requires
+a new client class and one elif in the factory. Nothing else changes.
+
+2. Streaming
+
+Both clients now accept stream: bool and on_token: Callable[[str], None]
+as named parameters. The caller (main.py) provides the callback; the client
+owns the loop. Voice output in v3.1 will replace the print callback with a
+speech synthesis call — no client code changes required.
+
+stream and on_token are explicit named parameters, not **kwargs. This
+prevents them from leaking into the underlying API call (see Bug 4 below).
+
+3. External config (config.yaml)
+
+All model and memory configuration moved to a YAML file at the project root.
+Settings.load() reads it on first call and falls back to hardcoded defaults
+if the file doesn't exist — no breaking change for existing setups.
+
+The full model lineup as of v2.1:
+
+RoleModelBackendgeneralllama-3.2-3b-instructllamacppcodeqwen3:8bollamareasoningdeepseek-r1:32bollamaautocompleteqwen2.5-coder:1.5bollama
+
+4. Dynamic router initialization
+
+main.py now builds the router from config at startup rather than hardcoding
+registrations. Each model entry in config.yaml maps its role string to a
+TaskType enum value (TaskType("code") → TaskType.CODE). Failed model
+loads print a warning and continue — one unavailable model doesn't prevent
+the rest from loading.
+
+ModelConfig.backend field
+
+New field on ModelConfig ("llamacpp" or "ollama"). The factory reads
+this to determine which client class to instantiate.
+
+
+5. Changed
+
+
+LlamaCppClient.__init__ now uses get_default_model() instead of the
+removed _DefaultModel object (v2.0.1 fix carried through)
+main.py model initialization: hardcoded LlamaCppClient instantiation
+→ dynamic create_client(cfg) calls via factory
+main.py main loop: model.generate(messages) → model.generate(messages, stream=True, on_token=lambda t: print(t, end="", flush=True))
+ 
+
+6. Bugs 
+Encountered bugs and fixed in same version
+Bug 1 — Settings.load() returns cls() instead of settings (critical)
+
+The entire YAML parsing block builds a settings object that is never returned.
+The method returns cls() — fresh defaults — regardless of what's in config.yaml.
+JARVIS silently ignores all configuration.
+
+python# Wrong (current):
+return cls()
+
+Fix:
+return settings
+
+Bug 2 — LlamaCppClient streaming code is unreachable (critical)
+
+The streaming logic was appended after the return ModelResponse(...) statement
+in the non-streaming path. Python never executes code after a return.
+Calling generate(stream=True) on a LlamaCppClient returns a complete
+non-streamed response. No tokens are emitted to on_token.
+
+Fix: restructure generate() to match OllamaClient's pattern:
+
+pythondef generate(self, messages, stream=False, on_token=None, **kwargs):
+    if not stream:
+        # existing non-streaming path
+        ...
+        return ModelResponse(...)
+    # streaming path (currently unreachable)
+    ...
+
+Bug 3 — router.route() returns a tuple; main.py treats it as a client (crash)
+
+router.route() was updated in v2.0.1 to return (ModelClient, TaskType).
+v2.1's main.py assigns the result to model and immediately calls
+model.generate(). This crashes with:
+AttributeError: 'tuple' object has no attribute 'generate'
+
+python# Wrong (current):
+model = router.route(prompt)
+
+Fix:
+model, task_type = router.route(prompt)
+
+Bug 4 — on_token leaks into the OpenAI API call (API error)
+
+Before restructuring for Bug 2: generate(self, messages, **kwargs) receives
+on_token in **kwargs, then passes all of **kwargs to
+self._client.chat.completions.create(...). The OpenAI SDK rejects unknown
+keyword arguments. This error fires before the unreachable streaming code is
+ever reached, making Bugs 2 and 4 appear as one symptom.
+
+Fix is the same as Bug 2: make stream and on_token named parameters so
+they are consumed by generate() and never forwarded to the API.

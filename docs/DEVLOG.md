@@ -855,3 +855,162 @@ Fix: revert to DEFAULT_MODEL = get_settings().default_model (a plain string). L
 
 v1.0.0 — Initial Release
 First working JARVIS: llama.cpp client, simple memory storage, rule-based fact extraction, single conversation file. Functional but context window was unbounded and all memories were sent on every turn.
+
+
+
+## v2.1.0 - Multi-Backend + Streaming + External Config
+
+
+1. The Problem With One Backend
+
+v2.0 could only talk to llama.cpp. The model router was wired up but had nothing
+to route to — every prompt went to the same model regardless of task type. The
+router was doing real classification work (scoring keywords, breaking ties) and
+producing results that were immediately discarded.
+
+v2.1 gives the router something to actually do.
+
+
+Decision: Factory Pattern for Model Instantiation
+
+2. The naive approach: if backend == "ollama" scattered through main.py. The
+problem: main.py would need to import both client classes, know their constructor
+signatures, and handle ImportErrors for optional dependencies. Every new backend
+adds more conditionals to a file that should only care about the conversation loop.
+
+The factory moves all of that knowledge into one place:
+
+pythondef create_client(config: ModelConfig) -> ModelClient:
+    if config.backend == "ollama":
+        return OllamaClient(...)
+    return LlamaCppClient(...)
+
+main.py calls create_client(cfg) and gets back a ModelClient. It has no
+idea whether it's talking to llama.cpp or Ollama or anything else. When a third
+backend is added, the factory gets one elif. Nothing else changes anywhere.
+
+This is the ModelClient Protocol paying off for the first time. The Protocol
+was defined in v2.0 without anything to demonstrate its value — now two different
+implementations satisfy it and the rest of the system is blind to the difference.
+
+
+Decision: stream and on_token as Named Parameters, Not **kwargs
+
+The first instinct is to let streaming fall through **kwargs:
+
+python# Tempting but wrong:
+def generate(self, messages, **kwargs):
+    self._client.chat.completions.create(model=self._model, messages=messages, **kwargs)
+
+This breaks immediately: on_token is a JARVIS-internal callback. The OpenAI SDK
+and Ollama SDK have never heard of it. Passing it through **kwargs causes an
+API error before any streaming happens.
+
+The fix is to make JARVIS-internal parameters explicit:
+
+pythondef generate(self, messages, stream=False, on_token=None, **kwargs):
+    # stream and on_token consumed here — never reach the API
+    # **kwargs only carries legitimate API params: temperature, max_tokens, etc.
+
+This pattern — separate your interface parameters from your passthrough parameters
+— applies to every wrapper layer in this codebase. The context manager, the prompt
+builder, the memory manager: each one has its own parameters and passes only what
+its downstream dependency understands.
+
+
+Decision: Callback over Generator for Streaming
+
+Two architectural choices for streaming:
+
+Callback: on_token(delta) called for each chunk. Caller provides the function.
+Generator: yield delta from generate(). Caller iterates.
+
+v2.1 chose callbacks. The reason: callbacks compose better with the existing
+synchronous main loop. The caller doesn't need to restructure its control flow —
+it just passes a function.
+
+The trade-off: callbacks make it harder to stop generation mid-stream, buffer
+output for processing, or pipe tokens into multiple destinations simultaneously.
+When voice output arrives in v3.1, the callback will need to buffer tokens into
+sentences before speaking them (you don't speak individual tokens). A generator
+would make that buffering cleaner.
+
+This is a future refactor, not a current problem. Document it here so the decision
+to switch isn't a surprise.
+
+
+Decision: YAML Config with Hardcoded Fallback
+
+3. Three options for external configuration:
+
+
+Environment variables — good for secrets, bad for structured model configs
+JSON — no comments, hard to read
+YAML — readable, supports comments, handles nested structure cleanly
+
+
+YAML was chosen. config.yaml lives at the project root. Settings.load() reads
+it if it exists; if not, hardcoded Python defaults apply. This means:
+
+
+Existing setups with no config.yaml continue to work unchanged
+New setups can configure everything without touching Python
+config.yaml can be gitignored so personal model choices aren't in the repo
+
+
+The ModelConfig(**mdata) pattern for loading each model deserializes YAML
+dictionaries directly into dataclasses. Adding a new field to ModelConfig
+requires adding it to the YAML schema — but existing config files without
+the new field still load cleanly because Python uses the dataclass default.
+
+
+Decision: Dynamic Router Initialization
+
+4. v2.0's router had registrations hardcoded in main.py. Adding a new model meant
+editing two files: config.yaml and main.py. This is a configuration problem
+masquerading as a code problem.
+
+v2.1 builds the router entirely from config:
+
+pythonfor key, model_cfg in settings.models.items():
+    client = create_client(model_cfg)
+    task_type = TaskType(model_cfg.role)  # "code" → TaskType.CODE
+    router.register(task_type, client)
+
+TaskType(model_cfg.role) is the bridge between the human-readable YAML string
+("code") and the type-safe enum (TaskType.CODE). If someone puts an invalid
+role in config.yaml, this line raises a ValueError at startup — visible
+immediately, not silently ignored.
+
+Failed model loads (server offline, package not installed) are caught and logged
+as warnings. One unavailable model doesn't prevent the others from loading.
+JARVIS degrades gracefully instead of refusing to start.
+
+
+5. Bugs Introduced in This Release
+
+Four bugs were introduced and will be fixed in v2.1.1.
+
+The common thread: all four come from the same root cause — code was written in
+the correct shape but placed or connected incorrectly. The logic was right; the
+wiring was wrong.
+
+Settings.load() built the correct settings object but returned cls()
+(fresh defaults) on the last line instead of settings. One word, total
+information loss. JARVIS ran with hardcoded defaults throughout v2.1 regardless
+of what config.yaml said.
+
+LlamaCppClient streaming was written as an append to the existing
+non-streaming method rather than a restructure. The new code landed after the
+return statement. Python stops executing a function at return. The streaming
+path was completely unreachable.
+
+main.py router.route() unpacking was a regression from the v2.0.1 fix that
+changed route() to return (ModelClient, TaskType). The new main.py assigned
+the tuple to model and called model.generate(). Crash.
+
+on_token kwarg leak was a consequence of the streaming restructure not
+happening: with streaming code unreachable, on_token stayed in **kwargs and
+was forwarded to the OpenAI SDK, which rejected it. Bugs 2 and 4 appeared as one
+symptom — calling generate(stream=True) would hit an API error before ever
+reaching the unreachable streaming code.

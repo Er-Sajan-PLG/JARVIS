@@ -2,12 +2,16 @@
 __pycache__/
 *.py[cod]
 *.so
+*.pyc
 
 # Virtual Environment
 .venv/
 
 # Environment Variables
 .env
+.venv/
+venv/
+
 
 # IDE
 .vscode/
@@ -24,3 +28,8 @@ dist/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Data
+data/
+
+
