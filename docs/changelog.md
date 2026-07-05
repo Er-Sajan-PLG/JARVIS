@@ -363,7 +363,7 @@ instance. main.py no longer knows what backends exist.
 python# Before (main.py knew about backends):
 client = LlamaCppClient(model=cfg.name, base_url=cfg.base_url)
 
-# After (main.py knows nothing):
+After (main.py knows nothing):
 client = create_client(cfg)
 
 Adding a new backend in the future (OpenAI API, LM Studio, etc.) requires
@@ -467,3 +467,49 @@ ever reached, making Bugs 2 and 4 appear as one symptom.
 
 Fix is the same as Bug 2: make stream and on_token named parameters so
 they are consumed by generate() and never forwarded to the API.
+
+
+
+# 2.2.0 - — Semantic Memory
+
+All notable changes to JARVIS are documented here.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+1. Added
+- `VectorRetriever` — ChromaDB-backed semantic memory retrieval using
+  cosine similarity. Satisfies `CandidateRetriever` Protocol, drop-in
+  for `KeywordRetriever`
+- `HybridRetriever` — runs keyword and vector retrieval in parallel,
+  deduplicates by memory ID, passes union to `MemoryRanker`
+- `ConversationVectorStore` — separate ChromaDB collection for storing
+  and semantically searching complete conversation exchanges
+- One-time indexing of historical conversation on first startup
+- `past_exchanges` parameter in `PromptBuilder.build()` — injects
+  semantically relevant historical conversations into system prompt
+- Local embedding generation via `nomic-embed-text` through Ollama
+- `ollama` Python package installed for ChromaDB embedding integration
+  (distinct use from chat — embeddings require the package,
+  generation does not)
+
+2. Changed
+- `PromptBuilder` system message now ordered: base prompt →
+  past exchanges → memory facts (episodic before semantic)
+- `retrieval_limit` reduced from 20 to 8 — 20 memories consumed
+  ~300 tokens before generation, causing empty responses at 97% context
+- Past exchange retrieval limited to 2 per turn (each exchange ~200 tokens)
+- `safety_margin` increased from 150 to 300 tokens
+
+3. Fixed
+- `HybridRetriever` used `set(memories)` for deduplication —
+  `Memory` is a mutable dataclass, Python sets `__hash__ = None`
+  automatically, causing `TypeError: unhashable type: 'Memory'`
+  at runtime. Fixed: deduplicate by `memory.id` string instead
+- ChromaDB metadata nested dict rejection — `Memory.to_dict()` includes
+  `metadata: {}` (nested dict), rejected by ChromaDB which requires
+  flat `str | int | float | bool` values. Fixed: omit `metadata`
+  field in `_to_chroma_meta()`; `Memory.from_dict()` defaults to `{}`
+
+---
+

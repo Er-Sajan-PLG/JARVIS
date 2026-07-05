@@ -1014,3 +1014,246 @@ happening: with streaming code unreachable, on_token stayed in **kwargs and
 was forwarded to the OpenAI SDK, which rejected it. Bugs 2 and 4 appeared as one
 symptom — calling generate(stream=True) would hit an API error before ever
 reaching the unreachable streaming code.
+
+
+## v.2.2.0 - — Semantic Memory
+
+
+Architecture Decision: ollama Package Scope
+
+The ollama Python package was initially avoided entirely — Ollama speaks
+OpenAI protocol for chat, making the package redundant for generation.
+
+For embeddings the situation is different. ChromaDB's OllamaEmbeddingFunction
+requires the ollama package internally. An attempt was made to replace it
+with a custom _OllamaEmbeddings class using requests directly, which hit
+three successive ChromaDB interface requirements:
+
+
+name() method required on the embedding function object
+embed_query() method required during collection query
+Likely more undocumented requirements beyond those
+
+
+ChromaDB's embedding interface is an internal protocol that changes between
+versions. Chasing it with a custom class creates a maintenance liability.
+
+Final decision: install ollama package for embeddings only.
+
+Chat/generation  →  openai package  →  LlamaCppClient  →  llama-server + Ollama
+Embeddings       →  ollama package  →  OllamaEmbeddingFunction  →  ChromaDB
+
+Two packages, each doing what they were designed for. No overlap.
+
+The Memory dataclass is mutable. Python sets __hash__ = None on mutable
+dataclasses automatically. An early HybridRetriever implementation used
+set(memories) for deduplication — this raises TypeError: unhashable type
+at runtime. Fixed by deduplicating on memory.id (a plain string) instead.
+
+ChromaDB Integration
+
+ChromaDB selected as the persistent vector database.
+
+Key configuration:
+
+
+PersistentClient — vectors survive restarts, no manual save needed
+hnsw:space: cosine — cosine distance (0.0 = identical, 2.0 = opposite)
+is more appropriate for semantic similarity than default L2 distance
+data/chroma/ persist directory — consistent with data/memories.json
+convention, relative to project root
+
+
+Metadata limitation discovered: ChromaDB metadata values must be
+str | int | float | bool. Memory.to_dict() includes a metadata: {} field
+which is a nested dict — ChromaDB rejects it silently or raises on insert.
+Fixed by omitting the metadata field in _to_chroma_meta().
+Memory.from_dict() defaults it to {} when missing, so reconstruction is lossless.
+
+Collection conflicts: stale ChromaDB data from earlier failed experiments
+conflicted with new collection configurations. Required rm -rf data/chroma
+to reset. ChromaDB does not allow changing embedding function configuration
+on an existing collection.
+
+VectorRetriever
+
+Implements CandidateRetriever Protocol. Drop-in replacement for
+KeywordRetriever — one line change in MemoryManager.__init__.
+
+The text embedded per memory is:
+
+"{category} {memory_type}: {value}"
+
+Richer than just the value alone — gives the embedding model category context
+that improves similarity matching.
+
+HybridRetriever
+
+Combines KeywordRetriever and VectorRetriever. Runs both, deduplicates
+by memory ID, passes union to MemoryRanker. Neither retriever alone is
+sufficient:
+
+
+Keyword: catches "what's my name?" → name: Sajan (exact match)
+Vector: catches "what do I enjoy?" → I like coding (no keyword overlap)
+
+
+ConversationVectorStore
+
+Separate ChromaDB collection (jarvis-conversations) distinct from
+jarvis-memories. Stores complete user/assistant exchanges rather than
+extracted facts.
+
+On first startup with existing conversation history: indexes all historical
+exchanges. Subsequent startups: collection already populated, no re-indexing.
+
+Retrieval limit: 2 exchanges per turn (conservative — each exchange can be
+200+ tokens, rapidly consuming context budget).
+
+Context Window Discovery
+
+Stress testing with a long paragraph input revealed a critical interaction:
+
+
+retrieval_limit: 20 memories × ~15 tokens each = ~300 tokens
+5 past exchanges × ~200 tokens each = ~1000 tokens
+System prompt + long user input consumed the remainder
+
+
+Result: 97% context used before generation. Model received ~123 tokens for
+its response — insufficient to produce anything. Response was empty string.
+
+Fixed: retrieval_limit reduced to 5–8. Past exchange limit reduced to 2.
+safety_margin increased from 150 to 300 tokens.
+
+Prompt Builder Extension
+
+PromptBuilder.build() extended with past_exchanges parameter.
+Retrieved conversation history injected into system message before fact memory:
+
+[system prompt]
+
+## Relevant Past Exchanges
+[semantically similar historical conversations]
+
+## Known User Facts
+[retrieved memory facts]
+
+The ordering is intentional: episodic context (what we discussed) before
+semantic facts (what is true about the user).
+
+
+Agent Automation Experiment (Reverted)
+
+Goal
+
+Experiment with an internal development agent capable of:
+
+
+Generating development logs and changelogs
+Summarizing Git history
+Analyzing project architecture
+Reviewing code changes
+
+
+Result
+
+Reverted before completion.
+
+Why It Failed
+
+Core was not stable. The execution pipeline was still actively changing.
+Adding an autonomous layer that operated on an unstable foundation created
+circular debugging — it was unclear whether failures were in the agent, the
+pipeline, or the tools.
+
+Responsibilities merged incorrectly. The prototype mixed conversation logic,
+routing, Git utilities, and agent orchestration in ways that blurred module
+boundaries and increased coupling between components that should be independent.
+
+No stable interface to automate. The agent was expected to generate
+documentation for an architecture that was still being defined in the same
+development cycle. The automation had no reliable target.
+
+Multiple simultaneous failure points. Routing, model loading, Git tooling,
+memory retrieval, and agent logic could all fail independently. Debugging
+became exponentially harder with each new component added.
+
+
+Stress Test Results
+
+Input: long paragraph containing ~15 extractable facts.
+
+[Memory] Stored: state → a civil engineering student at pokhara university in nepal
+[Memory] Stored: name → sajan acharya
+[Memory] Stored: job_title → civil engineering student at pokhara university in nepal
+[Memory] Stored: state → currently running an intel i7 12th gen h processor
+[Memory] Stored: state → facing right now is getting the intel arc gpu to accelerate
+[Memory] Stored: like → first-principles explanations over surface-level tutorials
+[Context] Retrieved 20 relevant memories
+[History] Retrieved 5 relevant past exchange(s)
+[Context] Trimmed 1 pairs (97% used)
+
+Findings:
+
+
+Fact extraction working correctly
+Vector retrieval working (semantic matches found)
+Conversation history indexed and retrieved
+Context overflow caused empty response — retrieval limits too aggressive
+Duplicate name fact stored (sajan acharya alongside existing sajan) —
+deduplication not yet implemented
+
+
+After reducing limits:
+
+You: Hello JARVIS. What platform do I create content for? What GPU do I have?
+     What were we debugging last time?
+[Context] Retrieved 5 relevant memories
+[History] Retrieved 2 relevant past exchange(s)
+
+Jarvis: Platform: LearningHubSTEM — YouTube and Instagram education content
+        for physics, chemistry, and mathematics students...
+        GPU: Intel Arc A370M...
+        Last debugging: GPU acceleration via SYCL/Vulkan on Arch Linux...
+
+Semantic retrieval confirmed working. History retrieval confirmed working.
+
+
+Lessons Learned
+
+
+Stabilize core architecture before adding autonomous agents
+Separate infrastructure from orchestration
+Introduce one subsystem at a time and verify end-to-end before expanding
+ChromaDB embedding function must be a class instance, not a plain callable
+Mutable dataclasses are not hashable — never use set(dataclass_list)
+Context budget is a finite resource — retrieval limits directly affect
+whether the model has room to respond
+The ollama package and OpenAI-compatible API serve different purposes;
+using each for what it was designed for is cleaner than forcing one to do both
+
+
+
+Current State
+
+JARVIS v2.2.0 includes:
+
+
+Hybrid memory retrieval (keyword + vector)
+Semantic vector memory via ChromaDB
+Local embedding generation via nomic-embed-text
+Semantic conversation history storage and retrieval
+ChromaDB persistence across restarts
+Multi-model routing via ModelRouter (llama-server + Ollama)
+Streaming responses
+VS Code autocomplete via Continue.dev + qwen2.5-coder:1.5b
+
+
+Next Milestone
+
+Complete the memory deduplication system so duplicate facts (e.g., multiple
+name entries) are consolidated rather than accumulated. Then proceed to v2.3.0
+conversation summarization — wiring up the existing _summary field in
+ConversationManager so trimmed conversation pairs are compressed rather than
+permanently discarded.

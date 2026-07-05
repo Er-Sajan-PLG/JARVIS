@@ -1,3 +1,4 @@
+#app/conversation/manager.py
 """
 Conversation Manager for JARVIS v2.0
 
@@ -114,6 +115,17 @@ class ConversationManager:
     def get_summary(self) -> str:
         """Get conversation summary"""
         return self._summary
+
+    def pop_last_message(self) -> 'Message | None':
+        """
+        Remove the last message from the conversation.
+        Used for error recovery if a model fails to respond.
+        """
+        if self._messages:
+            popped = self._messages.pop()
+            self.save()
+            return popped
+        return None
     
     def save(self):
         """Save conversation to disk"""

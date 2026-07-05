@@ -7,7 +7,8 @@ from typing import Optional
 from openai import OpenAI
 
 from app.models.client import ModelClient, ModelResponse
-from app.config.settings import get_settings, get_default_model
+from app.config.settings import get_default_model
+
 
 
 class LlamaCppClient(ModelClient):
@@ -22,7 +23,6 @@ class LlamaCppClient(ModelClient):
         api_key: str = "not-needed",
         role: str = "general"
     ):
-        settings = get_settings()
         self._model = model or get_default_model()
         self._role = role
         self._client = OpenAI(base_url=base_url, api_key=api_key)
@@ -52,7 +52,6 @@ class LlamaCppClient(ModelClient):
             )
         
         else:
-            # BUG 2 FIX: Restructured so this isn't dead code after a return statement
             # --- STREAMING PATH ---
             full_content = ""
             stream_response = self._client.chat.completions.create(

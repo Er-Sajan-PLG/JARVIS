@@ -28,7 +28,8 @@ class PromptBuilder:
         self,
         memories: list[MemoryResult] = None,
         conversation: list[dict] = None,
-        user_prompt: str = ""
+        user_prompt: str = "",
+        past_exchanges: list[dict] = None, 
     ) -> list[dict]:
         """
         Build the complete message list for the LLM.
@@ -44,6 +45,11 @@ class PromptBuilder:
         # Build system content (single message for compatibility)
         system_parts = [self.system_prompt]
         
+        if past_exchanges:
+            past_text = self._format_past_exchanges(past_exchanges)
+            if past_text:
+                system_parts.append(past_text)
+
         if memories:
             memories_text = self._format_memories(memories)
             if memories_text:
@@ -66,6 +72,23 @@ class PromptBuilder:
                 })
         
         return messages
+
+    def _format_past_exchanges(self, exchanges: list[dict]) -> str:
+        """Format past exchanges for inclusion in system prompt"""
+        if not exchanges:
+            return ""
+        
+        lines = ["## Relevant Past Exchanges"]
+        lines.append("Earlier conversation that may be relevant:")
+        lines.append("")
+        
+        for exchange in exchanges:
+            user_msg = exchange.get("user", "").strip()
+            assistant_msg = exchange.get("assistant", "").strip()
+            lines.append(f"- User: {user_msg}")
+            lines.append(f"  Assistant: {assistant_msg}")
+        
+        return "\n".join(lines)
     
     def _format_memories(self, memories: list[MemoryResult]) -> str:
         """Format retrieved memories for inclusion in prompt"""

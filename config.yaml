@@ -27,9 +27,9 @@ models:
     base_url: "http://localhost:11434"
 
 memory:
-  retrieval_limit: 20
+  retrieval_limit: 5
   min_confidence: 0.0
 
 context:
   max_tokens: 4096
-  safety_margin: 100
+  safety_margin: 500

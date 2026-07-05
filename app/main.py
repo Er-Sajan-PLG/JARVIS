@@ -27,6 +27,12 @@ from app.context.manager import ContextWindowManager
 from app.models.factory import create_client  
 from app.models.router import ModelRouter, TaskType
 from app.utils.server_manager import ensure_server_running
+from app.memory.retrieval import KeywordRetriever
+from app.memory.hybrid_retriever import HybridRetriever
+from app.memory.vector_retriever import VectorRetriever
+from app.memory.conversation_store import ConversationVectorStore
+from app.models.llamacpp_client import LlamaCppClient
+
 
 # --- AUTO-START LLM SERVER ---
 #LLAMA_SERVER_PATH = "./llama-server"
@@ -42,18 +48,34 @@ from app.utils.server_manager import ensure_server_running
 print("Starting Jarvis...")
 
 
+
+
 def main():
     print("=" * 50)
     print(f"JARVIS {VERSION}")
     print("=" * 50)
-    
+
+
     # Get centralized settings (reads config.yaml if it exists)
     settings = get_settings()
     
     # Initialize subsystems with clean interfaces
-    memory = MemoryManager()
+    memory = MemoryManager(
+        retriever=HybridRetriever(
+        vector=VectorRetriever(
+            persist_dir="data/chroma",
+            ollama_url="http://localhost:11434",
+            ),
+        keyword=KeywordRetriever(min_keyword_overlap=1),
+        )
+    )
     conversation = ConversationManager()
     prompt_builder = PromptBuilder(system_prompt=SYSTEM_PROMPT)
+    conv_store = ConversationVectorStore(persist_dir="data/chroma")
+    if conv_store.count() == 0:
+        indexed = conv_store.index_history(conversation.get_all())
+        if indexed>0:
+            print(f"  [ConversationStore] Indexed {indexed} exchanges indexed")    
     context_manager = ContextWindowManager(
         max_tokens=settings.context.max_tokens,
         safety_margin=settings.context.safety_margin,
@@ -85,8 +107,12 @@ def main():
     print(f"Memories loaded: {memory.count()}")
     print(f"Messages loaded: {conversation.count()}")
     print("\nCommands: quit, memories, help, stats\n")
+
+    
     
     while True:
+
+    
         # FIXED: Put input() back at the top of the loop!
         try:
             prompt = input("You: ").strip()
@@ -97,7 +123,7 @@ def main():
         
         if not prompt:
             continue
-            
+           
         if prompt == "quit":
             print("\nGoodbye!")
             _cleanup(memory, conversation)
@@ -114,6 +140,7 @@ def main():
         if prompt == "stats":
             _show_stats(memory, conversation, context_manager, tokenizer_info)
             continue
+
         
         # === MAIN PIPELINE ===
         
@@ -131,14 +158,18 @@ def main():
         
         # 4. Retrieve relevant memories (now includes just-stored facts!)
         relevant_memories = memory.retrieve(prompt, limit=settings.memory.retrieval_limit)
-        
+        past_exchanges = conv_store.search(prompt, limit=2)
         if relevant_memories:
             print(f"  [Context] Retrieved {len(relevant_memories)} relevant memories")
         
+        if past_exchanges :
+            print(f"  [History] Retrieved {len(past_exchanges)} relevant past exchange(s)")
+
         # 5. Build prompt with proper structure
         messages = prompt_builder.build(
             memories=relevant_memories,
             conversation=conversation.get_recent_formatted(),
+            past_exchanges=past_exchanges,
         )
         
         # 6. Fit into context window (trims in pairs, never breaks exchanges)
@@ -146,6 +177,9 @@ def main():
         
         # 7. Generate response
         selected_model, task_type = router.route(prompt)
+        if selected_model is None:
+            selected_model = router.default_model
+
         
         # FIXED: Moved try/except inside the loop, added streaming
         try:
@@ -167,11 +201,15 @@ def main():
         
         # 8. Add assistant response to conversation
         conversation.add_message("assistant", response.content)
+
+        conv_store.add_exchange(prompt, response.content)  # Store the exchange in the vector store 
         
         # Show context stats if trimming occurred
         stats = context_manager.get_stats()
         if stats and stats.was_trimmed:
             print(f"  [Context] Trimmed {stats.pairs_trimmed} pairs ({stats.utilization:.0%} used)")
+
+        
 
 
 def _cleanup(memory: MemoryManager, conversation: ConversationManager):
