@@ -16,6 +16,7 @@ class TaskType(Enum):
     REASONING = "reasoning"
     STEM = "stem"
     GENERAL = "general"
+    DOCS = "docs"  # New task type for documentation-related tasks
 
 
 class ModelRouter:

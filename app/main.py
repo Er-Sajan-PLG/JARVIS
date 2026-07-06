@@ -32,6 +32,7 @@ from app.memory.hybrid_retriever import HybridRetriever
 from app.memory.vector_retriever import VectorRetriever
 from app.memory.conversation_store import ConversationVectorStore
 from app.models.llamacpp_client import LlamaCppClient
+from app.agents.doc_agent import DocumentationAgent, run_interactive
 
 
 # --- AUTO-START LLM SERVER ---
@@ -101,6 +102,13 @@ def main():
         router.set_default(create_client(list(settings.models.values())[0]))
     # ===============================================
     
+    #=== NEW: DOCUMENTATION AGENT ===
+    doc_agent = DocumentationAgent(
+        model=router.select(TaskType.DOCS)
+        if TaskType.DOCS in router.models
+        else router.default_model
+    )
+
     # Show tokenizer info
     tokenizer_info = context_manager.get_tokenizer_info()
     print(f"\nTokenizer: {tokenizer_info.get('active_method', 'unknown')}")
@@ -108,8 +116,7 @@ def main():
     print(f"Messages loaded: {conversation.count()}")
     print("\nCommands: quit, memories, help, stats\n")
 
-    
-    
+    #=== MAIN LOOP ===
     while True:
 
     
@@ -128,6 +135,15 @@ def main():
             print("\nGoodbye!")
             _cleanup(memory, conversation)
             break
+
+        if prompt == "docs":
+            print("DEBUG: intercepted")
+            try:
+                run_interactive(doc_agent)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+            continue      
         
         if prompt == "memories":
             _show_memories(memory)
@@ -140,6 +156,9 @@ def main():
         if prompt == "stats":
             _show_stats(memory, conversation, context_manager, tokenizer_info)
             continue
+
+
+            
 
         
         # === MAIN PIPELINE ===
@@ -158,6 +177,8 @@ def main():
         
         # 4. Retrieve relevant memories (now includes just-stored facts!)
         relevant_memories = memory.retrieve(prompt, limit=settings.memory.retrieval_limit)
+
+        # 5. Retrieve relevant past exchanges from conversation store
         past_exchanges = conv_store.search(prompt, limit=2)
         if relevant_memories:
             print(f"  [Context] Retrieved {len(relevant_memories)} relevant memories")
@@ -165,23 +186,23 @@ def main():
         if past_exchanges :
             print(f"  [History] Retrieved {len(past_exchanges)} relevant past exchange(s)")
 
-        # 5. Build prompt with proper structure
+        # 6. Build prompt with proper structure
         messages = prompt_builder.build(
             memories=relevant_memories,
             conversation=conversation.get_recent_formatted(),
             past_exchanges=past_exchanges,
         )
         
-        # 6. Fit into context window (trims in pairs, never breaks exchanges)
+        # 7. Fit into context window (trims in pairs, never breaks exchanges)
         fitted_messages = context_manager.fit(messages)
         
-        # 7. Generate response
+        # 8. Generate response
         selected_model, task_type = router.route(prompt)
         if selected_model is None:
             selected_model = router.default_model
 
         
-        # FIXED: Moved try/except inside the loop, added streaming
+        # 9. Stream response to console
         try:
             print(f"\nJarvis: ", end="", flush=True)
             
@@ -199,7 +220,7 @@ def main():
             conversation.pop_last_message()  # Remove the user message we just added
             continue  # Skip saving assistant response and go to next loop iteration
         
-        # 8. Add assistant response to conversation
+        # 10. Add assistant response to conversation
         conversation.add_message("assistant", response.content)
 
         conv_store.add_exchange(prompt, response.content)  # Store the exchange in the vector store 
@@ -211,13 +232,13 @@ def main():
 
         
 
-
+## === Helper Functions ===
 def _cleanup(memory: MemoryManager, conversation: ConversationManager):
     """Ensure all data is saved before exit"""
     memory.save_if_dirty()
     conversation.save_if_dirty()
 
-
+#=== Display Functions ===
 def _show_memories(memory: MemoryManager):
     """Display all stored memories"""
     memories = memory.get_all()
@@ -233,12 +254,13 @@ def _show_memories(memory: MemoryManager):
               f"Access: {m.access_count} | Conf: {m.confidence}")
     print()
 
-
+#=== Show Statistics Function ===
 def _show_stats(memory: MemoryManager, conversation: ConversationManager,
                 context: ContextWindowManager, tokenizer_info: dict):
     """Show system statistics"""
     stats = context.last_stats
     
+    # Print summary of system stats
     print(f"""
 === JARVIS Statistics ===
 
@@ -257,7 +279,8 @@ Conversation:
 Context Window:
   Max tokens: {context.max_tokens}
   Effective: {context.effective_max}""")
-
+    
+    # Show last utilization stats if available
     if stats:
         print(f"""  Last utilization: {stats.utilization:.0%}
   Last pairs kept: {stats.pairs_kept}
@@ -265,7 +288,7 @@ Context Window:
     
     print()
 
-
+#=== Help Function ===
 def _show_help():
     """Show available commands"""
     print("""
@@ -282,7 +305,7 @@ Try saying:
   - "Remember that my favorite color is blue"
 """)
 
-
+#=== Utility Functions ===
 def _format_time(timestamp: float) -> str:
     """Format a timestamp for display"""
     import datetime

@@ -26,6 +26,12 @@ models:
     backend: "ollama"
     base_url: "http://localhost:11434"
 
+  docs:
+    name: "qwen3-8b.gguf"
+    role: "docs"
+    backend: "llamacpp"
+    base_url: "http://localhost:8080/v1"
+
 memory:
   retrieval_limit: 5
   min_confidence: 0.0
