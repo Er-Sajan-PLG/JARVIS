@@ -7,6 +7,8 @@ import yaml
 from dataclasses import dataclass, field
 from typing import Optional
 from pathlib import Path
+from dotenv import load_dotenv
+import os
 
 
 @dataclass
@@ -14,9 +16,9 @@ class ModelConfig:
     """Configuration for a single model"""
     name: str
     role: str
-    backend: str = "llamacpp"  # NEW: "llamacpp" or "ollama"
+    backend: str = "llamacpp"  
     base_url: str = "http://localhost:8080/v1"
-    api_key: str = "not-needed"
+    api_key: str = "not-needed"  
     max_tokens: int = 4096
     temperature: float = 0.7
 
@@ -89,8 +91,25 @@ class PathsConfig:
 class Settings:
     """Master configuration container"""
     default_model: str = "qwen3-8b.gguf"
+    active_profile: str = "local"          
+    profiles: dict = field(default_factory=lambda: {
+        "local": {
+            "general": "general",
+            "code": "code",
+            "reasoning": "reasoning",
+            "docs": "docs",
+            "stem": "reasoning",
+        },
+        "cloud": {
+            "general": "cloud",
+            "code": "cloud",
+            "reasoning": "cloud",
+            "docs": "cloud",
+            "stem": "cloud",
+        }
+    })                                    
+
     
-    # FIXED INDENTATION HERE (4 spaces, not 8)
     models: dict = field(default_factory=lambda: {
         "general": ModelConfig(
             name="llama-3.2-3b-instruct-q4_k_m.gguf",
@@ -151,8 +170,8 @@ class Settings:
         if "retrieval" in data:
             settings.retrieval = RetrievalConfig(**data["retrieval"])
 
-        if "ranking" in data:
-            settings.ranking = RankingConfig(**data["ranking"])
+        if "profiles" in data:
+            settings.profiles = data["profiles"]
 
         return settings
 

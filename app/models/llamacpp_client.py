@@ -1,9 +1,8 @@
-# app/models/llamacpp_client.py
 """
 LlamaCpp model client for JARVIS v2.0
 """
 
-from typing import Optional
+from typing import Optional, Callable
 from openai import OpenAI
 
 from app.models.client import ModelClient, ModelResponse
@@ -25,6 +24,14 @@ class LlamaCppClient(ModelClient):
     ):
         self._model = model or get_default_model()
         self._role = role
+        
+        # --- FIX: Resolve "env:..." to actual key ---
+        if api_key.startswith("env:"):
+            import os
+            api_key = os.environ.get(api_key[4:].strip(), api_key)
+        # ---------------------------------------------
+        
+        self._api_key = api_key  
         self._client = OpenAI(base_url=base_url, api_key=api_key)
     
     def generate(
@@ -36,8 +43,52 @@ class LlamaCppClient(ModelClient):
     ) -> ModelResponse:
         
 
+        # =========================================================
+        # 🟡 ISOLATED GOOGLE BLOCK
+        # (Unhash this to use Google. Hash the OpenAI block below!)
+        # =========================================================
+        # import requests, json
+        # 
+        # google_messages = [{"role": m["role"], "parts": [{"text": m["content"]}]} for m in messages]
+        # 
+        # if not stream:
+        #     url = f"https://generativelanguage.googleapis.com/v1beta/models/{self._model}:generateContent?key={self._api_key}"
+        #     res = requests.post(url, json={"contents": google_messages})
+        #     data = res.json()
+        #     
+        #     # Stops the ugly KeyError if Google complains
+        #     if "error" in data:
+        #         raise Exception(f"Google API Error: {data['error']['message']}")
+        #         
+        #     content = data["candidates"][0]["content"]["parts"][0]["text"]
+        #     return ModelResponse(content=content, model=self._model, tokens_used=None, finish_reason="stop")
+        #     
+        # else:
+        #     url = f"https://generativelanguage.googleapis.com/v1beta/models/{self._model}:streamGenerateContent?alt=sse&key={self._api_key}"
+        #     res = requests.post(url, json={"contents": google_messages}, stream=True)
+        #     full_content = ""
+        #     for line in res.iter_lines():
+        #         if line:
+        #             line = line.decode("utf-8")
+        #             if line.startswith("data: "):
+        #                 chunk_str = line[6:]
+        #                 if chunk_str == "[DONE]": break
+        #                 try:
+        #                     chunk = json.loads(chunk_str)
+        #                     delta = chunk["candidates"][0]["content"]["parts"][0].get("text", "")
+        #                     full_content += delta
+        #                     if on_token: on_token(delta)
+        #                 except: pass
+        #     return ModelResponse(content=full_content, model=self._model)
+        # =========================================================
+
+
+
+        # =========================================================
+        # 🔵 OPENAI-COMPATIBLE BLOCK (LOCAL, GROK, OPENROUTER)
+        # (Unhash this to use Grok or Local. Hash the Google block above!)
+        # =========================================================
         if not stream:
-            # --- STANDARD PATH ---
             response = self._client.chat.completions.create(
                 model=self._model, 
                 messages=messages, 
@@ -52,7 +103,6 @@ class LlamaCppClient(ModelClient):
             )
         
         else:
-            # --- STREAMING PATH ---
             full_content = ""
             stream_response = self._client.chat.completions.create(
                 model=self._model, 
@@ -68,6 +118,8 @@ class LlamaCppClient(ModelClient):
                     on_token(delta)
                     
             return ModelResponse(content=full_content, model=self._model)
+        # =========================================================
+
     
     @property
     def model_name(self) -> str:

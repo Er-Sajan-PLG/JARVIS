@@ -1,0 +1,119 @@
+# Configuration
+
+The configuration of JARVIS v2.1 is managed through a centralized system designed for clarity, modularity, and easy overrides.
+
+## Configuration Architecture
+
+The core of the configuration system resides in `app/config/settings.py`. It leverages Python's `dataclasses` to define structured configuration objects.
+
+-   **`Settings` Dataclass**: This is the master configuration container. It aggregates instances of other specialized configuration dataclasses, providing a single point of access for all application settings.
+-   **Specialized Dataclasses**:
+    -   `ModelConfig`: Defines settings for individual models (e.g., name, backend, API details).
+    -   `MemoryConfig`: Manages parameters related to the memory system (e.g., limits, retrieval scores).
+    -   `ContextConfig`: Configures the context window (e.g., token limits, compression).
+    -   `ConversationConfig`: Handles conversation management settings (e.g., message history, summarization).
+    -   `RetrievalConfig`: Specifies parameters for memory retrieval methods.
+    -   `RankingConfig`: Configures the weighting for memory ranking algorithms.
+    -   `PathsConfig`: Centralizes all file system paths used by the application.
+
+A **thread-safe singleton pattern** is implemented using `get_settings()` to ensure that only one instance of the `Settings` object is loaded and accessible throughout the application.
+
+## Config Files
+
+The primary source for external configuration is the `config.yaml` file located at the project root.
+
+-   **Loading Mechanism**: The `Settings.load()` class method attempts to read and parse `config.yaml`.
+-   **Default Fallback**: If `config.yaml` is not found, the application gracefully falls back to using hardcoded default values defined within the `Settings` dataclass and its nested configuration classes.
+-   **Security Note**: The content of `config.yaml` is protected and cannot be directly inspected by automated agents. Information about its role is inferred from the `Settings.load()` implementation.
+
+## Environment Variables
+
+The `app/config/settings.py` module imports `load_dotenv` from `dotenv` and `os`, indicating the capability to load environment variables (e.g., from a `.env` file) and access them via `os.getenv()`.
+
+However, as of the current implementation in `app/config/settings.py`, there are no explicit calls to `load_dotenv()` within the `Settings` class or `get_settings()` function, nor are there direct `os.getenv()` calls used to override the configuration values defined in the `Settings` dataclasses. This suggests that while the infrastructure for environment variable loading is present, it is not actively used by this specific configuration module to modify the settings described herein. Environment variables might be utilized in other parts of the application.
+
+## Default Values
+
+All configuration parameters within the `dataclasses` in `app/config/settings.py` are assigned sensible default values. These defaults are used if no `config.yaml` file is present or if a particular setting is not specified within the YAML file.
+
+### `ModelConfig` Defaults:
+-   `backend`: `"llamacpp"`
+-   `base_url`: `"http://localhost:8080/v1"`
+-   `api_key`: `"not-needed"`
+-   `max_tokens`: `4096`
+-   `temperature`: `0.7`
+
+### `MemoryConfig` Defaults:
+-   `max_memories`: `1000`
+-   `retrieval_limit`: `20`
+-   `min_relevance_score`: `0.1`
+-   `min_confidence`: `0.0`
+-   `enable_ranking`: `True`
+-   `candidate_overshoot_factor`: `3`
+
+### `ContextConfig` Defaults:
+-   `max_tokens`: `4096`
+-   `safety_margin`: `100`
+-   `compression_threshold`: `0.8`
+-   `tokenizer_method`: `"auto"`
+
+### `ConversationConfig` Defaults:
+-   `max_recent_messages`: `20`
+-   `enable_summarization`: `False`
+-   `save_on_every_message`: `True`
+
+### `RetrievalConfig` Defaults:
+-   `method`: `"keyword"`
+-   `keyword_min_overlap`: `1`
+
+### `RankingConfig` Defaults:
+-   `weight_relevance`: `0.35`
+-   `weight_importance`: `0.25`
+-   `weight_frequency`: `0.15`
+-   `weight_recency`: `0.15`
+-   `weight_confidence`: `0.10`
+-   `recency_half_life_days`: `7.0`
+
+### `PathsConfig` Defaults:
+-   `data_dir`: `Path("data")` (resolves to `./data` relative to the project root)
+
+### `Settings` Defaults:
+-   `default_model`: `"qwen3-8b.gguf"`
+-   `active_profile`: `"local"`
+-   `profiles`: A dictionary defining `local` and `cloud` profiles with model mappings.
+-   `models`: A dictionary containing default `ModelConfig` instances for `"general"` and `"autocomplete"` roles.
+
+## Validation
+
+The configuration system primarily relies on Python's `dataclasses` and type hints for implicit type enforcement. There is no explicit runtime validation logic (e.g., range checks, format validation, or custom business logic validation) implemented directly within the `Settings` or its associated configuration dataclasses in `app/config/settings.py`.
+
+Should the `config.yaml` file contain values that are of incorrect types or fall outside expected ranges, it could lead to runtime errors or unexpected application behavior when these misconfigured values are used.
+
+## Runtime Overrides
+
+Once the `Settings` object is loaded via `get_settings()`, its attributes can theoretically be modified at runtime. For example:
+
+```python
+from app.config.settings import get_settings
+
+settings = get_settings()
+settings.memory.max_memories = 500
+settings.context.max_tokens = 2048
+```
+
+However, due to the singleton pattern enforced by `get_settings()`, any modifications to the returned `Settings` instance will affect the global configuration accessible throughout the application. While this provides flexibility, it's essential to manage such overrides carefully to avoid inconsistencies, especially in multi-threaded environments or long-running processes. The architecture generally promotes a "load once, use many" philosophy for configuration.
+
+A `reset_settings()` function is available (primarily for testing purposes) which clears the loaded singleton, forcing a reload of settings on the next `get_settings()` call. This could be leveraged to apply new configurations dynamically if needed, though it's not the primary intended use case for production.
+
+## Configuration Lifecycle
+
+1.  **First Access**: The first time `get_settings()` is called, it checks if a `Settings` instance (`_settings`) has already been loaded.
+2.  **Thread-Safe Loading**: If no instance exists, a thread-safe lock (`_lock`) is acquired to prevent multiple threads from initializing `Settings` simultaneously.
+3.  **`Settings.load()` Invocation**: Inside the locked section, `Settings.load()` is called:
+    -   It first initializes a `Settings` object with all its default values.
+    -   It then attempts to locate and read `config.yaml` at the project root.
+    -   If `config.yaml` exists, it parses the YAML content and uses it to override the corresponding default values in the `Settings` object (e.g., `default_model`, `models`, `memory`, etc.).
+    -   If `config.yaml` does not exist, the default `Settings` object is returned as is.
+4.  **Singleton Assignment**: The fully constructed and configured `Settings` object is assigned to the global `_settings` variable.
+5.  **Subsequent Access**: All subsequent calls to `get_settings()` will directly return this previously loaded `_settings` instance, ensuring consistent configuration across the application without repeated loading operations.
+6.  **Reset Capability**: The `reset_settings()` function, when called, sets `_settings = None`. This effectively "resets" the singleton, causing the next call to `get_settings()` to go through the loading process again. This is typically used in testing scenarios or for explicit re-initialization.

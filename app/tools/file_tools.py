@@ -19,6 +19,8 @@ from app.tools.base import ToolDefinition
 ALLOWED_READ: set[str] = {
     "docs/CHANGELOG.md",
     "docs/DEVLOG.md",
+    "docs/CHANGELOG_recovered.md",   
+    "docs/DEVLOG_recovered.md",      
     "docs/V3_ROADMAP.md",
     "CHANGELOG.md",
     "DEVLOG.md",
@@ -70,6 +72,33 @@ def write_file(path: str, content: str) -> str:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content, encoding="utf-8")
     return f"Written {len(content)} chars to {path}"
+
+def append_file(path: str, content: str) -> str:
+    """Append content to an existing file without overwriting."""
+    if path not in ALLOWED_WRITE:
+        raise PermissionError(f"'{path}' not in allowed write list")
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(content)
+    return f"Appended {len(content)} chars to {path}"
+
+    # Add to FILE_TOOLS list:
+    ToolDefinition(
+        name="append_file",
+        description="Append new content to an existing file without overwriting it. Use this for adding new entries to CHANGELOG.md and DEVLOG.md.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+            },
+            "required": ["path", "content"],
+        },
+        handler=append_file,
+        risk_level="medium",
+        requires_confirmation=True,
+    ),
 
 
 # ─── Tool definitions ──────────────────────────────────────────────────────────

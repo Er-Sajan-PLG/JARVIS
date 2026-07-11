@@ -1,41 +1,150 @@
-# config.yaml
-default_model: "qwen3-8b.gguf" 
+active_profile: "local"   # YOUR MASTER SWITCH
+
+profiles:
+  # 🟢 100% Local Machine
+  local:
+    general: "local_general"
+    code: "local_code"
+    reasoning: "local_reasoning"
+    docs: "local_docs"
+
+  # 🟠 100% Grok (XAI Free Tier)
+  grok:
+    general: "grok_general"
+    code: "grok_code"
+    reasoning: "grok_reasoning"
+    docs: "grok_docs"
+
+  # 🔵 100% OpenRouter (Free Llama 70B)
+  openrouter:
+    general: "openrouter_general"
+    code: "openrouter_code"
+    reasoning: "openrouter_reasoning"
+    docs: "openrouter_docs"
+
+  # 🟡 100% Google Gemini (Requires native Python block unhashed & billing enabled)
+  google:
+    general: "google_general"
+    code: "google_code"
+    reasoning: "google_reasoning"
+    docs: "google_docs"
 
 models:
-  general:
-    name: "qwen3-8b.gguf"       
+  # --- 🟢 LOCAL ---
+  local_general:
+    name: "qwen3-8b.gguf"
     role: "general"
     backend: "llamacpp"
     base_url: "http://localhost:8080/v1"
-    
-  coder:
+
+  local_code:
     name: "qwen3:8b"
     role: "code"
     backend: "ollama"
     base_url: "http://localhost:11434"
-    
-  reasoner:
+
+  local_reasoning:
     name: "deepseek-r1:32b"
     role: "reasoning"
     backend: "ollama"
     base_url: "http://localhost:11434"
-    
-  autocomplete:
-    name: "qwen2.5-coder:1.5b"
-    role: "autocomplete"
-    backend: "ollama"
-    base_url: "http://localhost:11434"
 
-  docs:
+  local_docs:
     name: "qwen3-8b.gguf"
     role: "docs"
     backend: "llamacpp"
     base_url: "http://localhost:8080/v1"
 
-memory:
-  retrieval_limit: 5
-  min_confidence: 0.0
+  # --- 🟠 GROK (XAI) ---
+  grok_general:
+    name: "grok-3-beta"
+    role: "general"
+    backend: "llamacpp"
+    base_url: "https://api.x.ai/v1"
+    api_key: "env:XAI_API_KEY"
 
-context:
-  max_tokens: 4096
-  safety_margin: 500
+  grok_code:
+    name: "grok-3-beta"
+    role: "code"
+    backend: "llamacpp"
+    base_url: "https://api.x.ai/v1"
+    api_key: "env:XAI_API_KEY"
+
+  grok_reasoning:
+    name: "grok-3-beta"
+    role: "reasoning"
+    backend: "llamacpp"
+    base_url: "https://api.x.ai/v1"
+    api_key: "env:XAI_API_KEY"
+
+  grok_docs:
+    name: "grok-3-beta"
+    role: "docs"
+    backend: "llamacpp"
+    base_url: "https://api.x.ai/v1"
+    api_key: "env:XAI_API_KEY"
+
+  # --- 🔵 OPENROUTER ---
+  openrouter_general:
+    name: "meta-llama/llama-3.3-70b-instruct:free"
+    role: "general"
+    backend: "llamacpp"
+    base_url: "https://openrouter.ai/api/v1"
+    api_key: "env:OPENROUTER_API_KEY"
+
+  openrouter_code:
+    name: "meta-llama/llama-3.3-70b-instruct:free"
+    role: "code"
+    backend: "llamacpp"
+    base_url: "https://openrouter.ai/api/v1"
+    api_key: "env:OPENROUTER_API_KEY"
+
+  openrouter_reasoning:
+    name: "meta-llama/llama-3.3-70b-instruct:free"
+    role: "reasoning"
+    backend: "llamacpp"
+    base_url: "https://openrouter.ai/api/v1"
+    api_key: "env:OPENROUTER_API_KEY"
+
+  openrouter_docs:
+    name: "meta-llama/llama-3.3-70b-instruct:free"
+    role: "docs"
+    backend: "llamacpp"
+    base_url: "https://openrouter.ai/api/v1"
+    api_key: "env:OPENROUTER_API_KEY"
+
+  # --- 🟡 GOOGLE (Make sure Google block is unhashed in llamacpp_client.py!) ---
+  google_general:
+    name: "gemini-2.0-flash"
+    role: "general"
+    backend: "llamacpp"
+    base_url: "http://localhost" # Ignored by Python block
+    api_key: "env:GOOGLE_API_KEY"
+
+  google_code:
+    name: "gemini-2.0-flash"
+    role: "code"
+    backend: "llamacpp"
+    base_url: "http://localhost" # Ignored by Python block
+    api_key: "env:GOOGLE_API_KEY"
+
+  google_reasoning:
+    name: "gemini-2.0-flash"
+    role: "reasoning"
+    backend: "llamacpp"
+    base_url: "http://localhost" # Ignored by Python block
+    api_key: "env:GOOGLE_API_KEY"
+
+  google_docs:
+    name: "gemini-2.0-flash"
+    role: "docs"
+    backend: "llamacpp"
+    base_url: "http://localhost" # Ignored by Python block
+    api_key: "env:GOOGLE_API_KEY"
+
+  cerebras_general:
+    name: "gemini-2.0-flash"
+    role: "general"
+    backend: "llamacpp"
+    base_url: "http://localhost" # Ignored by Python block
+    api_key: "env:"

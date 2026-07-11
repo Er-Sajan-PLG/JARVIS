@@ -31,42 +31,53 @@ from app.tools.file_tools import FILE_TOOLS
 # ─── System Prompt ─────────────────────────────────────────────────────────────
 
 _SYSTEM = """\
-You are JARVIS's documentation agent. Your job is to generate accurate, \
+You are JARVIS's documentation agent. Your job is to generate accurate,
 well-structured CHANGELOG and DEVLOG entries for the JARVIS project.
 
-You are reading JARVIS's own history. Write entries that JARVIS itself \
+You are reading JARVIS's own history. Write entries that JARVIS itself
 can read later to understand its own evolution.
 
 {tools_section}
 
-To call a tool, output EXACTLY this format on its own line:
+TOOL CALL FORMAT — output EXACTLY this, one call per line:
 <tool_call>{{"name": "tool_name", "args": {{"param": "value"}}}}</tool_call>
 
-Wait for the tool result before continuing. After receiving results, \
-keep reasoning until you have everything you need.
+Wait for each tool result before making the next call.
+Never call a tool inside prose. Never skip waiting for results.
 
 ENTRY FORMAT RULES:
-- Read the existing CHANGELOG.md and DEVLOG.md FIRST to match their format exactly
-- CHANGELOG: What changed and why it matters. Include: Added, Changed, Fixed, Known Issues
-- DEVLOG: Why decisions were made. Cover: the problem, the options considered, \
-  the decision taken, the trade-off accepted. Written for two readers: \
-  the developer AND JARVIS reading its own history.
-- Be specific. "Added streaming" is weak. \
-  "Added token-by-token streaming via on_token callback parameter \
-  — made stream/on_token explicit named params to prevent kwarg leakage into the API" is strong.
+- CHANGELOG: What changed and why it matters.
+  Sections: Added, Changed, Fixed, Known Issues.
+  Be specific: "Added token-by-token streaming via on_token callback — made
+  stream/on_token explicit named params to prevent kwarg leakage into OpenAI client"
+  is good. "Added streaming" is not.
+- DEVLOG: Why decisions were made.
+  Cover: the problem, options considered, decision taken, trade-off accepted.
+  Written for two readers: the developer AND JARVIS reading its own history later.
 - Every bug found belongs in the entry, even bugs introduced in that same release.
-- When writing files: write the COMPLETE file content, not just the new section. \
-  Prepend the new version entry, keep all existing content below it.
+- Use append_file to add entries. Never use write_file on existing docs.
 
-WORKFLOW:
-1. git_log(15)                          → what commits were made?
-2. git_diff_stat("HEAD~N", "HEAD")      → which files changed?
-3. git_diff_full("HEAD~N", "HEAD")      → what actually changed in the code?
-4. read_file("docs/CHANGELOG.md")       → learn the established format
-5. read_file("docs/DEVLOG.md")          → learn the established format
-6. Generate the entries
-7. write_file("docs/CHANGELOG.md", ...) → full file with new entry prepended
-8. write_file("docs/DEVLOG.md", ...)    → full file with new entry prepended
+FILE WRITING RULES:
+- append_file → adds new content at end of existing file. Use this always.
+- write_file  → overwrites entire file. Never use on existing docs.
+- Always confirm the file exists with read_file before appending.
+
+WORKFLOW FOR FULL HISTORY:
+1. git_log(n=30)                          → get all commits, newest first
+2. Work oldest to newest — commits are at the BOTTOM of git_log output
+3. For each commit: git_show(ref=<hash>)  → see exactly what changed
+4. read_file("docs/CHANGELOG_recovered.md") → early version notes (v0.1-v0.8)
+5. read_file("docs/DEVLOG_recovered.md")    → early decision context
+6. read_file("docs/CHANGELOG.md")           → learn current format
+7. read_file("docs/DEVLOG.md")              → learn current format
+8. Generate entries for each version
+9. append_file("docs/CHANGELOG.md", ...)    → append, never overwrite
+10. append_file("docs/DEVLOG.md", ...)      → append, never overwrite
+
+VERSIONING NOTES:
+- Early versions: 2-digit format (v0.1, v0.2, v0.3...)
+- 3-digit format started at v2.0.0
+- Jump from v1.x to v2.0.0 was a complete architecture rewrite
 """
 
 MAX_ITERATIONS = 12  # safety ceiling — should never be reached in normal use
@@ -181,10 +192,15 @@ _TASKS = {
     ),
     "3": (
         "both",
-        "Generate both a CHANGELOG.md entry and a DEVLOG.md entry for the most recent changes. "
-        "Do changelog first (what changed), then devlog (why decisions were made). "
-        "Read both existing files first to match their formats exactly. "
-        "Write both complete updated files.",
+        "Document JARVIS complete history from first commit to now. "
+        "FIRST call git_log with n=30 to get ALL commits. "
+        "Then work from OLDEST commit (bottom of list) to newest. "
+        "Call git_show for EACH commit hash individually. "
+        "Call read_file on docs/CHANGELOG_recovered.md and docs/DEVLOG_recovered.md for early context. "
+        "Write a CHANGELOG entry for every version found. "
+        "Write a DEVLOG entry for every version found. "
+        "Use append_file for both files. "
+        "Do not stop until entries are written for ALL commits."
     ),
 }
 

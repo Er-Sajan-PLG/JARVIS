@@ -42,6 +42,9 @@ class ModelRouter:
             "evaluate", "justify", "argument", "conclusion", "premise",
             "deduce", "infer", "contradiction", "hypothesis"
         ],
+        TaskType.GENERAL:   [ "general" ],
+        TaskType.AUTOCOMPLETE:  [ "autocomplete" ],
+            
     }
     
     def __init__(
@@ -66,6 +69,8 @@ class ModelRouter:
             return self.models[task_type]
         if self.default_model:
             return self.default_model
+        if self.models:
+            return next(iter(self.models.values())) # last-resort
         raise ValueError(f"No model for task type: {task_type}")
     
     def route(self, prompt: str) -> tuple[ModelClient, TaskType]:

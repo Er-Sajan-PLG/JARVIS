@@ -22,7 +22,19 @@ from app.tools.base import ToolRegistry, ToolResult
 # Matches: <tool_call>{"name": "...", "args": {...}}</tool_call>
 # Tolerates whitespace, newlines inside the tag
 _TOOL_CALL_RE = re.compile(
-    r"<tool_call>\s*(\{.*?\})\s*</tool_call>",
+    r"<tool_call>\s*(\{.*?\})\s*</?tool_?call>?",
+    re.DOTALL | re.IGNORECASE,
+)
+
+# Function call with string args: read_file("path")
+_FUNC_CALL_RE = re.compile(
+    r"<tool_call>\s*(\w+)\s*\(([^{].*?)\)\s*</tool_call>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+# Hybrid: git_show({"ref": "abc"})  ← what Gemini produces
+_HYBRID_CALL_RE = re.compile(
+    r"<tool_call>\s*(\w+)\s*\((\{.*?\})\)\s*</tool_call>",
     re.DOTALL | re.IGNORECASE,
 )
 
@@ -61,27 +73,49 @@ class ToolExecutor:
     # ─── Parsing ──────────────────────────────────────────────────────────────
 
     def has_calls(self, text: str) -> bool:
-        """Quick check: does this text contain any tool calls?"""
-        return bool(_TOOL_CALL_RE.search(text))
+        return bool(
+            _TOOL_CALL_RE.search(text) or
+            _HYBRID_CALL_RE.search(text) or
+            _FUNC_CALL_RE.search(text)
+        )
 
     def parse(self, text: str) -> list[ParsedCall]:
-        """
-        Extract all tool calls from model output.
-
-        Silently skips malformed JSON — the model might occasionally
-        produce a broken tag. We don't crash; we just ignore it.
-        """
         calls = []
+        seen = set()
+
+        # Format 1: {"name": "git_show", "args": {"ref": "abc"}}
         for match in _TOOL_CALL_RE.finditer(text):
-            raw = match.group(0)
             try:
                 data = json.loads(match.group(1))
                 name = data.get("name", "").strip()
                 args = data.get("args", {})
-                if name:
-                    calls.append(ParsedCall(name=name, args=args, raw=raw))
+                if name and name not in seen:
+                    seen.add(name)
+                    calls.append(ParsedCall(name=name, args=args, raw=match.group(0)))
             except json.JSONDecodeError:
-                pass  # model produced invalid JSON — skip this call
+                pass
+
+        # Format 2: git_show({"ref": "abc"})
+        for match in _HYBRID_CALL_RE.finditer(text):
+            try:
+                name = match.group(1).strip()
+                args = json.loads(match.group(2))
+                if name and name not in seen:
+                    seen.add(name)
+                    calls.append(ParsedCall(name=name, args=args, raw=match.group(0)))
+            except json.JSONDecodeError:
+                pass
+
+        # Format 3: read_file("docs/CHANGELOG.md")
+        for match in _FUNC_CALL_RE.finditer(text):
+            name = match.group(1).strip()
+            args_str = match.group(2).strip()
+            if name and name not in seen:
+                seen.add(name)
+                positional = re.findall(r'["\']([^"\']+)["\']', args_str)
+                args = {"path": positional[0]} if positional else {}
+                calls.append(ParsedCall(name=name, args=args, raw=match.group(0)))
+
         return calls
 
     # ─── Execution ────────────────────────────────────────────────────────────

@@ -15,6 +15,10 @@ the fact is stored BEFORE retrieval, so it can be included
 in the same turn's context.
 """
 
+
+from dotenv import load_dotenv
+load_dotenv()
+
 import sys
 from app.config.settings import get_settings
 from app.config.prompt import SYSTEM_PROMPT
@@ -33,6 +37,7 @@ from app.memory.vector_retriever import VectorRetriever
 from app.memory.conversation_store import ConversationVectorStore
 from app.models.llamacpp_client import LlamaCppClient
 from app.agents.doc_agent import DocumentationAgent, run_interactive
+from app.models.switcher import ModelSwitcher
 
 
 # --- AUTO-START LLM SERVER ---
@@ -52,15 +57,17 @@ print("Starting Jarvis...")
 
 
 def main():
+
+    
     print("=" * 50)
     print(f"JARVIS {VERSION}")
     print("=" * 50)
 
 
-    # Get centralized settings (reads config.yaml if it exists)
+    # Load settings from environment variables or config file
     settings = get_settings()
     
-    # Initialize subsystems with clean interfaces
+    # Initialize model clients
     memory = MemoryManager(
         retriever=HybridRetriever(
         vector=VectorRetriever(
@@ -83,30 +90,15 @@ def main():
         model_name=settings.default_model,
     )
     
-    # === NEW: DYNAMIC MODEL ROUTING FROM CONFIG ===
-    router = ModelRouter()
     
-    for key, model_cfg in settings.models.items():
-        try:
-            client = create_client(model_cfg)
-            task_type = TaskType(model_cfg.role)
-            router.register(task_type, client)
-            print(f"✅ Loaded {model_cfg.role}: {model_cfg.name} ({model_cfg.backend})")
-        except Exception as e:
-            print(f"❌ Failed to load {key}: {e}")
-    
-    # Set fallback default model
-    if "general" in settings.models:
-        router.set_default(create_client(settings.models["general"]))
-    elif settings.models:
-        router.set_default(create_client(list(settings.models.values())[0]))
-    # ===============================================
-    
-    #=== NEW: DOCUMENTATION AGENT ===
+    #=== Model Router and Switcher ===
+
+    switcher = ModelSwitcher(settings)
+
     doc_agent = DocumentationAgent(
-        model=router.select(TaskType.DOCS)
-        if TaskType.DOCS in router.models
-        else router.default_model
+        model=switcher.get_client(
+            settings.profiles.get(settings.active_profile, {}).get("docs", "general")
+        ) or switcher.router.default_model
     )
 
     # Show tokenizer info
@@ -157,7 +149,37 @@ def main():
             _show_stats(memory, conversation, context_manager, tokenizer_info)
             continue
 
+    
+        
 
+        if prompt.startswith("model"):
+            arg = prompt[5:].strip()
+            if not arg:
+                result = _interactive_model_select(switcher, settings)
+                if result:
+                    if result.startswith("model:"):
+                        mk = result[len("model:"):]
+                        client = switcher.get_client(mk)
+                        if client:
+                            doc_agent = DocumentationAgent(model=client)
+                    else:
+                        print(f"✅ Switched to '{result}' profile")
+                        docs_key = settings.profiles.get(result, {}).get("docs", "general")
+                        new_model = switcher.get_client(docs_key)
+                        if new_model:
+                            doc_agent = DocumentationAgent(model=new_model)
+            elif arg == "list":
+                print(switcher.list_profiles())
+            elif switcher.switch(arg):
+                print(f"✅ Switched to '{arg}' profile")
+                docs_key = settings.profiles.get(arg, {}).get("docs", "general")
+                new_model = switcher.get_client(docs_key)
+                if new_model:
+                    doc_agent = DocumentationAgent(model=new_model)
+            else:
+                print(f"❌ Unknown profile: '{arg}'")
+                print(f"Available: {list(settings.profiles.keys())}")
+            continue
             
 
         
@@ -197,9 +219,7 @@ def main():
         fitted_messages = context_manager.fit(messages)
         
         # 8. Generate response
-        selected_model, task_type = router.route(prompt)
-        if selected_model is None:
-            selected_model = router.default_model
+        selected_model, task_type = switcher.router.route(prompt)
 
         
         # 9. Stream response to console
@@ -237,6 +257,110 @@ def _cleanup(memory: MemoryManager, conversation: ConversationManager):
     """Ensure all data is saved before exit"""
     memory.save_if_dirty()
     conversation.save_if_dirty()
+
+
+# app/main.py
+def _categorize_profiles(settings) -> dict:
+    """Split profiles into local vs api by the general model's base_url."""
+    cats = {"local": [], "api": []}
+    for name, mapping in settings.profiles.items():
+        gen_key = mapping.get("general") or next(iter(mapping.values()), None)
+        cfg = settings.models.get(gen_key)
+        is_local = bool(cfg) and ("localhost" in cfg.base_url or "127.0.0.1" in cfg.base_url)
+        cats["local" if is_local else "api"].append(name)
+    return cats
+
+
+def _categorize_cloud_models(settings) -> dict:
+    """
+    Group cloud model KEYS by provider, inferred from base_url host.
+    (Google entries in your config use base_url 'http://localhost' for the
+     Python block — fix those to the real host or they'll be missed here.)
+    """
+    from urllib.parse import urlparse
+    host_map = {
+        "api.x.ai": "grok",
+        "openrouter.ai": "openrouter",
+        "generativelanguage.googleapis.com": "google",
+    }
+    groups = {}
+    for key, cfg in settings.models.items():
+        if "localhost" in cfg.base_url or "127.0.0.1" in cfg.base_url:
+            continue
+        host = urlparse(cfg.base_url).netloc
+        provider = host_map.get(host, host)
+        groups.setdefault(provider, []).append(key)
+    return groups
+
+
+def _interactive_model_select(switcher, settings) -> str | None:
+    """
+    Local -> pick profile.  API -> pick provider -> pick specific model.
+    Returns profile name, or 'model:<key>' when a single cloud model was chosen.
+    """
+    print("\n╔══════════════════════════════════════╗")
+    print("║        Select Model Provider         ║")
+    print("╚══════════════════════════════════════╝")
+    print("  [1] Local  (runs on your machine)")
+    print("  [2] API    (cloud providers)")
+
+    choice = input("Provider (1/2): ").strip()
+
+    # ---------- LOCAL ----------
+    if choice == "1":
+        cats = _categorize_profiles(settings)
+        pool = cats["local"]
+        if not pool:
+            print("  No local profiles available."); return None
+        print("\nLocal profiles:")
+        for i, p in enumerate(pool, 1):
+            marker = "●" if p == switcher.active_profile else " "
+            print(f"  {i}. {marker} {p}")
+        sel = input(f"Select (1-{len(pool)}): ").strip()
+        try:
+            profile = pool[int(sel) - 1]
+        except (ValueError, IndexError):
+            print("Invalid selection."); return None
+        if switcher.switch(profile):
+            return profile
+        return None
+
+    # ---------- API ----------
+    if choice == "2":
+        cloud = _categorize_cloud_models(settings)
+        providers = list(cloud.keys())
+        if not providers:
+            print("  No cloud models configured."); return None
+        print("\nCloud providers:")
+        for i, p in enumerate(providers, 1):
+            print(f"  {i}. {p}")
+        sel = input(f"Select provider (1-{len(providers)}): ").strip()
+        try:
+            prov = providers[int(sel) - 1]
+        except (ValueError, IndexError):
+            print("Invalid selection."); return None
+
+        models = cloud[prov]
+        print(f"\nModels in {prov}:")
+        for i, m in enumerate(models, 1):
+            client = switcher.get_client(m)
+            status = "✓ loaded" if client else "✗ key missing"
+            print(f"  {i}. {settings.models[m].name}  [{m}]  {status}")
+        selm = input(f"Select model (1-{len(models)}): ").strip()
+        try:
+            model_key = models[int(selm) - 1]
+        except (ValueError, IndexError):
+            print("Invalid selection."); return None
+
+        if switcher.switch_to_model(model_key):
+            print(f"✅ Using cloud model: {settings.models[model_key].name}")
+            return f"model:{model_key}"
+        print("  ⚠️ Model not loaded — check its API key in .env.")
+        return None
+
+    print("Invalid selection.")
+    return None
+
 
 #=== Display Functions ===
 def _show_memories(memory: MemoryManager):

@@ -289,7 +289,7 @@ it just had no effect on anything.
 response = model.generate(fitted_messages)
 
 # After: router determines which model runs
-selected_model, task_type = router.route(prompt)
+selected_model, task_type = switcher.router.route(prompt)
 response = selected_model.generate(fitted_messages)
 ```
 
@@ -452,10 +452,10 @@ model.generate(). This crashes with:
 AttributeError: 'tuple' object has no attribute 'generate'
 
 python# Wrong (current):
-model = router.route(prompt)
+model = switcher.router.route(prompt)
 
 Fix:
-model, task_type = router.route(prompt)
+model, task_type = switcher.router.route(prompt)
 
 Bug 4 — on_token leaks into the OpenAI API call (API error)
 
