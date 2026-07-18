@@ -2,8 +2,8 @@
 
 > Module: `app/models/`. The model layer's central contract is the
 > `ModelClient` Protocol. Every concrete client (`LlamaCppClient`,
-> `OllamaClient`, `OpenRouterClient`) is interchangeable — the router cannot
-> tell local from cloud.
+> `OllamaClient`, `OpenRouterClient`, `GoogleClient`) is interchangeable — the
+> router cannot tell local from cloud.
 
 ---
 
@@ -27,6 +27,7 @@ flowchart TB
         LCPP["LlamaCppClient"]
         OLL["OllamaClient"]
         ORR["OpenRouterClient"]
+        GC["GoogleClient"]
     end
 
     subgraph EXT["Providers"]
@@ -38,9 +39,11 @@ flowchart TB
     PROTO --> LCPP
     PROTO --> OLL
     PROTO --> ORR
+    PROTO --> GC
     LCPP --> RESP
     OLL --> RESP
     ORR --> RESP
+    GC --> RESP
 
     SW --> ROUTER
     SW --> FACT
@@ -48,10 +51,12 @@ flowchart TB
     FACT -->|"llamacpp"| LCPP
     FACT -->|"ollama"| OLL
     FACT -->|"openrouter"| ORR
+    FACT -->|"google"| GC
 
     LCPP --> LS
     OLL --> OS
     ORR --> CR
+    GC --> CR
 ```
 
 ---
@@ -73,8 +78,8 @@ flowchart TD
     LCPP --> OUT
 ```
 
-> `LlamaCppClient` also contains a fully commented-out Google/Gemini block
-> (dead code) and an isolated Google request path — not active.
+> Google Gemini is handled by a dedicated `GoogleClient`
+> (`app/models/google_client.py`), selected via `backend: "google"`.
 
 ---
 
@@ -123,7 +128,7 @@ flowchart TB
     DEF --> ACTIVE["switcher.active_profile<br/>(switcher.router -> ModelRouter)"]
 ```
 
-> Client load failures are caught during `__init__` (prints `⚠️ Could not load`)
+> Client load failures are caught during `__init__` (logs `⚠️ Could not load` via `logging`)
 > and startup continues. Switching to a profile with no loaded models yields a
 > router that raises `ValueError` on `route()`.
 
@@ -131,8 +136,10 @@ flowchart TB
 
 ## 5. Client Transport (generate)
 
-All three clients implement the same `generate()` shape over an OpenAI-compatible
-API. `stream` and `on_token` are consumed by the client; `**kwargs` are forwarded.
+`LlamaCppClient`, `OllamaClient`, and `OpenRouterClient` implement the same
+`generate()` shape over an OpenAI-compatible API. `GoogleClient` uses the Gemini
+REST API but exposes the identical `generate()` signature. In all cases `stream`
+and `on_token` are consumed by the client; `**kwargs` are forwarded.
 
 ```mermaid
 sequenceDiagram

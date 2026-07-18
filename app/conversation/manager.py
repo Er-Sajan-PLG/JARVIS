@@ -1,4 +1,3 @@
-#app/conversation/manager.py
 """
 Conversation Manager for JARVIS v2.0
 
@@ -14,11 +13,16 @@ Interface:
 """
 
 import time
+import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 import json
 
 from app.config.settings import get_settings, ConversationConfig
+from app.utils.corruption import backup_corrupt_file, report_corruption
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -99,6 +103,11 @@ class ConversationManager:
         """Return number of messages"""
         return len(self._messages)
     
+    @property
+    def is_dirty(self) -> bool:
+        """Whether there are unsaved changes."""
+        return self._dirty
+
     def clear(self):
         """Clear all messages"""
         self._messages.clear()
@@ -123,6 +132,11 @@ class ConversationManager:
         """
         if self._messages:
             popped = self._messages.pop()
+            # Mark dirty BEFORE saving: with save_on_every_message=True the
+            # prior add_message() already flushed and reset _dirty, so without
+            # this flag the removal is never persisted and the "popped" message
+            # silently reappears on reload (broken save/load cycle).
+            self._dirty = True
             self.save()
             return popped
         return None
@@ -140,9 +154,28 @@ class ConversationManager:
             "messages": [m.to_dict() for m in self._messages],
         }
         
-        with open(self.path, "w") as f:
-            json.dump(data, f, indent=2)
-        
+        # Write to a temp file in the SAME directory, then atomically replace
+        # the target with os.replace(). Opening the target directly with "w"
+        # truncates it first, so an interrupted write leaves a truncated/corrupt
+        # file and loses the whole conversation. os.replace() is atomic on
+        # POSIX/Windows, so readers only ever see the old or the new file.
+        tmp_path = self.path.with_suffix(self.path.suffix + ".tmp")
+        try:
+            with open(tmp_path, "w") as f:
+                json.dump(data, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, self.path)
+        except BaseException:
+            # Clean up the partial temp file, then re-raise so callers know the
+            # write failed and _dirty stays True for a retry.
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+            except OSError:
+                pass
+            raise
+
         self._dirty = False
     
     def save_if_dirty(self):
@@ -157,7 +190,12 @@ class ConversationManager:
         try:
             with open(self.path, "r") as f:
                 data = json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (json.JSONDecodeError, OSError) as exc:
+            # Corruption / unreadable file: do NOT silently start empty.
+            # Quarantine the bad file so the next save() can't destroy it,
+            # then warn loudly.
+            backup = backup_corrupt_file(self.path)
+            report_corruption(logger, "conversation", self.path, exc, backup)
             return
         
         # V2 format
@@ -180,3 +218,6 @@ class ConversationManager:
     def conversation(self) -> list[dict]:
         """Legacy property"""
         return [m.to_openai_format() for m in self._messages]
+
+
+

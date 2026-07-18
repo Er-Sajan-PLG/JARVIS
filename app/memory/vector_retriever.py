@@ -3,16 +3,21 @@
 import chromadb
 from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
 
+from app.config.settings import PathsConfig
 from app.memory.schema import Memory
+
+
+# Backward-compatible defaults; main.py overrides these from Settings.paths.
+_DEFAULT_PATHS = PathsConfig()
 
 
 class VectorRetriever:
 
     def __init__(
         self,
-        persist_dir: str = "data/chroma",
-        ollama_url: str = "http://localhost:11434",
-        embed_model: str = "nomic-embed-text",
+        persist_dir: str = str(_DEFAULT_PATHS.chroma_dir),
+        ollama_url: str = _DEFAULT_PATHS.ollama_url,
+        embed_model: str = _DEFAULT_PATHS.embed_model,
     ):
         embedding_fn = OllamaEmbeddingFunction(
             url=ollama_url,
@@ -47,7 +52,7 @@ class VectorRetriever:
     def on_memory_added(self, memory: Memory) -> None:
         self._collection.upsert(
             ids=[memory.id],
-            documents=[f"{memory.category} {memory.memory_type}: {memory.value}"],
+            documents=[self._memory_to_text(memory)],
             metadatas=[self._to_chroma_meta(memory)],
         )
 
@@ -58,20 +63,23 @@ class VectorRetriever:
             pass
 
     def on_index_rebuilt(self, memories: list[Memory]) -> None:
+        # Replace the entire collection in one shot. ChromaDB's embedding
+        # function embeds the full document list in a single batched call,
+        # instead of the previous per-memory loop that fired one embedding
+        # request per memory (O(N) API round-trips on startup / rebuild).
         existing = self._collection.get()
         if existing["ids"]:
             self._collection.delete(ids=existing["ids"])
-        for memory in memories:
-            self.on_memory_added(memory)
+        if memories:
+            self._batch_upsert(memories)
 
-
-        def _memory_to_text(self, memory: Memory) -> str:
-            """
-            Build the text that gets embedded.
-            Richer text = better semantic matching.
-            e.g. "preference like: chocolate" embeds better than just "chocolate"
-            """
-            return f"{memory.category} {memory.memory_type}: {memory.value}"
+    def _batch_upsert(self, memories: list[Memory]) -> None:
+        """Insert/update many memories in a single (batched) call."""
+        self._collection.upsert(
+            ids=[m.id for m in memories],
+            documents=[self._memory_to_text(m) for m in memories],
+            metadatas=[self._to_chroma_meta(m) for m in memories],
+        )
 
     def clear(self) -> None:
         existing = self._collection.get()
@@ -93,3 +101,11 @@ class VectorRetriever:
             "importance":   memory.importance,
             "access_count": memory.access_count,
         }
+
+    def _memory_to_text(self, memory: Memory) -> str:
+        """
+        Build the text that gets embedded.
+        Richer text = better semantic matching.
+        e.g. "preference like: chocolate" embeds better than just "chocolate"
+        """
+        return f"{memory.category} {memory.memory_type}: {memory.value}"

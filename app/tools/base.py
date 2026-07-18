@@ -1,12 +1,12 @@
 """
-Tool infrastructure for JARVIS v2.4.0
+Tool infrastructure for JARVIS 
 
 Three classes:
 - ToolResult:     what a tool returns (success/failure + output)
 - ToolDefinition: a tool's metadata + handler + schema
 - ToolRegistry:   holds all registered tools, formats them for the model
 
-Designed to be forward-compatible with v3.0's full agentic runtime.
+Designed to support future agent runtime expansions.
 The schema format is already OpenAI function-calling compatible.
 """
 

@@ -4,11 +4,15 @@ Centralized configuration for JARVIS v2.1
 
 import threading
 import yaml
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Optional
 from pathlib import Path
 from dotenv import load_dotenv
 import os
+
+from app.utils.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -74,6 +78,13 @@ class PathsConfig:
     """All file paths in one place"""
     data_dir: Path = field(default_factory=lambda: Path("data"))
     
+    # ChromaDB semantic index + Ollama embedding endpoint. Centralized here so
+    # main.py, VectorRetriever and ConversationVectorStore share ONE source
+    # instead of each hardcoding "data/chroma" / "http://localhost:11434".
+    chroma_dir: Path = field(default_factory=lambda: Path("data") / "chroma")
+    ollama_url: str = "http://localhost:11434"
+    embed_model: str = "nomic-embed-text"
+
     @property
     def memories(self) -> Path:
         return self.data_dir / "memories.json"
@@ -83,8 +94,49 @@ class PathsConfig:
         return self.data_dir / "conversations"
     
     @property
+    def attachments_dir(self) -> Path:
+        return self.data_dir / "attachments"
+
+    @property
     def default_conversation(self) -> Path:
         return self.conversations_dir / "default.json"
+
+
+def _safe_dataclass(cls, data, fallback):
+    """Build a dataclass from a dict, ignoring unknown keys and using defaults
+    for any missing ones. Returns ``fallback`` if ``data`` isn't a mapping or
+    construction fails (e.g. wrong type) so a bad section can't crash loading.
+    """
+    if not isinstance(data, dict):
+        logger.warning(
+            "config for %s is not a mapping; using defaults", cls.__name__
+        )
+        return fallback
+    valid = {f.name for f in fields(cls)}
+    try:
+        return cls(**{k: v for k, v in data.items() if k in valid})
+    except (TypeError, ValueError) as e:
+        logger.warning("invalid %s config (%s); using defaults", cls.__name__, e)
+        return fallback
+
+
+def _safe_model_config(key, mdata):
+    """Build a ModelConfig, tolerating missing required fields (``name``/``role``
+    have no defaults) by falling back to the dict ``key``. Returns ``None`` on
+    an unrecoverable error so the entry is skipped instead of crashing.
+    """
+    if not isinstance(mdata, dict):
+        logger.warning("model '%s' config is not a mapping; skipping", key)
+        return None
+    valid = {f.name for f in fields(ModelConfig)}
+    merged = dict(mdata)
+    merged.setdefault("name", key)
+    merged.setdefault("role", key)
+    try:
+        return ModelConfig(**{k: v for k, v in merged.items() if k in valid})
+    except (TypeError, ValueError) as e:
+        print(f"Warning: invalid model config '{key}' ({e}); skipping")
+        return None
 
 
 @dataclass
@@ -143,35 +195,76 @@ class Settings:
         if not yaml_path.exists():
             return cls()  # No config file found, use defaults
         
-        with open(yaml_path, "r") as f:
-            data = yaml.safe_load(f) or {}
+        try:
+            with open(yaml_path, "r") as f:
+                data = yaml.safe_load(f) or {}
+        except yaml.YAMLError as e:
+            logger.warning("failed to parse %s (%s); using defaults", yaml_path, e)
+            return cls()
+        except OSError as e:
+            logger.warning("failed to read %s (%s); using defaults", yaml_path, e)
+            return cls()
+
+        if not isinstance(data, dict):
+            logger.warning(
+                "top-level config in %s is not a mapping; using defaults",
+                yaml_path,
+            )
+            return cls()
 
         # Start with default settings instance
         settings = cls()
-        
-        # Safely override with YAML data
-        if "default_model" in data:
+
+        # Top-level optional scalar fields
+        if "default_model" in data and isinstance(data["default_model"], str):
             settings.default_model = data["default_model"]
         
+        # Models — required name/role tolerated via fallback; invalid entries skipped
         if "models" in data:
-            settings.models = {}
-            for key, mdata in data["models"].items():
-                settings.models[key] = ModelConfig(**mdata)
-                
+            if isinstance(data["models"], dict):
+                loaded_models = {}
+                for key, mdata in data["models"].items():
+                    model = _safe_model_config(key, mdata)
+                    if model is not None:
+                        loaded_models[key] = model
+                if loaded_models:
+                    settings.models = loaded_models
+                else:
+                    logger.warning("no valid models in config; using default models")
+            else:
+                logger.warning("'models' is not a mapping; using default models")
+
+        # Structured sections — all fields have defaults, unknown keys ignored
         if "memory" in data:
-            settings.memory = MemoryConfig(**data["memory"])
-            
+            settings.memory = _safe_dataclass(MemoryConfig, data["memory"], settings.memory)
         if "context" in data:
-            settings.context = ContextConfig(**data["context"])
-            
+            settings.context = _safe_dataclass(ContextConfig, data["context"], settings.context)
         if "conversation" in data:
-            settings.conversation = ConversationConfig(**data["conversation"])
-
+            settings.conversation = _safe_dataclass(ConversationConfig, data["conversation"], settings.conversation)
         if "retrieval" in data:
-            settings.retrieval = RetrievalConfig(**data["retrieval"])
+            settings.retrieval = _safe_dataclass(RetrievalConfig, data["retrieval"], settings.retrieval)
+        if "ranking" in data:
+            settings.ranking = _safe_dataclass(RankingConfig, data["ranking"], settings.ranking)
 
+        # Profiles must remain a mapping for the model switcher
         if "profiles" in data:
-            settings.profiles = data["profiles"]
+            if isinstance(data["profiles"], dict):
+                settings.profiles = data["profiles"]
+            else:
+                logger.warning("'profiles' is not a mapping; using defaults")
+
+        if "active_profile" in data:
+            candidate = data["active_profile"]
+            profiles_ok = isinstance(settings.profiles, dict)
+            if profiles_ok and candidate in settings.profiles:
+                settings.active_profile = candidate
+            else:
+                keys = list(settings.profiles.keys()) if profiles_ok else settings.profiles
+                logger.warning(
+                    "active_profile '%s' not found in profiles %s; "
+                    "falling back to '%s'",
+                    candidate, keys, settings.active_profile,
+                )
 
         return settings
 

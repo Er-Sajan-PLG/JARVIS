@@ -57,7 +57,7 @@ The project is currently in the transition from **v2 (Stable Architecture)** to 
 
 # Uncertainties
 - **Early History:** Full details on v0.1 to v0.8 are reliant on recovered logs (`docs/CHANGELOG_recovered.md`), which may contain gaps.
-- **Google Integration:** The Google API Python integration currently exists as a block that requires manual unhashing, making its production readiness unverified.
+- **Google Integration:** Resolved — Google Gemini is now a first-class `GoogleClient` (`app/models/google_client.py`), selected via `backend: "google"` in `config.yaml` (no source editing required).
 
 ---
 

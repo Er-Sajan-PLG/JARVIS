@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Stress test suite for JARVIS Documentation Agent (v2.4.0)
+Stress test suite for JARVIS Documentation Agent
 
 Run with:  python3 tests/stress_test.py
 Run one section: python3 tests/stress_test.py TestParser

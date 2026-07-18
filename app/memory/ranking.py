@@ -12,12 +12,13 @@ Ranking factors:
 - Confidence: How reliable this memory is
 """
 
-import re
 import time
+import math
 from dataclasses import dataclass
 from typing import Optional
 
 from app.memory.schema import Memory, MemoryResult
+from app.utils.text import STOP_WORDS, extract_keywords
 
 
 @dataclass
@@ -61,7 +62,6 @@ class MemoryRanker:
         self.weights = weights or DEFAULT_WEIGHTS
         self._recency_half_life = recency_half_life_days * 24 * 60 * 60
         self._frequency_scale = frequency_scale
-        self._stop_words = self._build_stop_words()
     
     def rank(
         self,
@@ -134,11 +134,8 @@ class MemoryRanker:
         if not query_keywords:
             return 0.0
         
-        memory_text = f"{memory.value} {memory.category} {memory.memory_type}".lower()
-        memory_keywords = set(memory_text.split())
-        
-        # Remove stop words from memory keywords too
-        memory_keywords = memory_keywords - self._stop_words
+        memory_text = f"{memory.value} {memory.category} {memory.memory_type}"
+        memory_keywords = extract_keywords(memory_text, STOP_WORDS)
         
         if not memory_keywords:
             return 0.0
@@ -185,25 +182,8 @@ class MemoryRanker:
         return memory.confidence
     
     def _extract_keywords(self, text: str) -> set[str]:
-        """Extract keywords from text"""
-        text = text.lower()
-        text = re.sub(r'[^\w\s]', ' ', text)
-        words = text.split()
-        return {w for w in words if w not in self._stop_words and len(w) > 1}
-    
-    def _build_stop_words(self) -> set[str]:
-        """Build stop words set"""
-        return {
-            'i', 'me', 'my', 'myself', 'we', 'our', 'you', 'your', 'he', 'him',
-            'his', 'she', 'her', 'it', 'its', 'they', 'them', 'their', 'what',
-            'which', 'who', 'this', 'that', 'these', 'those', 'am', 'is', 'are',
-            'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do',
-            'does', 'did', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because',
-            'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about',
-            'against', 'between', 'through', 'during', 'before', 'after', 'to',
-            'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under',
-            'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where',
-            'why', 'how', 'all', 'each', 'few', 'more', 'most', 'other', 'some',
-            'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than',
-            'too', 'very', 'can', 'will', 'just', 'should', 'now', 'would', 'could',
-        }
+        """Extract keywords from text using the shared tokenizer/stop words."""
+        return extract_keywords(text, STOP_WORDS)
+
+
+

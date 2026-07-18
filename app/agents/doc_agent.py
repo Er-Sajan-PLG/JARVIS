@@ -1,5 +1,5 @@
 """
-Documentation Agent for JARVIS v2.4.0
+Documentation Agent for JARVIS
 
 This is JARVIS documenting its own evolution.
 

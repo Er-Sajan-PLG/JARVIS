@@ -159,13 +159,20 @@ class MemoryManager:
         return len(removed)
     
     def merge(self, memory_id: str, new_data: dict) -> Optional[Memory]:
-        """Merge new data into an existing memory"""
-        if "value" in new_data:
-            memory = self._store.get_by_id(memory_id)
-            if memory and new_data["value"] not in memory.value:
-                new_data["value"] = f"{memory.value}; {new_data['value']}"
-        
-        return self.update(memory_id, new_data)
+        """
+        Merge new data into an existing memory.
+
+        Works on a copy of ``new_data`` so the caller's dict is never mutated.
+        """
+        memory = self._store.get_by_id(memory_id)
+        if memory is None:
+            return self.update(memory_id, new_data)
+
+        merged = dict(new_data)
+        if "value" in merged and merged["value"] not in memory.value:
+            merged["value"] = f"{memory.value}; {merged['value']}"
+
+        return self.update(memory_id, merged)
     
     # ===== Query Methods (pass-through to store) =====
     
@@ -184,6 +191,11 @@ class MemoryManager:
     def count(self) -> int:
         return self._store.count()
     
+    @property
+    def is_dirty(self) -> bool:
+        """Whether the underlying store has unsaved changes."""
+        return self._store.is_dirty
+
     def clear(self):
         self._store.clear()
         self._retriever.clear()
@@ -235,10 +247,16 @@ class MemoryManager:
         existing = self._store.find_by_category_and_type(fact["category"], fact["type"])
         
         if existing:
-            # Replace first match
+            # Replace first match, preserving any metadata the caller supplied.
             memory = existing[0]
             memory.value = fact["value"]
             memory.source = source
+            if "confidence" in fact:
+                memory.confidence = fact["confidence"]
+            if "importance" in fact:
+                memory.importance = fact["importance"]
+            if "behavior" in fact:
+                memory.behavior = fact["behavior"]
             memory.mark_updated()
             
             if self._on_update:

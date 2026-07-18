@@ -1,5 +1,6 @@
+
 """
-JARVIS v2.1.0 - Main Entry Point
+JARVIS — version is derived automatically from git tags (vA.B.C).
 
 Architecture:
 1. Extract facts from user input (FIRST - enables immediate personalization)
@@ -16,10 +17,12 @@ in the same turn's context.
 """
 
 
-from dotenv import load_dotenv
-load_dotenv()
 
-import sys
+
+
+import datetime
+import os
+from dotenv import load_dotenv
 from app.config.settings import get_settings
 from app.config.prompt import SYSTEM_PROMPT
 from app.config.version import VERSION
@@ -28,9 +31,9 @@ from app.memory.fact_extractor import extract_facts
 from app.conversation.manager import ConversationManager
 from app.prompt.builder import PromptBuilder
 from app.context.manager import ContextWindowManager
-from app.models.factory import create_client  
-from app.models.router import ModelRouter, TaskType
+from app.models.exceptions import ModelError
 from app.utils.server_manager import ensure_server_running
+from app.utils.model_selector import _startup_model_select
 from app.memory.retrieval import KeywordRetriever
 from app.memory.hybrid_retriever import HybridRetriever
 from app.memory.vector_retriever import VectorRetriever
@@ -40,28 +43,111 @@ from app.agents.doc_agent import DocumentationAgent, run_interactive
 from app.models.switcher import ModelSwitcher
 
 
-# --- AUTO-START LLM SERVER ---
-#LLAMA_SERVER_PATH = "./llama-server"
-#MAIN_MODEL_PATH = "./models/llama-3.2-3b-instruct-q4_k_m.gguf"
+# --- AUTO-START PREREQUISITE SERVERS ---
+def _autostart_servers(settings) -> None:
+    """Best-effort launch/repair of every local model server JARVIS needs.
 
-#ensure_server_running(
-#    port=8080,
-#    command=[LLAMA_SERVER_PATH, "-m", MAIN_MODEL_PATH, "-c", "4096", "--port", "8080"],
-#    name="Main LLM (3B)"
-#)
+    For each model whose ``backend == "llamacpp"`` AND whose ``base_url`` points
+    at this machine (localhost / 127.0.0.1) on a real model port:
+
+    * if the port is already open  -> nothing to do.
+    * elif a ``llama-server`` binary is available -> launch it in the background
+      and wait for the port to open.
+    * else (no binary, e.g. llama.cpp was never installed) -> try to remap the
+      model to an equivalently-named Ollama model that *is* pulled, so JARVIS can
+      still serve it through Ollama (which is already running).
+
+    Remote llamacpp entries (OpenRouter, xAI, ...) and non-llamacpp backends
+    (ollama, google) are never touched. All failures are non-fatal: JARVIS
+    prints a warning and continues so cloud/API models still work. The
+    ``settings.models`` dict is mutated in place; the ``ModelSwitcher`` built
+    immediately afterwards picks up any remaps.
+    """
+    from app.utils.server_manager import (
+        ensure_server_running,
+        warn_if_missing,
+        find_llama_server_binary,
+        port_from_url,
+        is_local_url,
+        is_port_open,
+        ollama_model_names,
+        match_ollama_model,
+    )
+
+    ollama_url = settings.paths.ollama_url
+    ollama_available = ollama_model_names(ollama_url)  # [] if Ollama is down
+
+    models_dir = os.environ.get("LLAMA_MODELS_DIR", os.path.join(os.getcwd(), "models"))
+    binary = find_llama_server_binary()
+
+    resolved_ports: set[int] = set()  # ports already handled (open or launched)
+    for key, cfg in settings.models.items():
+        # Only genuine localhost llama.cpp chat servers are auto-managed.
+        if cfg.backend != "llamacpp":
+            continue
+        if not is_local_url(cfg.base_url):
+            continue  # remote endpoint (OpenRouter/xAI) — leave alone
+        port = port_from_url(cfg.base_url)
+        if port < 1024:
+            continue  # 80/443 etc. are not model servers
+        if port in resolved_ports:
+            continue  # this port was already evaluated below
+
+        host = "localhost"
+        if is_port_open(port, host):
+            resolved_ports.add(port)
+            continue  # server already up for every model on this port
+
+        if binary:
+            model_path = os.path.join(models_dir, cfg.name)
+            ensure_server_running(
+                port=port,
+                command=[binary, "-m", model_path, "-c", "4096", "--port", str(port)],
+                name=f"llama.cpp ({cfg.name} @ :{port})",
+                host=host,
+            )
+            resolved_ports.add(port)
+            continue
+
+        # No llama-server binary: remap EVERY model that shares this port to a
+        # matching Ollama model (so sibling models like local_docs are fixed too).
+        ollama_name = match_ollama_model(cfg.name, ollama_available) if ollama_available else None
+        if ollama_name:
+            for other_key, other_cfg in settings.models.items():
+                if (other_cfg.backend == "llamacpp"
+                        and is_local_url(other_cfg.base_url)
+                        and port_from_url(other_cfg.base_url) == port):
+                    print(f"↻ Remapping '{other_key}' ({other_cfg.name}) -> Ollama "
+                          f"'{ollama_name}' (no llama.cpp server available)")
+                    other_cfg.backend = "ollama"
+                    other_cfg.base_url = ollama_url
+                    other_cfg.name = ollama_name
+        else:
+            print(f"⚠️  '{key}' ({cfg.name}) needs a server on :{port} but no "
+                  f"llama-server binary was found and no matching Ollama model exists.")
+        resolved_ports.add(port)
+
+    # Ollama is required for embeddings — detect, don't launch.
+    warn_if_missing(ollama_url, "Ollama (embeddings)")
+
+
 # -------------------------------------------------
-
-print("Starting Jarvis...")
-
-
-
 
 def main():
 
     
+    # Load .env (API keys, model URLs) before any settings / clients are
+    # created. Kept inside main() so importing this module (e.g. in tests)
+    # has no side effects.
+    load_dotenv()
+
+    # Configure diagnostics logging once, before any module emits warnings.
+    from app.utils.logging_setup import setup_logging
+    setup_logging()
+
+    print("Starting Jarvis...")
     print("=" * 50)
     print(f"JARVIS {VERSION}")
-    print("=" * 50)
 
 
     # Load settings from environment variables or config file
@@ -71,15 +157,20 @@ def main():
     memory = MemoryManager(
         retriever=HybridRetriever(
         vector=VectorRetriever(
-            persist_dir="data/chroma",
-            ollama_url="http://localhost:11434",
+            persist_dir=str(settings.paths.chroma_dir),
+            ollama_url=settings.paths.ollama_url,
+            embed_model=settings.paths.embed_model,
             ),
         keyword=KeywordRetriever(min_keyword_overlap=1),
         )
     )
     conversation = ConversationManager()
     prompt_builder = PromptBuilder(system_prompt=SYSTEM_PROMPT)
-    conv_store = ConversationVectorStore(persist_dir="data/chroma")
+    conv_store = ConversationVectorStore(
+        persist_dir=str(settings.paths.chroma_dir),
+        ollama_url=settings.paths.ollama_url,
+        embed_model=settings.paths.embed_model,
+    )
     if conv_store.count() == 0:
         indexed = conv_store.index_history(conversation.get_all())
         if indexed>0:
@@ -95,6 +186,11 @@ def main():
 
     switcher = ModelSwitcher(settings)
 
+    # --- STARTUP MODEL SELECTOR ---
+    # Present Ollama / llama.cpp / Google (+ free cloud APIs) and let the user
+    # pick a backend and a concrete model before the chat loop begins.
+    _startup_model_select(switcher, settings)
+
     doc_agent = DocumentationAgent(
         model=switcher.get_client(
             settings.profiles.get(settings.active_profile, {}).get("docs", "general")
@@ -106,7 +202,7 @@ def main():
     print(f"\nTokenizer: {tokenizer_info.get('active_method', 'unknown')}")
     print(f"Memories loaded: {memory.count()}")
     print(f"Messages loaded: {conversation.count()}")
-    print("\nCommands: quit, memories, help, stats\n")
+    print("\nCommands: quit, model, memories, help, stats\n")
 
     #=== MAIN LOOP ===
     while True:
@@ -129,7 +225,6 @@ def main():
             break
 
         if prompt == "docs":
-            print("DEBUG: intercepted")
             try:
                 run_interactive(doc_agent)
             except Exception as e:
@@ -149,40 +244,18 @@ def main():
             _show_stats(memory, conversation, context_manager, tokenizer_info)
             continue
 
-    
-        
-
-        if prompt.startswith("model"):
-            arg = prompt[5:].strip()
-            if not arg:
-                result = _interactive_model_select(switcher, settings)
-                if result:
-                    if result.startswith("model:"):
-                        mk = result[len("model:"):]
-                        client = switcher.get_client(mk)
-                        if client:
-                            doc_agent = DocumentationAgent(model=client)
-                    else:
-                        print(f"✅ Switched to '{result}' profile")
-                        docs_key = settings.profiles.get(result, {}).get("docs", "general")
-                        new_model = switcher.get_client(docs_key)
-                        if new_model:
-                            doc_agent = DocumentationAgent(model=new_model)
-            elif arg == "list":
-                print(switcher.list_profiles())
-            elif switcher.switch(arg):
-                print(f"✅ Switched to '{arg}' profile")
-                docs_key = settings.profiles.get(arg, {}).get("docs", "general")
-                new_model = switcher.get_client(docs_key)
-                if new_model:
-                    doc_agent = DocumentationAgent(model=new_model)
-            else:
-                print(f"❌ Unknown profile: '{arg}'")
-                print(f"Available: {list(settings.profiles.keys())}")
+        if prompt == "model":
+            # Re-open the startup model selector to switch backend/model
+            # without restarting JARVIS.
+            _startup_model_select(switcher, settings)
+            # Rebuild the documentation agent so it uses the new model.
+            doc_agent = DocumentationAgent(
+                model=switcher.get_client(
+                    settings.profiles.get(settings.active_profile, {}).get("docs", "general")
+                ) or switcher.router.default_model
+            )
             continue
-            
 
-        
         # === MAIN PIPELINE ===
         
         # 1. Add user message to conversation
@@ -234,8 +307,10 @@ def main():
             
             print()  # Newline after streaming finishes
             
-        except Exception as e:
-            print(f"\n[Error] Model unavailable: {e}")
+        except ModelError as e:
+            # Clients now raise a typed ModelError instead of leaking raw
+            # provider tracebacks, so only genuine model failures land here.
+            print(f"\n[Error] {e}")
             print("Is the required server running?\n")
             conversation.pop_last_message()  # Remove the user message we just added
             continue  # Skip saving assistant response and go to next loop iteration
@@ -259,107 +334,9 @@ def _cleanup(memory: MemoryManager, conversation: ConversationManager):
     conversation.save_if_dirty()
 
 
-# app/main.py
-def _categorize_profiles(settings) -> dict:
-    """Split profiles into local vs api by the general model's base_url."""
-    cats = {"local": [], "api": []}
-    for name, mapping in settings.profiles.items():
-        gen_key = mapping.get("general") or next(iter(mapping.values()), None)
-        cfg = settings.models.get(gen_key)
-        is_local = bool(cfg) and ("localhost" in cfg.base_url or "127.0.0.1" in cfg.base_url)
-        cats["local" if is_local else "api"].append(name)
-    return cats
-
-
-def _categorize_cloud_models(settings) -> dict:
-    """
-    Group cloud model KEYS by provider, inferred from base_url host.
-    (Google entries in your config use base_url 'http://localhost' for the
-     Python block — fix those to the real host or they'll be missed here.)
-    """
-    from urllib.parse import urlparse
-    host_map = {
-        "api.x.ai": "grok",
-        "openrouter.ai": "openrouter",
-        "generativelanguage.googleapis.com": "google",
-    }
-    groups = {}
-    for key, cfg in settings.models.items():
-        if "localhost" in cfg.base_url or "127.0.0.1" in cfg.base_url:
-            continue
-        host = urlparse(cfg.base_url).netloc
-        provider = host_map.get(host, host)
-        groups.setdefault(provider, []).append(key)
-    return groups
-
-
-def _interactive_model_select(switcher, settings) -> str | None:
-    """
-    Local -> pick profile.  API -> pick provider -> pick specific model.
-    Returns profile name, or 'model:<key>' when a single cloud model was chosen.
-    """
-    print("\n╔══════════════════════════════════════╗")
-    print("║        Select Model Provider         ║")
-    print("╚══════════════════════════════════════╝")
-    print("  [1] Local  (runs on your machine)")
-    print("  [2] API    (cloud providers)")
-
-    choice = input("Provider (1/2): ").strip()
-
-    # ---------- LOCAL ----------
-    if choice == "1":
-        cats = _categorize_profiles(settings)
-        pool = cats["local"]
-        if not pool:
-            print("  No local profiles available."); return None
-        print("\nLocal profiles:")
-        for i, p in enumerate(pool, 1):
-            marker = "●" if p == switcher.active_profile else " "
-            print(f"  {i}. {marker} {p}")
-        sel = input(f"Select (1-{len(pool)}): ").strip()
-        try:
-            profile = pool[int(sel) - 1]
-        except (ValueError, IndexError):
-            print("Invalid selection."); return None
-        if switcher.switch(profile):
-            return profile
-        return None
-
-    # ---------- API ----------
-    if choice == "2":
-        cloud = _categorize_cloud_models(settings)
-        providers = list(cloud.keys())
-        if not providers:
-            print("  No cloud models configured."); return None
-        print("\nCloud providers:")
-        for i, p in enumerate(providers, 1):
-            print(f"  {i}. {p}")
-        sel = input(f"Select provider (1-{len(providers)}): ").strip()
-        try:
-            prov = providers[int(sel) - 1]
-        except (ValueError, IndexError):
-            print("Invalid selection."); return None
-
-        models = cloud[prov]
-        print(f"\nModels in {prov}:")
-        for i, m in enumerate(models, 1):
-            client = switcher.get_client(m)
-            status = "✓ loaded" if client else "✗ key missing"
-            print(f"  {i}. {settings.models[m].name}  [{m}]  {status}")
-        selm = input(f"Select model (1-{len(models)}): ").strip()
-        try:
-            model_key = models[int(selm) - 1]
-        except (ValueError, IndexError):
-            print("Invalid selection."); return None
-
-        if switcher.switch_to_model(model_key):
-            print(f"✅ Using cloud model: {settings.models[model_key].name}")
-            return f"model:{model_key}"
-        print("  ⚠️ Model not loaded — check its API key in .env.")
-        return None
-
-    print("Invalid selection.")
-    return None
+# NOTE: model-selection helpers (_categorize_cloud_models,
+# _build_ollama_router, _startup_model_select) live in
+# app/utils/model_selector.py to keep this file focused on the pipeline.
 
 
 #=== Display Functions ===
@@ -394,11 +371,11 @@ Tokenizer:
 
 Memory:
   Total: {memory.count()}
-  Dirty: {memory._store.is_dirty}
+  Dirty: {memory.is_dirty}
 
 Conversation:
   Messages: {conversation.count()}
-  Dirty: {conversation._dirty}
+  Dirty: {conversation.is_dirty}
 
 Context Window:
   Max tokens: {context.max_tokens}
@@ -418,9 +395,13 @@ def _show_help():
     print("""
 Commands:
   quit     - Exit JARVIS
+  model    - Re-open the model selector (switch backend / model)
   memories - View all stored memories
   stats    - Show system statistics
   help     - Show this help
+
+Model selection: type 'model' any time to pick a different backend
+(Ollama / llama.cpp / Google / Grok / OpenRouter) or model.
 
 Try saying:
   - "My name is Sajan"
@@ -432,10 +413,10 @@ Try saying:
 #=== Utility Functions ===
 def _format_time(timestamp: float) -> str:
     """Format a timestamp for display"""
-    import datetime
     dt = datetime.datetime.fromtimestamp(timestamp)
     return dt.strftime("%Y-%m-%d %H:%M")
 
 
 if __name__ == "__main__":
     main()
+

@@ -63,8 +63,9 @@ class ModelClient(Protocol):
 | `LlamaCppClient` | `app/models/llamacpp_client.py` | `openai.OpenAI` → local server | `"llamacpp"` (default) |
 | `OllamaClient` | `app/models/ollama_client.py` | `ollama.Client` (`ollama` package) | `"ollama"` |
 | `OpenRouterClient` | `app/models/openrouter_client.py` | `openai.OpenAI` → OpenRouter URL | `"openrouter"` |
+| `GoogleClient` | `app/models/google_client.py` | `requests` → Gemini Generative Language API | `"google"` |
 
-All three implement `generate()`, `model_name`, and `role` identically, so the
+All four implement `generate()`, `model_name`, and `role` identically, so the
 router/switcher cannot tell them apart — this is stated explicitly in the
 `OpenRouterClient` docstring ("The router can't tell the difference").
 
@@ -85,12 +86,15 @@ Selection of provider is driven by `ModelConfig.backend`
    `BASE_URL = "https://openrouter.ai/api/v1"`, with real `api_key` and
    `HTTP-Referer` / `X-Title` headers for OpenRouter attribution. The module
    docstring notes it exposes 200+ cloud models via one OpenAI-compatible API.
+4. **Google Gemini (cloud)** — `GoogleClient`. Uses `requests` against the
+   Gemini Generative Language API (`BASE_URL =
+   "https://generativelanguage.googleapis.com/v1beta"`), with the API key passed
+   as a URL query parameter. `system` messages are lifted into Gemini's
+   `systemInstruction` and `assistant` turns are mapped to Gemini's `model`
+   role, so OpenAI-style message lists work unchanged. Select it in
+   `config.yaml` with `backend: "google"` and `api_key: "env:GOOGLE_API_KEY"`.
 
 **Providers referenced but NOT active:**
-- **Google / Gemini.** `LlamaCppClient.generate()` contains a fully written
-  Google Generative Language API block (non-streaming + SSE streaming), but it
-  is entirely **commented out**. It is dead code, not a wired provider. It is
-  listed here only so a reader is not misled by its presence in the source.
 - **`autocomplete`** model (default config) — a `LlamaCppClient` on port `8082`
   is instantiated (see §6), but no default profile maps it to a router, so it is
   never selected. See uncertainty note below.
@@ -118,6 +122,9 @@ def create_client(config: ModelConfig) -> ModelClient:
     if config.backend == "openrouter":
         ...
         return OpenRouterClient(model=config.name, api_key=_resolve_key(config.api_key), role=config.role)
+    if config.backend == "google":
+        ...
+        return GoogleClient(model=config.name, api_key=api_key, role=config.role)
     # Default: llamacpp
     return LlamaCppClient(model=config.name, base_url=config.base_url,
                           api_key=config.api_key, role=config.role)
@@ -125,7 +132,8 @@ def create_client(config: ModelConfig) -> ModelClient:
 
 Key behaviors, all verified in source:
 - **Dispatch by `backend`** string: `"ollama"` → `OllamaClient`,
-  `"openrouter"` → `OpenRouterClient`, anything else → `LlamaCppClient`.
+  `"openrouter"` → `OpenRouterClient`, `"google"` → `GoogleClient`, anything
+  else → `LlamaCppClient`.
 - **Optional imports.** `ollama` and `openrouter` are imported inside
   `try/except ImportError`; `OLLAMA_AVAILABLE` / `OPENROUTER_AVAILABLE` flags
   gate the branches. If the package is missing, the factory raises
@@ -393,8 +401,9 @@ Items drawn directly from code comments / unused scaffolding (not speculation):
    / `ToolRegistry.to_openai_schemas()` already exist for this; the clients
    already forward `**kwargs` to the OpenAI API, so `tools=` could be passed
    today, but the agent loop does not use it yet.
-4. **Google / Gemini provider.** A complete (commented-out) Gemini block exists
-   in `LlamaCppClient.generate()`; uncommenting + a `backend` switch would add it.
+4. **(Done) Google / Gemini provider.** Was a commented-out Gemini block inside
+   `LlamaCppClient.generate()`; it is now a first-class `GoogleClient`
+   (`app/models/google_client.py`) selected via `backend: "google"`.
 5. **Conversation summarization.** `ConversationManager.set_summary` /
    `get_summary` and `ConversationConfig.enable_summarization` exist but are
    unused ("Future" per docstrings).
@@ -414,6 +423,6 @@ Items drawn directly from code comments / unused scaffolding (not speculation):
 | Concern | File |
 |---------|------|
 | Client interface + `ModelResponse` | `app/models/client.py` |
-| Client implementations | `app/models/llamacpp_client.py`, `app/models/ollama_client.py`, `app/models/openrouter_client.py` |
+| Client implementations | `app/models/llamacpp_client.py`, `app/models/ollama_client.py`, `app/models/openrouter_client.py`, `app/models/google_client.py` |
 | Factory | `app/models/factory.py` |
 | Router / task classification | `app/models/

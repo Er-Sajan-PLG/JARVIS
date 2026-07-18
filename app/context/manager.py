@@ -59,6 +59,23 @@ class ContextWindowManager:
         
         self.last_stats: Optional[ContextStats] = None
     
+    @staticmethod
+    def _content_to_text(content) -> str:
+        """Coerce message content into a token-countable string.
+
+        Guards the real tokenizer (tiktoken/transformers) against unexpected
+        content shapes: None -> ""; list (multimodal/tool blocks) -> joined
+        text; everything else -> str(...).
+        """
+        if content is None:
+            return ""
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts = [b.get("text") or "" for b in content if isinstance(b, dict)]
+            return "\n".join(p for p in parts if p)
+        return str(content)
+
     def count_tokens(self, messages: list[dict]) -> int:
         """
         Count total tokens in a message list.
@@ -68,7 +85,7 @@ class ContextWindowManager:
         for m in messages:
             # Overhead for role, formatting, etc.
             total += 4
-            total += self._count_tokens(m.get("content", ""))
+            total += self._count_tokens(self._content_to_text(m.get("content")))
         return total
     
     def count_tokens_text(self, text: str) -> int:
@@ -102,7 +119,7 @@ class ContextWindowManager:
             self.last_stats = ContextStats(
                 total_tokens=system_tokens,
                 max_tokens=max_tokens,
-                utilization=system_tokens / self.max_tokens if self.max_tokens else 0,
+                utilization=system_tokens / max_tokens if max_tokens else 0,
                 messages_kept=len(system_messages),
                 messages_trimmed=original_count - len(system_messages),
                 pairs_kept=0,
@@ -127,6 +144,11 @@ class ContextWindowManager:
                 current_tokens += pair_tokens
             else:
                 was_trimmed = True
+                # RISK GUARD: if even the newest pair overflows the window,
+                # keep it so the active user prompt is never silently dropped.
+                if not fitted_pairs:
+                    fitted_pairs.insert(0, pair)
+                    current_tokens += pair_tokens
         
         # Flatten pairs back to message list
         fitted_conversation = [msg for pair in fitted_pairs for msg in pair]
@@ -136,7 +158,7 @@ class ContextWindowManager:
         self.last_stats = ContextStats(
             total_tokens=final_tokens,
             max_tokens=max_tokens,
-            utilization=final_tokens / self.max_tokens if self.max_tokens else 0,
+            utilization=final_tokens / max_tokens if max_tokens else 0,
             messages_kept=len(final_messages),
             messages_trimmed=original_count - len(final_messages),
             pairs_kept=len(fitted_pairs),

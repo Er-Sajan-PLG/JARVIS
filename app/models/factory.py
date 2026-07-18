@@ -16,6 +16,12 @@ try:
 except ImportError:
     OPENROUTER_AVAILABLE = False
 
+try:
+    from app.models.google_client import GoogleClient
+    GOOGLE_AVAILABLE = True
+except ImportError:
+    GOOGLE_AVAILABLE = False
+
 
 def _resolve_key(api_key: str) -> str:
     """
@@ -61,7 +67,19 @@ def create_client(config: ModelConfig) -> ModelClient:
             )
         return OpenRouterClient(
             model=config.name,
-            api_key=_resolve_key(config.api_key),
+            api_key=api_key,  
+            role=config.role
+        )
+
+    if config.backend == "google":
+        if not GOOGLE_AVAILABLE:
+            raise ImportError(
+                "Could not import GoogleClient. "
+                "Check app/models/google_client.py exists and 'requests' is installed."
+            )
+        return GoogleClient(
+            model=config.name,
+            api_key=api_key,  # already resolved from env above
             role=config.role
         )
 

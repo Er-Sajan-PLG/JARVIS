@@ -10,9 +10,10 @@ Priority:
 
 from typing import Callable, Optional
 from functools import lru_cache
+import math
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=128)
 def get_token_counter(model_name: str = "default") -> Callable[[str], int]:
     """
     Get a token counter for the specified model.
@@ -126,23 +127,26 @@ def _try_transformers(model_name: str) -> Optional[Callable[[str], int]]:
 
 def _word_counter(text: str) -> int:
     """
-    Word-based token estimation fallback.
-    English averages ~1.3 tokens per word.
-    Plus small overhead for special tokens.
+    Word-based token estimation fallback (only used when neither tiktoken nor
+    transformers is available).
+
+    This MUST be conservative: under-estimating tokens risks exceeding the
+    context window and truncating the conversation. We take the larger of a
+    word-based estimate (~1.3 tokens/word for English) and a character-based
+    estimate (~4 chars/token), round UP, and add a small constant for special
+    tokens. Over-estimating is safe; under-estimating is not.
     """
     if not text:
         return 0
     words = text.split()
-    # ~1.3 tokens per word is a reasonable average for English
-    # Add 3 for potential special tokens (BOS, EOS, etc.)
-    return int(len(words) * 1.3) + 3
+    word_estimate = len(words) * 1.3
+    char_estimate = len(text) / 4.0
+    # ceil() so we never floor our way into an under-count.
+    return math.ceil(max(word_estimate, char_estimate)) + 3
 
 
 def estimate_tokens(text: str, method: str = "auto", model: str = "default") -> int:
     """
-    Estimate token count with explicit method selection.
-    
-    Args:
         text: Text to count
         method: "auto", "tiktoken", "transformers", "word"
         model: Model name for tokenizer selection
@@ -170,25 +174,25 @@ def get_tokenizer_info() -> dict:
     Get information about available tokenizers.
     Useful for debugging and user feedback.
     """
-    import sys
-    
     info = {
-        "tiktoken_available": "tiktoken" in sys.modules or _try_tiktoken("default") is not None,
-        "transformers_available": "transformers" in sys.modules or _try_transformers("default") is not None,
+        "tiktoken_available": _try_tiktoken("default") is not None,
+        "transformers_available": _try_transformers("default") is not None,
     }
-    
-    # Test which one we're actually using
+
+    # The active method is the first available backend in the
+    # get_token_counter() priority chain (tiktoken -> transformers -> word).
+    # Detect it by identity/availability rather than guessing from a token
+    # count, which was fragile (e.g. a <=10 gpt2 count was mislabeled "word").
     counter = get_token_counter("default")
-    test_text = "Hello, world! This is a test."
-    count = counter(test_text)
-    
-    info["active_method"] = "unknown"
-    if count == 8:  # tiktoken cl100k_base gives exactly 8
-        info["active_method"] = "tiktoken"
-    elif count <= 10:  # word-based would give ~9
+    if counter is _word_counter:
         info["active_method"] = "word"
-    else:
+    elif info["tiktoken_available"]:
+        info["active_method"] = "tiktoken"
+    elif info["transformers_available"]:
         info["active_method"] = "transformers"
-    
-    info["test_count"] = count
+    else:
+        info["active_method"] = "unknown"
+
+    test_text = "Hello, world! This is a test."
+    info["test_count"] = counter(test_text)
     return info

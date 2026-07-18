@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JARVIS</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span class="brand-name">JARVIS</span>
+          <span id="version-badge" class="version-badge"></span>
+        </div>
+        <button id="new-chat-btn" class="icon-btn" title="New chat">+</button>
+      </div>
+
+      <div id="conversation-list" class="conversation-list">
+        <!-- conversation items injected here -->
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="attachments-btn" class="sidebar-btn">📁 Library</button>
+        <button id="settings-btn" class="sidebar-btn">⚙ Settings</button>
+        <button id="memories-btn" class="sidebar-btn">🧠 Memories</button>
+      </div>
+    </aside>
+
+    <!-- Main chat area -->
+    <main id="main">
+      <header id="chat-header">
+        <button id="toggle-sidebar" class="icon-btn mobile-only" title="Menu">☰</button>
+        <div class="chat-title" id="chat-title">New Chat</div>
+        <div class="model-indicator" id="active-model">no model selected</div>
+      </header>
+
+      <div id="messages" class="messages">
+        <button id="scroll-bottom-btn" class="scroll-bottom-btn hidden" title="Scroll to latest">↓</button>
+        <div class="empty-state" id="empty-state">
+          <div class="empty-logo">🤖</div>
+          <h2>How can I help you today?</h2>
+          <p>Pick a model in Settings, then start chatting. Your history is saved automatically.</p>
+        </div>
+      </div>
+
+      <div id="composer" class="composer">
+        <div id="attachments" class="attachments"></div>
+        <div class="composer-row">
+          <button id="attach-btn" class="icon-btn" title="Add file">📎</button>
+          <input type="file" id="file-input" accept="*" multiple hidden />
+          <textarea id="input" class="input" rows="1" placeholder="Message JARVIS…  (Enter to send, Shift+Enter for newline)"></textarea>
+          <button id="stop-btn" class="stop-btn hidden" title="Stop">■</button>
+          <button id="send-btn" class="send-btn" title="Send">➤</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close="settings"></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Settings</h3>
+        <button class="icon-btn" data-close="settings">✕</button>
+      </div>
+
+      <section class="modal-section">
+        <h4>Model</h4>
+        <div id="model-groups" class="model-groups"><!-- injected --></div>
+      </section>
+
+      <section class="modal-section">
+        <h4>API Keys</h4>
+        <label class="check-row">
+          <input type="checkbox" id="use-dev-keys" />
+          <span>Use my developer keys (from environment / .env)</span>
+        </label>
+        <p class="hint">Uncheck to supply your own keys below. They are saved to <code>.env</code>.</p>
+
+        <div class="key-row">
+          <label for="google-key">Google (Gemini)</label>
+          <input type="password" id="google-key" placeholder="GOOGLE_API_KEY" autocomplete="off" />
+        </div>
+        <div class="key-row">
+          <label for="xai-key">Grok (XAI)</label>
+          <input type="password" id="xai-key" placeholder="XAI_API_KEY" autocomplete="off" />
+        </div>
+        <div class="key-row">
+          <label for="openrouter-key">OpenRouter</label>
+          <input type="password" id="openrouter-key" placeholder="OPENROUTER_API_KEY" autocomplete="off" />
+        </div>
+        <div class="key-row">
+          <label for="openai-key">OpenAI</label>
+          <input type="password" id="openai-key" placeholder="OPENAI_API_KEY" autocomplete="off" />
+        </div>
+        <button id="save-settings" class="primary-btn">Save settings</button>
+        <div id="settings-status" class="settings-status"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Memories modal -->
+  <div id="memories-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close="memories"></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Memories</h3>
+        <button class="icon-btn" data-close="memories">✕</button>
+      </div>
+      <div id="memories-list" class="memories-list"><!-- injected --></div>
+    </div>
+  </div>
+
+  <!-- Attachments library modal -->
+  <div id="attachments-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close="attachments"></div>
+    <div class="modal-card attachments-card">
+      <div class="modal-head">
+        <h3>📁 Attachment Library</h3>
+        <button class="icon-btn" data-close="attachments">✕</button>
+      </div>
+
+      <div class="attachments-toolbar">
+        <div id="folder-breadcrumb" class="folder-breadcrumb"></div>
+        <div class="attachments-actions">
+          <button id="new-folder-btn" class="secondary-btn" title="New folder here">+ Folder</button>
+          <button id="upload-lib-btn" class="primary-btn small" title="Upload into current folder">⬆ Upload</button>
+          <input type="file" id="lib-file-input" accept="*" multiple hidden />
+        </div>
+      </div>
+
+      <div id="new-folder-row" class="new-folder-row hidden">
+        <span class="nf-label">New folder in <b id="nf-parent">Library</b>:</span>
+        <input type="text" id="new-folder-input" class="model-search" placeholder="Folder name (e.g. Physics)" />
+        <button id="new-folder-confirm" class="primary-btn small">Create</button>
+        <button id="new-folder-cancel" class="secondary-btn">Cancel</button>
+      </div>
+
+      <div class="attachments-body">
+        <div id="folder-tree" class="folder-tree"><!-- injected --></div>
+        <div class="attachments-files-wrap">
+          <div id="attachments-files" class="attachments-files"><!-- injected --></div>
+          <div id="attachments-search-wrap" class="attachments-search-wrap">
+            <input type="search" id="attachments-search" placeholder="Search files…" class="model-search" />
+          </div>
+        </div>
+      </div>
+
+      <p class="attachments-hint">
+        Click <b>Attach</b> on a file to drop it into the current chat. Then ask
+        the assistant something like <i>“look at the X file in Physics/Quantum”</i>.
+      </p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

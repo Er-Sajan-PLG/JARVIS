@@ -79,11 +79,6 @@ def git_tags() -> str:
         return "(no tags found)"
 
 
-def git_branch() -> str:
-    """Current branch name."""
-    return _run_git("rev-parse", "--abbrev-ref", "HEAD")
-
-
 # ─── Tool definitions (registered in the agent's ToolRegistry) ─────────────────
 
 GIT_TOOLS: list[ToolDefinition] = [

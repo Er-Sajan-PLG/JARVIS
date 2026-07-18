@@ -1670,7 +1670,7 @@ shutdown sequence — all traced line-by-line against source.
 ## Known Issues
 - `cerebras_general` has a malformed `api_key: "env:"` (empty variable name) → always warns `Environment variable '' is not set`; also a copy-paste leftover (`name: gemini-2.0-flash`) with no `cerebras` profile referencing it. Orphaned and broken.
 - Local llamacpp server auto-start (`ensure_server_running`) is still commented out in `main.py`. `local_general`/`local_docs` (`qwen3-8b.gguf` @ `http://localhost:8080/v1`) need a manually started server; `local_code`/`local_reasoning` need Ollama on `:11434`.
-- `google_*` and `cerebras_general` are declared `backend: "llamacpp"` but only function via the commented-out 🟡 ISOLATED GOOGLE BLOCK in `llamacpp_client.py`; otherwise they hit `base_url: http://localhost` and fail.
+- `google_*` were previously declared `backend: "llamacpp"` (with a dead Google block inside `LlamaCppClient`); they now use `backend: "google"` → `GoogleClient` (`app/models/google_client.py`). `cerebras_general` remains an orphaned/broken copy-paste leftover (see above).
 - `config.yaml` defines `grok`/`openrouter`/`google` profiles that were previously ignored; they now resolve, but still require valid API keys (currently commented in `.env`).
 
 ### Code — `app/config/settings.py` (load `profiles` from YAML)
@@ -1711,7 +1711,7 @@ def select(self, task_type: TaskType) -> ModelClient:
 - Prevents the crash from switching to a provider whose models failed to load: `_interactive_model_select` refuses models with no client (`✗ key missing`) and `switch_to_model` returns `False`, so an unconfigured API model can't become the active (empty) router.
 
 ## Known Issues
-- Google models in `config.yaml` use `base_url: "http://localhost"` (the Python-block path), so `_categorize_cloud_models` excludes them unless their host is set to the real Google endpoint or hardcoded into `host_map`.
+- Google models were previously excluded from `_categorize_cloud_models` because they used `base_url: "http://localhost"`; they are now grouped by `backend: "google"` (see `app/main.py`). *(Resolved.)*
 - The interactive picker bypasses the `profiles:` block for single-model selection; `profiles` remain the mechanism for role-differentiated routing (different model per task type).
 
 ### Code — `app/models/switcher.py` (NEW method)

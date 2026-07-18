@@ -109,7 +109,7 @@ class ModelClient(Protocol):
 ```
 
 **Verified contract rules** (consistent across `LlamaCppClient`, `OllamaClient`,
-`OpenRouterClient`):
+`OpenRouterClient`, `GoogleClient`):
 - `messages` is a list of OpenAI-style `{"role", "content"}` dicts.
 - `**kwargs` (`temperature`, `max_tokens`, …) are forwarded to the underlying
   provider. `stream` and `on_token` are consumed by the client and **never**
@@ -132,7 +132,7 @@ directly. Each is detailed in §4.
 - `MemoryRanker` + `RankingWeights` (`app/memory/ranking.py`) — scoring.
 - `ConversationVectorStore` (`app/memory/conversation_store.py`) — semantic
   history store (separate from fact memory).
-- `LlamaCppClient` / `OllamaClient` / `OpenRouterClient` (`app/models/*`) —
+- `LlamaCppClient` / `OllamaClient` / `OpenRouterClient` / `GoogleClient` (`app/models/*`) —
   provider transport.
 - `app/memory/fact_extractor.py` (`_split_into_sentences`, `_extract_value`),
   `app/memory/rules.py` (`RULES`) — extraction internals.
@@ -171,7 +171,7 @@ constructed with `model=None`, and the default `"general"` client sets its name
 explicitly, so it does not bite under defaults — but the default value is
 misleading.
 
-**`version.py`** — `VERSION = "v.2.4.0"`.
+**`version.py`** — `get_version_info()` derives `VERSION` from git tags (vA.B.C) at import time; see the version note above. Exposes `VERSION`, `MAJOR`/`MINOR`/`PATCH`, `BASE_TAG`, `COMMITS_SINCE_TAG`, `GIT_HASH`, `DIRTY`, `IS_RELEASE`, `VERSION_SOURCE`.
 **`prompt.py`** — `SYSTEM_PROMPT: str` (the system persona text).
 
 ### 4.2 `app/models`
@@ -181,8 +181,8 @@ misleading.
 **`factory.py`**
 - `_resolve_key(api_key: str) -> str` — `"env:VAR"` → `os.environ["VAR"]` (raises
   `ValueError` if unset); literal string returned as-is.
-- `create_client(config: ModelConfig) -> ModelClient` — dispatch: `backend=="ollama"`→`OllamaClient`, `=="openrouter"`→`OpenRouterClient`, else `LlamaCppClient`.
-- module flags `OLLAMA_AVAILABLE`, `OPENROUTER_AVAILABLE` (set via `try/except ImportError`).
+- `create_client(config: ModelConfig) -> ModelClient` — dispatch: `backend=="ollama"`→`OllamaClient`, `=="openrouter"`→`OpenRouterClient`, `=="google"`→`GoogleClient`, else `LlamaCppClient`.
+- module flags `OLLAMA_AVAILABLE`, `OPENROUTER_AVAILABLE`, `GOOGLE_AVAILABLE` (set via `try/except ImportError`).
 
 **`router.py`**
 - `enum TaskType` → `AUTOCOMPLETE, CODE, REASONING, STEM, GENERAL, DOCS`.
@@ -203,9 +203,10 @@ misleading.
 - `_build_router(mapping: dict) -> ModelRouter`
 
 **Clients** (all implement `ModelClient`):
-- `LlamaCppClient(model=None, base_url="http://localhost:8080/v1", api_key="not-needed", role="general")` → `generate(...)`. Contains a **fully commented-out** Google/Gemini block (dead code).
+- `LlamaCppClient(model=None, base_url="http://localhost:8080/v1", api_key="not-needed", role="general")` → `generate(...)`.
 - `OllamaClient(model, base_url="http://localhost:11434", role="general")` → `generate(...)`.
 - `OpenRouterClient(model, api_key, role="general", site_url="http://localhost", site_name="JARVIS")`; `BASE_URL = "https://openrouter.ai/api/v1"`; `generate(...)`.
+- `GoogleClient(model, api_key, role="general")`; `BASE_URL = "https://generativelanguage.googleapis.com/v1beta"`; `generate(...)` (uses `requests` against the Gemini REST API; `system` messages become Gemini `systemInstruction`, `assistant`→`model`).
 
 ### 4.3 `app/memory`
 
@@ -350,7 +351,7 @@ A **separate** request path exists for the documentation agent: `docs` command �
 |-------|---------|-------------------|
 | `factory._resolve_key` | `env:VAR` unset | raises `ValueError` ("Environment variable 'VAR' is not set…"). |
 | `factory.create_client` | `ollama`/`openrouter` package missing | raises `ImportError` with install hint (gated by `try/except ImportError`). |
-| `switcher.__init__` | a client fails to load | **caught**; prints `⚠️ Could not load '<key>'`; startup continues. |
+| `switcher.__init__` | a client fails to load | **caught**; logs `⚠️ Could not load '<key>'` via `logging`; startup continues. |
 | `switcher._build_router` | unknown role string | `TaskType(role)` raises `ValueError`, **swallowed** (`except ValueError: pass`). |
 | `router.select` | task unregistered **and** no default | raises `ValueError`. |
 | `main.py` generate | any model/network exception | caught; prints `[Error] Model unavailable: <e>`; `conversation.pop_last_message()` (removes the just-added **user** message); `continue`s. ⚠️ Stored facts from steps 3–4 are **not** rolled back. |
@@ -395,8 +396,10 @@ the current code (verified: no corresponding runtime code exists).
 - **Wire up `autocomplete` model.** A `LlamaCppClient` on port `8082`
   (`max_tokens=150`) is defined in default `Settings.models` but mapped to no
   router/task type, so it is dead under defaults. *(Verified.)*
-- **Google/Gemini provider.** A complete (commented-out) Gemini block exists in
-  `LlamaCppClient.generate()`; would need a `backend` switch + uncomment. *(Dead code — verified.)*
+- **Google/Gemini provider.** Now a first-class `GoogleClient`
+  (`app/models/google_client.py`), selected via `backend: "google"` in
+  `config.yaml`. Previously a commented-out Gemini block inside
+  `LlamaCppClient.generate()`. *(Wired — verified.)*
 - **Knowledge / RAG subsystem (v3.3), Planning (v4), Learning (v5), Multi-Agent
   (v6), AI-OS (v7).** Described only in `docs/ROADMAP.md`. No code. *(Doc-only.)*
 
@@ -433,6 +436,11 @@ this task:
   (`app/tools/file_tools.py`): the `ToolDefinition` for it sits dead-code *inside*
   the `append_file` function body. Yet `DocumentationAgent._SYSTEM` instructs the
   model to use `append_file`. Same pattern: `git_branch` is defined in
+  `git_tools.py` but omitted from `GIT_TOOLS`; `git_status`# JARVIS — API Reference
+
+### AI Partially Verified
+The following sections are partially verified:
+- **System Prompt   ** (§2) - The system prompt is a fixed string that includes the memories embedded.
   `git_tools.py` but omitted from `GIT_TOOLS`; `git_status`# JARVIS — API Reference
 
 ### AI Partially Verified

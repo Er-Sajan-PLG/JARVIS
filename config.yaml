@@ -17,12 +17,13 @@ profiles:
 
   # 🔵 100% OpenRouter (Free Llama 70B)
   openrouter:
-    general: "openrouter_general"
-    code: "openrouter_code"
-    reasoning: "openrouter_reasoning"
-    docs: "openrouter_docs"
-
-  # 🟡 100% Google Gemini (Requires native Python block unhashed & billing enabled)
+    general: openrouter_general
+    code: openrouter_code
+    reasoning: openrouter_reasoning
+    docs: openrouter_docs
+    stem: openrouter_stem
+    
+  # 🟡 100% Google Gemini (backend: "google"; requires GOOGLE_API_KEY & billing enabled)
   google:
     general: "google_general"
     code: "google_code"
@@ -88,58 +89,61 @@ models:
   openrouter_general:
     name: "meta-llama/llama-3.3-70b-instruct:free"
     role: "general"
-    backend: "llamacpp"
+    backend: "openrouter"
     base_url: "https://openrouter.ai/api/v1"
     api_key: "env:OPENROUTER_API_KEY"
 
   openrouter_code:
-    name: "meta-llama/llama-3.3-70b-instruct:free"
+    name: "qwen/qwen3-coder:free"
     role: "code"
-    backend: "llamacpp"
+    backend: "openrouter"
     base_url: "https://openrouter.ai/api/v1"
     api_key: "env:OPENROUTER_API_KEY"
 
   openrouter_reasoning:
-    name: "meta-llama/llama-3.3-70b-instruct:free"
+    name: "openai/gpt-oss-20b:free"
     role: "reasoning"
-    backend: "llamacpp"
+    backend: "openrouter"
     base_url: "https://openrouter.ai/api/v1"
     api_key: "env:OPENROUTER_API_KEY"
 
   openrouter_docs:
-    name: "meta-llama/llama-3.3-70b-instruct:free"
+    name: "meta-llama/llama-3.2-3b-instruct:free"
     role: "docs"
-    backend: "llamacpp"
+    backend: "openrouter"
     base_url: "https://openrouter.ai/api/v1"
     api_key: "env:OPENROUTER_API_KEY"
 
-  # --- 🟡 GOOGLE (Make sure Google block is unhashed in llamacpp_client.py!) ---
+  openrouter_stem:
+    name: "qwen/qwen3-next-80b-a3b-instruct:free"
+    role: "stem"
+    backend: "openrouter"
+    base_url: "https://openrouter.ai/api/v1"
+    api_key: "env:OPENROUTER_API_KEY"
+
+  # --- 🟡 GOOGLE (backend: "google" -> app/models/google_client.py) ---
   google_general:
     name: "gemini-2.0-flash"
     role: "general"
-    backend: "llamacpp"
-    base_url: "http://localhost" # Ignored by Python block
+    backend: "google"
     api_key: "env:GOOGLE_API_KEY"
 
   google_code:
     name: "gemini-2.0-flash"
     role: "code"
-    backend: "llamacpp"
-    base_url: "http://localhost" # Ignored by Python block
+    backend: "google"
     api_key: "env:GOOGLE_API_KEY"
 
   google_reasoning:
     name: "gemini-2.0-flash"
     role: "reasoning"
-    backend: "llamacpp"
-    base_url: "http://localhost" # Ignored by Python block
+    backend: "google"
     api_key: "env:GOOGLE_API_KEY"
 
   google_docs:
     name: "gemini-2.0-flash"
     role: "docs"
-    backend: "llamacpp"
-    base_url: "http://localhost" # Ignored by Python block
+    backend: "google"
     api_key: "env:GOOGLE_API_KEY"
 
   cerebras_general:

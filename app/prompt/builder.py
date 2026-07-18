@@ -65,13 +65,34 @@ class PromptBuilder:
         
         # Add current user prompt if not already in conversation
         if user_prompt:
-            if not conversation or conversation[-1].get("content") != user_prompt:
+            last = conversation[-1] if conversation else None
+            already_present = (
+                isinstance(last, dict)
+                and last.get("role") == "user"
+                and last.get("content") == user_prompt
+            )
+            if not already_present:
                 messages.append({
                     "role": "user",
                     "content": user_prompt,
                 })
         
         return messages
+
+    @staticmethod
+    def _sanitize_line(text: str) -> str:
+        """
+        Collapse a free-form value into a single line.
+
+        Memory values and exchange text are free-form strings that may
+        contain newlines. Embedding them verbatim into a bullet line breaks
+        the list formatting (and can merge one memory into the next). We
+        collapse all whitespace runs to a single space so each item stays
+        on its own line.
+        """
+        if not text:
+            return ""
+        return " ".join(str(text).split())
 
     def _format_past_exchanges(self, exchanges: list[dict]) -> str:
         """Format past exchanges for inclusion in system prompt"""
@@ -83,8 +104,8 @@ class PromptBuilder:
         lines.append("")
         
         for exchange in exchanges:
-            user_msg = exchange.get("user", "").strip()
-            assistant_msg = exchange.get("assistant", "").strip()
+            user_msg = self._sanitize_line(exchange.get("user", ""))
+            assistant_msg = self._sanitize_line(exchange.get("assistant", ""))
             lines.append(f"- User: {user_msg}")
             lines.append(f"  Assistant: {assistant_msg}")
         
@@ -101,7 +122,10 @@ class PromptBuilder:
         
         for result in memories:
             memory = result.memory
-            lines.append(f"- [{memory.category}] {memory.memory_type}: {memory.value}")
+            value = self._sanitize_line(memory.value)
+            if not value:
+                continue
+            lines.append(f"- [{memory.category}] {memory.memory_type}: {value}")
         
         return "\n".join(lines)
     
@@ -109,7 +133,8 @@ class PromptBuilder:
         self,
         memories: list[MemoryResult] = None,
         conversation: list[dict] = None,
-        user_prompt: str = ""
+        user_prompt: str = "",
+        past_exchanges: list[dict] = None,
     ) -> tuple[list[dict], dict]:
         """
         Build messages and return stats about what was included.
@@ -120,9 +145,12 @@ class PromptBuilder:
         stats = {
             "system_tokens_estimate": len(self.system_prompt) // 4,
             "memories_included": len(memories) if memories else 0,
+            "past_exchanges_included": len(past_exchanges) if past_exchanges else 0,
             "conversation_messages": len(conversation) if conversation else 0,
             "has_explicit_user_prompt": bool(user_prompt),
         }
         
-        messages = self.build(memories, conversation, user_prompt)
+        messages = self.build(
+            memories, conversation, user_prompt, past_exchanges
+        )
         return messages, stats

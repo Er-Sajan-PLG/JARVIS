@@ -42,6 +42,11 @@ class ModelRouter:
             "evaluate", "justify", "argument", "conclusion", "premise",
             "deduce", "infer", "contradiction", "hypothesis"
         ],
+        TaskType.DOCS: [
+            "document", "documentation", "readme", "docs",
+            "tutorial", "how-to", "howto", "walkthrough",
+            "quickstart", "cheatsheet", "api reference", "user guide",
+        ],
         TaskType.GENERAL:   [ "general" ],
         TaskType.AUTOCOMPLETE:  [ "autocomplete" ],
             

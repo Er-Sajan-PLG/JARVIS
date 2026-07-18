@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# JARVIS pre-commit hook — keep versioning automatic (git-derived, never hardcoded).
+#
+# Installed via:  python scripts/bump_version.py install-hooks
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+VERSION_FILE="$REPO_ROOT/app/config/version.py"
+
+# 1) Guard: refuse to commit a hardcoded literal version in the version module.
+#    The version MUST be derived from git tags (vA.B.C), not written by hand.
+if [ -f "$VERSION_FILE" ]; then
+  if grep -Eq '^VERSION[[:space:]]*=[[:space:]]*["'"'"']v[0-9]' "$VERSION_FILE"; then
+    echo "❌ app/config/version.py must derive VERSION from git, not hardcode it."
+    echo "   Remove the literal 'VERSION = \"v...\"' assignment."
+    exit 1
+  fi
+fi
+
+# 2) Show the version git will derive for this tree.
+if command -v python3 >/dev/null 2>&1; then
+  python3 - "$REPO_ROOT" <<'PY' || true
+import sys, subprocess
+root = sys.argv[1]
+cmd = (
+    "import sys; sys.path.insert(0, sys.argv[1]); "
+    "from app.config.version import VERSION, VERSION_SOURCE; "
+    "print(f'{VERSION} (source={VERSION_SOURCE})')"
+)
+try:
+    out = subprocess.run([sys.executable, "-c", cmd, root],
+                         capture_output=True, text=True, cwd=root)
+    if out.returncode == 0 and out.stdout.strip():
+        print(f"🔖 JARVIS version: {out.stdout.strip()}")
+except Exception:
+    pass
+PY
+fi
+
+exit 0

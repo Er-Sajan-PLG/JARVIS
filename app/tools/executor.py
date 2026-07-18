@@ -1,5 +1,5 @@
 """
-ToolExecutor for JARVIS v2.4.0
+ToolExecutor for JARVIS 
 
 Responsibilities:
 - Parse <tool_call>...</tool_call> blocks from model text output
@@ -81,7 +81,6 @@ class ToolExecutor:
 
     def parse(self, text: str) -> list[ParsedCall]:
         calls = []
-        seen = set()
 
         # Format 1: {"name": "git_show", "args": {"ref": "abc"}}
         for match in _TOOL_CALL_RE.finditer(text):
@@ -89,8 +88,7 @@ class ToolExecutor:
                 data = json.loads(match.group(1))
                 name = data.get("name", "").strip()
                 args = data.get("args", {})
-                if name and name not in seen:
-                    seen.add(name)
+                if name:
                     calls.append(ParsedCall(name=name, args=args, raw=match.group(0)))
             except json.JSONDecodeError:
                 pass
@@ -100,8 +98,7 @@ class ToolExecutor:
             try:
                 name = match.group(1).strip()
                 args = json.loads(match.group(2))
-                if name and name not in seen:
-                    seen.add(name)
+                if name:
                     calls.append(ParsedCall(name=name, args=args, raw=match.group(0)))
             except json.JSONDecodeError:
                 pass
@@ -110,8 +107,7 @@ class ToolExecutor:
         for match in _FUNC_CALL_RE.finditer(text):
             name = match.group(1).strip()
             args_str = match.group(2).strip()
-            if name and name not in seen:
-                seen.add(name)
+            if name:
                 positional = re.findall(r'["\']([^"\']+)["\']', args_str)
                 args = {"path": positional[0]} if positional else {}
                 calls.append(ParsedCall(name=name, args=args, raw=match.group(0)))

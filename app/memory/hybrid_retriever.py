@@ -52,7 +52,7 @@ class HybridRetriever:
 
     def on_index_rebuilt(self, memories: list[Memory]) -> None:
         self._keyword.on_index_rebuilt(memories)
-        self._vector.on_index_rebuilt(memories)  # makes N embedding calls — expected
+        self._vector.on_index_rebuilt(memories)  # single batched embed via VectorRetriever
 
     def clear(self) -> None:
         self._keyword.clear()

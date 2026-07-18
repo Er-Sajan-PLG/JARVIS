@@ -12,14 +12,20 @@ import time
 import chromadb
 from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
 
+from app.config.settings import PathsConfig
+
+
+# Backward-compatible defaults; main.py overrides these from Settings.paths.
+_DEFAULT_PATHS = PathsConfig()
+
 
 class ConversationVectorStore:
 
     def __init__(
         self,
-        persist_dir: str = "data/chroma",
-        ollama_url: str = "http://localhost:11434",
-        embed_model: str = "nomic-embed-text",
+        persist_dir: str = str(_DEFAULT_PATHS.chroma_dir),
+        ollama_url: str = _DEFAULT_PATHS.ollama_url,
+        embed_model: str = _DEFAULT_PATHS.embed_model,
     ):
         self._embedding_fn = OllamaEmbeddingFunction(
             url=ollama_url,

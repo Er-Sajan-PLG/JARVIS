@@ -1,12 +1,12 @@
 """
-File tools for JARVIS Documentation Agent (v2.4.0)
+File tools for JARVIS Documentation Agent
 
 Intentionally scoped:
 - read_file: documentation files + README only
 - write_file: CHANGELOG and DEVLOG only, requires confirmation
 
 Blast radius is defined here, not enforced by the caller.
-The allowlist is the security model for v2.4.
+The allowlist is the security model.
 In v3.0, this becomes a proper permission system with user-configurable rules.
 """
 
@@ -83,23 +83,6 @@ def append_file(path: str, content: str) -> str:
         f.write(content)
     return f"Appended {len(content)} chars to {path}"
 
-    # Add to FILE_TOOLS list:
-    ToolDefinition(
-        name="append_file",
-        description="Append new content to an existing file without overwriting it. Use this for adding new entries to CHANGELOG.md and DEVLOG.md.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "content": {"type": "string"},
-            },
-            "required": ["path", "content"],
-        },
-        handler=append_file,
-        risk_level="medium",
-        requires_confirmation=True,
-    ),
-
 
 # ─── Tool definitions ──────────────────────────────────────────────────────────
 
@@ -148,5 +131,30 @@ FILE_TOOLS: list[ToolDefinition] = [
         handler=write_file,
         risk_level="medium",
         requires_confirmation=True,   # always confirm before writing
+    ),
+    ToolDefinition(
+        name="append_file",
+        description=(
+            "Append new content to an existing documentation file without overwriting it. "
+            "Use this for adding new entries to CHANGELOG.md and DEVLOG.md. "
+            f"Allowed paths: {sorted(ALLOWED_WRITE)}"
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "File path to append to (must be in allowed list)",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Content to append to the file",
+                },
+            },
+            "required": ["path", "content"],
+        },
+        handler=append_file,
+        risk_level="medium",
+        requires_confirmation=True,   # always confirm before appending
     ),
 ]
