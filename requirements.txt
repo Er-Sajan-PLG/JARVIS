@@ -75,6 +75,7 @@ packaging==26.2
 propcache==0.5.2
 protobuf==7.35.1
 pybase64==1.4.3
+pymupdf==1.26.0
 pydantic==2.13.4
 pydantic-settings==2.14.2
 pydantic_core==2.46.4

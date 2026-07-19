@@ -74,6 +74,29 @@ class RankingConfig:
 
 
 @dataclass
+class KnowledgeConfig:
+    """RAG / paper-knowledge subsystem configuration.
+
+    Controls chunking of ingested PDFs and the OCR backend used for
+    scanned/image-only pages. Kept separate from ``MemoryConfig`` because
+    knowledge (documents/papers) is a distinct subsystem from personal memory.
+    """
+    # Chunking
+    chunk_size: int = 1000          # target chars per chunk
+    chunk_overlap: int = 150        # overlap chars between consecutive chunks
+    min_chunk_chars: int = 50       # drop chunks shorter than this
+
+    # Retrieval
+    retrieval_limit: int = 6        # chunks returned per RAG query
+
+    # OCR (for scanned/image-only PDF pages)
+    ocr_engine: str = "easyocr"     # pluggable: "easyocr" | "none"
+    ocr_languages: list = field(default_factory=lambda: ["en"])
+    # Pages with less than this much native text are sent to OCR.
+    ocr_text_threshold: int = 30
+
+
+@dataclass
 class PathsConfig:
     """All file paths in one place"""
     data_dir: Path = field(default_factory=lambda: Path("data"))
@@ -96,6 +119,12 @@ class PathsConfig:
     @property
     def attachments_dir(self) -> Path:
         return self.data_dir / "attachments"
+
+    @property
+    def papers_dir(self) -> Path:
+        # Persisted PDF bytes for the knowledge/RAG subsystem. Kept separate
+        # from attachments so papers can be re-ingested / audited independently.
+        return self.data_dir / "papers"
 
     @property
     def default_conversation(self) -> Path:
@@ -184,6 +213,7 @@ class Settings:
     retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
     ranking: RankingConfig = field(default_factory=RankingConfig)
     paths: PathsConfig = field(default_factory=PathsConfig)
+    knowledge: KnowledgeConfig = field(default_factory=KnowledgeConfig)
     
     @classmethod
     def load(cls, path: Optional[str] = None) -> "Settings":
@@ -245,6 +275,8 @@ class Settings:
             settings.retrieval = _safe_dataclass(RetrievalConfig, data["retrieval"], settings.retrieval)
         if "ranking" in data:
             settings.ranking = _safe_dataclass(RankingConfig, data["ranking"], settings.ranking)
+        if "knowledge" in data:
+            settings.knowledge = _safe_dataclass(KnowledgeConfig, data["knowledge"], settings.knowledge)
 
         # Profiles must remain a mapping for the model switcher
         if "profiles" in data:
