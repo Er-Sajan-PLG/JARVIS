@@ -744,6 +744,237 @@ async function libSearch(q) {
   } catch (e) { console.error(e); }
 }
 
+// ===========================================================================
+// Research Papers (RAG knowledge base)
+// ===========================================================================
+// Tracks the last RAG answer + sources so the "Save finding" button can persist
+// the highlighted text into long-term memory via /api/papers/findings.
+const papersState = {
+  folder: "",            // selected folder scope ("") = all
+  folders: [],           // known folder names from /api/papers/folders
+  documents: [],         // ingested docs from /api/papers
+  lastAnswer: null,      // { answer, sources }
+  pendingTitle: "",      // title to use on the next ingest
+};
+
+async function openPapers() {
+  $("#papers-modal").classList.remove("hidden");
+  await papersLoadFolders();
+  papersLoadDocuments();
+  papersRenderFolderSelect();
+  // Reset any prior answer.
+  papersState.lastAnswer = null;
+  $("#papers-answer").classList.add("hidden");
+}
+
+function closePapers() {
+  $("#papers-modal").classList.add("hidden");
+  $("#papers-upload-row").classList.add("hidden");
+  $("#papers-file-input").value = "";
+}
+
+async function papersLoadFolders() {
+  try {
+    const data = await api("/api/papers/folders");
+    papersState.folders = data.folders || [];
+  } catch (e) {
+    console.error(e);
+    papersState.folders = [];
+  }
+}
+
+function papersRenderFolderSelect() {
+  const sel = $("#papers-folder");
+  const current = papersState.folder;
+  sel.innerHTML = `<option value="">All folders</option>`;
+  papersState.folders.forEach((f) => {
+    const opt = document.createElement("option");
+    opt.value = f;
+    opt.textContent = f;
+    if (f === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // Make sure the pre-created "Materials Science" folder is always offered,
+  // even if the server list is momentarily empty.
+  if (!papersState.folders.includes("Materials Science")) {
+    const opt = document.createElement("option");
+    opt.value = "Materials Science";
+    opt.textContent = "Materials Science";
+    sel.appendChild(opt);
+  }
+  const label = $("#papers-scope-label");
+  if (label) label.textContent = current ? `“${current}”` : "all folders";
+}
+
+function papersLoadDocuments() {
+  const folder = papersState.folder || "";
+  const url = "/api/papers" + (folder ? "?folder=" + encodeURIComponent(folder) : "");
+  api(url)
+    .then((data) => {
+      papersState.documents = data.documents || [];
+      papersRenderDocuments();
+    })
+    .catch((e) => {
+      $("#papers-list").innerHTML = `<div class="empty-folder">Error: ${escapeHtml(e.message)}</div>`;
+    });
+}
+
+function papersRenderDocuments() {
+  const wrap = $("#papers-list");
+  wrap.innerHTML = "";
+  const docs = papersState.documents;
+  if (!docs.length) {
+    wrap.innerHTML = `<div class="empty-folder">No papers ingested yet. Upload a PDF to get started.</div>`;
+    return;
+  }
+  docs.forEach((d) => {
+    const row = document.createElement("div");
+    row.className = "papers-doc";
+    row.innerHTML = `
+      <span class="papers-doc-icon">📄</span>
+      <div class="papers-doc-info">
+        <div class="papers-doc-title">${escapeHtml(d.title || d.filename)}</div>
+        <div class="papers-doc-meta">${escapeHtml(d.filename)} · ${d.chunk_count} chunks${d.folder ? " · 📁 " + escapeHtml(d.folder) : ""}</div>
+      </div>
+      <div class="papers-doc-actions">
+        <button class="mini-btn danger" title="Delete paper">Delete</button>
+      </div>`;
+    row.querySelector(".danger").addEventListener("click", () => papersDeleteDocument(d.doc_id));
+    wrap.appendChild(row);
+  });
+}
+
+async function papersDeleteDocument(docId) {
+  if (!confirm("Delete this paper from the knowledge base?")) return;
+  try {
+    await api("/api/papers/" + encodeURIComponent(docId), { method: "DELETE" });
+    papersLoadDocuments();
+  } catch (e) { alert("Error: " + e.message); }
+}
+
+// --- Upload / ingest ---
+function papersShowUpload() {
+  $("#papers-title-input").value = papersState.pendingTitle || "";
+  $("#papers-upload-row").classList.remove("hidden");
+  $("#papers-title-input").focus();
+}
+
+function papersCancelUpload() {
+  $("#papers-upload-row").classList.add("hidden");
+  $("#papers-file-input").value = "";
+}
+
+async function papersConfirmUpload() {
+  const fileInput = $("#papers-file-input");
+  if (!fileInput.files || !fileInput.files.length) {
+    // No file picked yet — open the picker.
+    fileInput.click();
+    return;
+  }
+  const file = fileInput.files[0];
+  if (!file.name.toLowerCase().endsWith(".pdf")) {
+    alert("Only PDF files are supported.");
+    return;
+  }
+  const folder = papersState.folder || "Materials Science";
+  const title = $("#papers-title-input").value.trim();
+  const fd = new FormData();
+  fd.append("file", file, file.name);
+  fd.append("folder", folder);
+  if (title) fd.append("title", title);
+
+  const btn = $("#papers-upload-confirm");
+  btn.disabled = true;
+  btn.textContent = "Ingesting…";
+  try {
+    await fetch("/api/papers/ingest", { method: "POST", body: fd });
+    papersCancelUpload();
+    papersLoadDocuments();
+  } catch (e) {
+    alert("Ingestion failed: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Ingest";
+  }
+}
+
+// --- Ask within a folder (RAG) ---
+async function papersAsk() {
+  const query = $("#papers-query").value.trim();
+  if (!query) return;
+  const folder = papersState.folder || null;
+  const btn = $("#papers-ask-btn");
+  btn.disabled = true;
+
+  const answerBody = $("#papers-answer-body");
+  $("#papers-answer").classList.remove("hidden");
+  answerBody.innerHTML = `<span class="papers-thinking">Searching papers…</span>`;
+  $("#papers-sources").innerHTML = "";
+
+  try {
+    const data = await api("/api/papers/query", {
+      method: "POST",
+      body: JSON.stringify({ query, folder, limit: 8 }),
+    });
+    papersState.lastAnswer = data;
+    answerBody.innerHTML = renderMarkdown(data.answer || "_No answer._");
+    papersRenderSources(data.sources || []);
+  } catch (e) {
+    answerBody.innerHTML = `<span style="color:var(--danger)">Error: ${escapeHtml(e.message)}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Render retrieved chunks as clickable [title, p.X] citation chips.
+function papersRenderSources(sources) {
+  const wrap = $("#papers-sources");
+  wrap.innerHTML = "";
+  if (!sources.length) {
+    wrap.innerHTML = `<div class="papers-no-sources">No matching excerpts in this scope.</div>`;
+    return;
+  }
+  sources.forEach((s, i) => {
+    const chip = document.createElement("div");
+    chip.className = "papers-source-chip";
+    const title = s.title || s.filename || "unknown";
+    chip.innerHTML = `
+      <span class="ps-index">${i + 1}</span>
+      <span class="ps-cite">[${escapeHtml(title)}, p.${escapeHtml(String(s.page))}]</span>
+      <span class="ps-text">${escapeHtml((s.text || "").slice(0, 160))}${(s.text || "").length > 160 ? "…" : ""}</span>`;
+    wrap.appendChild(chip);
+  });
+}
+
+// --- Save finding ---
+async function papersSaveFinding() {
+  const last = papersState.lastAnswer;
+  if (!last) return;
+  // Default the finding text to the answer; the user can edit before saving via
+  // a prompt is avoided (some contexts block it) so we send the answer text and
+  // cite the first source as the provenance.
+  const first = (last.sources && last.sources[0]) || {};
+  const text = (last.answer || "").trim();
+  if (!text) { alert("Nothing to save yet — ask a question first."); return; }
+  const sourceMeta = {
+    source_title: first.title || first.filename || "",
+    page: first.page || 0,
+    doc_id: first.doc_id || "",
+  };
+  try {
+    await api("/api/papers/findings", {
+      method: "POST",
+      body: JSON.stringify({ text, source_meta: sourceMeta }),
+    });
+    const btn = $("#papers-save-finding");
+    const original = btn.textContent;
+    btn.textContent = "✓ Saved";
+    setTimeout(() => { btn.textContent = original; }, 1200);
+  } catch (e) {
+    alert("Could not save finding: " + e.message);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
@@ -883,6 +1114,28 @@ function bindEvents() {
   // "Jump to latest" button (shown only when scrolled up during streaming).
   $("#scroll-bottom-btn").addEventListener("click", jumpToBottom);
   $("#messages").addEventListener("scroll", updateScrollButton);
+
+  // Research Papers wiring
+  $("#papers-btn").addEventListener("click", openPapers);
+  $("#papers-folder").addEventListener("change", (e) => {
+    papersState.folder = e.target.value;
+    papersRenderFolderSelect();
+    papersLoadDocuments();
+    papersState.lastAnswer = null;
+    $("#papers-answer").classList.add("hidden");
+  });
+  $("#papers-upload-btn").addEventListener("click", papersShowUpload);
+  $("#papers-upload-cancel").addEventListener("click", papersCancelUpload);
+  $("#papers-upload-confirm").addEventListener("click", papersConfirmUpload);
+  $("#papers-file-input").addEventListener("change", (e) => {
+    if (e.target.files && e.target.files.length) papersConfirmUpload();
+    e.target.value = "";
+  });
+  $("#papers-ask-btn").addEventListener("click", papersAsk);
+  $("#papers-query").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); papersAsk(); }
+  });
+  $("#papers-save-finding").addEventListener("click", papersSaveFinding);
 }
 
 function autoGrow(el) {

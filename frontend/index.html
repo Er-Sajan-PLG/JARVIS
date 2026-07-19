@@ -25,6 +25,7 @@
 
       <div class="sidebar-footer">
         <button id="attachments-btn" class="sidebar-btn">📁 Library</button>
+        <button id="papers-btn" class="sidebar-btn">📚 Papers</button>
         <button id="settings-btn" class="sidebar-btn">⚙ Settings</button>
         <button id="memories-btn" class="sidebar-btn">🧠 Memories</button>
       </div>
@@ -158,6 +159,56 @@
     </div>
   </div>
 
+  <!-- Research Papers modal -->
+  <div id="papers-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close="papers"></div>
+    <div class="modal-card papers-card">
+      <div class="modal-head">
+        <h3>📚 Research Papers</h3>
+        <button class="icon-btn" data-close="papers">✕</button>
+      </div>
+
+      <div class="papers-toolbar">
+        <select id="papers-folder" class="model-search papers-folder-select" title="Scope to a folder">
+          <option value="">All folders</option>
+        </select>
+        <button id="papers-upload-btn" class="primary-btn small" title="Upload a PDF into the selected folder">⬆ Upload PDF</button>
+        <input type="file" id="papers-file-input" accept="application/pdf" hidden />
+      </div>
+
+      <div id="papers-upload-row" class="papers-upload-row hidden">
+        <input type="text" id="papers-title-input" class="model-search" placeholder="Optional title (defaults to file name)" />
+        <button id="papers-upload-confirm" class="primary-btn small">Ingest</button>
+        <button id="papers-upload-cancel" class="secondary-btn">Cancel</button>
+      </div>
+
+      <div id="papers-list" class="papers-list"><!-- ingested documents --></div>
+
+      <div class="papers-ask">
+        <div class="papers-ask-label">
+          Ask within <b id="papers-scope-label">all folders</b>:
+        </div>
+        <div class="papers-ask-row">
+          <textarea id="papers-query" class="input" rows="2" placeholder="e.g. What electrolyte do solid-state batteries use?"></textarea>
+          <button id="papers-ask-btn" class="send-btn" title="Ask">➤</button>
+        </div>
+      </div>
+
+      <div id="papers-answer" class="papers-answer hidden">
+        <div class="papers-answer-head">
+          <span>Answer</span>
+          <button id="papers-save-finding" class="mini-btn attach" title="Save as a finding in memory">💾 Save finding</button>
+        </div>
+        <div id="papers-answer-body" class="papers-answer-body"></div>
+        <div class="papers-sources">
+          <div class="papers-sources-head">Sources</div>
+          <div id="papers-sources" class="papers-sources-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
+
