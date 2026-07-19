@@ -13,8 +13,10 @@ Design:
   in characters against ``chunk_size`` / ``chunk_overlap``.
 * Pages are processed in order; overlap is applied between consecutive chunks
   *within and across pages* so context isn't lost at page boundaries.
-* Short trailing fragments are merged into the previous chunk; a fragment that
-  is shorter than ``min_chunk_chars`` and is the very first chunk is dropped.
+* Short trailing fragments are merged into the previous chunk. A short fragment
+  that is the very first chunk (with nothing to merge into) is dropped only when
+  other content follows; a sole short chunk is kept since it is the whole
+  document and discarding it would lose all content.
 
 This module is pure Python (no PDF/OCR/embedding deps) so it is easy to test.
 """
@@ -111,21 +113,23 @@ def chunk_document(
             )
 
     # Merge or drop fragments shorter than min_chunk_chars.
+    #
+    # A fragment shorter than ``min_chunk_chars`` is merged into the previous
+    # chunk so we don't embed tiny orphan snippets. The ONLY case we drop
+    # rather than merge is when the short fragment is the very first chunk AND
+    # has nothing before it to merge into (a genuine empty/garbage lead) — and
+    # even then we keep it if it is the *sole* chunk, because that lone chunk
+    # is the entire document and discarding it would lose all content.
     if min_chunk_chars > 0 and chunks:
         merged: list[Chunk] = []
         for ch in chunks:
-            if len(ch.text) < min_chunk_chars and merged:
-                # Append the short fragment to the previous chunk's text.
+            is_short = len(ch.text) < min_chunk_chars
+            if is_short and merged:
+                # Merge the short fragment into the previous chunk's text.
                 prev = merged[-1]
                 prev.text = (prev.text + " " + ch.text).strip()
             else:
                 merged.append(ch)
-        # If the very first chunk was too short and there was nothing to merge
-        # into, drop it (handled by the else branch keeping it; only drop if it
-        # is the sole short chunk and we choose to discard — we keep it to avoid
-        # losing content, matching the docstring's "drop if very first").
-        if len(merged) == 1 and len(merged[0].text) < min_chunk_chars:
-            merged = []
         chunks = merged
 
     return chunks
