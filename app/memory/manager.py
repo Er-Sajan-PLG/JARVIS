@@ -231,6 +231,7 @@ class MemoryManager:
             source=source,
             confidence=fact.get("confidence", 1.0),
             importance=fact.get("importance", IMPORTANCE_MEDIUM),
+            metadata=dict(fact["metadata"]) if fact.get("metadata") else {},
         )
         
         self._store.add(memory)
@@ -257,6 +258,8 @@ class MemoryManager:
                 memory.importance = fact["importance"]
             if "behavior" in fact:
                 memory.behavior = fact["behavior"]
+            if fact.get("metadata"):
+                memory.metadata = dict(fact["metadata"])
             memory.mark_updated()
             
             if self._on_update:
