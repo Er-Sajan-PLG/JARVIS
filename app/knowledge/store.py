@@ -17,10 +17,12 @@ ChromaDB record:
         "title":      <str>,
         "page":       <int>,   # 1-based
         "chunk_index":<int>,   # global 0-based within the document
+        "folder":     <str>,   # "" if unfiled; used to scope search/list
     }
 
-The ``doc_id`` is a stable identifier (we use a short hash of the filename +
-ingest time) so an entire document can be deleted without touching others.
+The ``doc_id`` is a stable identifier (we use a short hash of the filename)
+so an entire document can be deleted without touching others. ``folder`` lets
+retrieval be scoped to a single folder (e.g. "Materials Science").
 """
 
 import hashlib
@@ -43,9 +45,9 @@ class PaperStore:
     """ChromaDB-backed store for paper chunks.
 
     Methods:
-        add_document(filename, title, chunks) -> doc_id
-        search(query, limit) -> list[dict]
-        list_documents() -> list[dict]
+        add_document(filename, title, chunks, doc_id=None, folder="") -> doc_id
+        search(query, limit, folder=None) -> list[dict]
+        list_documents(folder=None) -> list[dict]
         document_count() -> int
         count() -> int
         clear_document(doc_id) -> int   # returns number of chunks removed
@@ -73,7 +75,12 @@ class PaperStore:
     # ── Write ────────────────────────────────────────────────────────────────
 
     def add_document(
-        self, filename: str, title: str, chunks: list[Chunk], doc_id: Optional[str] = None
+        self,
+        filename: str,
+        title: str,
+        chunks: list[Chunk],
+        doc_id: Optional[str] = None,
+        folder: str = "",
     ) -> str:
         """Embed and store all chunks of a document.
 
@@ -84,12 +91,16 @@ class PaperStore:
         duplicating them. Callers that need multiple versions of the same file
         to coexist should pass an explicit, unique ``doc_id``.
 
+        ``folder`` is stored on every chunk's metadata so retrieval can be
+        scoped to a single folder (e.g. "Materials Science") via ``search``.
+
         Returns the ``doc_id`` used.
         """
         if not chunks:
             raise ValueError("cannot add a document with zero chunks")
 
         doc_id = doc_id or self._make_doc_id(filename)
+        folder = folder or ""
 
         ids, documents, metadatas = [], [], []
         for chunk in chunks:
@@ -101,6 +112,7 @@ class PaperStore:
                 "title":       title,
                 "page":        int(chunk.page),
                 "chunk_index": int(chunk.chunk_index),
+                "folder":      folder,
             })
 
         # upsert so re-ingesting the same doc_id overwrites prior chunks
@@ -116,42 +128,45 @@ class PaperStore:
 
     # ── Read ─────────────────────────────────────────────────────────────────
 
-    def search(self, query: str, limit: int = 6) -> list[dict]:
-        """Semantic search across all papers.
+    def search(self, query: str, limit: int = 6, folder: Optional[str] = None) -> list[dict]:
+        """Semantic search across papers (optionally scoped to ``folder``).
 
         Returns a list of dicts (most relevant first):
-            {"doc_id", "filename", "title", "page", "chunk_index", "text"}
+            {"doc_id", "filename", "title", "page", "chunk_index", "folder", "text"}
         """
         count = self._collection.count()
         if count == 0 or not query.strip():
             return []
 
+        where = {"folder": folder} if folder else None
         results = self._collection.query(
             query_texts=[query],
             n_results=min(limit, count),
+            where=where,
             include=["documents", "metadatas"],
         )
 
         out = []
-        ids = results["ids"][0]
         docs = results["documents"][0]
         metas = results["metadatas"][0]
-        for chunk_id, text, meta in zip(ids, docs, metas):
+        for text, meta in zip(docs, metas):
             out.append({
                 "doc_id":      meta.get("doc_id", ""),
                 "filename":    meta.get("filename", ""),
                 "title":       meta.get("title", ""),
                 "page":        meta.get("page", 0),
                 "chunk_index": meta.get("chunk_index", 0),
+                "folder":      meta.get("folder", ""),
                 "text":        text,
             })
         return out
 
-    def list_documents(self) -> list[dict]:
+    def list_documents(self, folder: Optional[str] = None) -> list[dict]:
         """Return one entry per ingested document.
 
-        Each entry: {"doc_id", "filename", "title", "chunk_count"}.
+        Each entry: {"doc_id", "filename", "title", "folder", "chunk_count"}.
         Derived by scanning chunk metadata; cheap for the expected scale.
+        Pass ``folder`` to list only documents in that folder.
         """
         result = self._collection.get(include=["metadatas"])
         metas = result.get("metadatas") or []
@@ -163,12 +178,17 @@ class PaperStore:
             doc_id = meta.get("doc_id")
             if doc_id is None:
                 continue
+            # Folder filter (applied on the dedup key so a doc can live in only
+            # one folder at a time in this subsystem).
+            if folder is not None and meta.get("folder", "") != folder:
+                continue
             entry = docs.get(doc_id)
             if entry is None:
                 entry = {
                     "doc_id":      doc_id,
                     "filename":    meta.get("filename", ""),
                     "title":       meta.get("title", ""),
+                    "folder":      meta.get("folder", ""),
                     "chunk_count": 0,
                 }
                 docs[doc_id] = entry

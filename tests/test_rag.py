@@ -44,9 +44,10 @@ class FakeStore:
         self.last_query = None
         self.last_limit = None
 
-    def search(self, query, limit=6):
+    def search(self, query, limit=6, folder=None):
         self.last_query = query
         self.last_limit = limit
+        self.last_folder = folder
         return self._sources[:limit]
 
 

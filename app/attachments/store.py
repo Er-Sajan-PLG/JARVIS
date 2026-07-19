@@ -192,6 +192,18 @@ class AttachmentStore:
             self._save_index()
         return {"ok": True, "path": path}
 
+    def list_folders(self) -> list[str]:
+        """Return all known folder paths, including empty ones.
+
+        Unlike :meth:`list_tree` (which only shows folders that contain files),
+        this surfaces folders created explicitly via :meth:`create_folder` even
+        when they have no files yet — e.g. a pre-created "Materials Science"
+        folder the UI should offer as an upload target immediately.
+        """
+        with self._lock:
+            folders = self._index.get("folders", {})
+            return sorted(folders.keys())
+
     def rename_folder(self, old_path: str, new_path: str) -> dict:
         old_path = _normalize_folder(old_path)
         new_path = _normalize_folder(new_path)

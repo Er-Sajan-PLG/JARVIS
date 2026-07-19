@@ -80,6 +80,7 @@ def answer(
     model_client: ModelClient,
     store,
     limit: int = 6,
+    folder: Optional[str] = None,
     system_prompt: Optional[str] = None,
 ) -> RAGResult:
     """Answer ``query`` using retrieved paper chunks.
@@ -90,6 +91,10 @@ def answer(
                       an object exposing ``.content`` (str).
         store:        a :class:`PaperStore` (or anything with a ``search`` method).
         limit:        max chunks to retrieve (defaults to 6).
+        folder:       optional folder label to scope retrieval to a single
+                      folder (e.g. "Materials Science"). Forwarded to
+                      ``store.search`` so the answer can be "asked within a
+                      folder".
         system_prompt: optional override for the grounding system prompt.
 
     Returns:
@@ -100,7 +105,7 @@ def answer(
     if not query:
         return RAGResult(answer="Please provide a question to answer.", sources=[])
 
-    sources = store.search(query, limit=limit) if limit > 0 else []
+    sources = store.search(query, limit=limit, folder=folder) if limit > 0 else []
     if not sources:
         return RAGResult(
             answer=(

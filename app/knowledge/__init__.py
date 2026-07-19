@@ -7,7 +7,7 @@ into ChromaDB, retrieval-augmented generation, and saving important findings
 into long-term memory.
 
 Public surface:
-    from app.knowledge import ingest_pdf, PaperStore, answer, save_finding
+    from app.knowledge import ingest_pdf_bytes, PaperStore, answer, save_finding
 """
 
 # Imports are done defensively (per-module) so the package stays importable
@@ -32,7 +32,7 @@ except ModuleNotFoundError:  # pragma: no cover - not built yet
     pass
 
 try:
-    from app.knowledge.ingest import ingest_pdf
+    from app.knowledge.ingest import ingest_pdf_bytes
 except ModuleNotFoundError:  # pragma: no cover - not built yet
     pass
 
@@ -46,6 +46,6 @@ __all__ = [
     "PaperStore",
     "answer",
     "save_finding",
-    "ingest_pdf",
+    "ingest_pdf_bytes",
 ]
 
