@@ -146,3 +146,15 @@ flowchart LR
 > `git_branch` and `git_status` exist as functions but are **not** in `GIT_TOOLS`,
 > so the agent cannot call them. Git diff output is additionally capped at 8000
 > chars inside the git tools.
+
+---
+
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+1cab1b1|Er Sajan PLG|2026-07-13 08:12:24 +0545|mermaid added in docs/architecture and mermaid dependencies
+```
+
+Notes: This log was generated from the repository history for `docs/architecture/agents.md`. Let me know if you want any assertions in this document tied to a specific commit hash.

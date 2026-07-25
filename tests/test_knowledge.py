@@ -5,8 +5,9 @@ Covers:
 * ``chunk_document`` (pure Python — always runs, no external deps).
 * ``extract_pages`` native-text path — runs only when ``pymupdf`` (``fitz``)
   is installed; skipped otherwise.
-* ``extract_pages`` OCR path — runs only when both ``fitz`` and ``easyocr``
-  are installed; skipped otherwise (OCR is an optional, heavy backend).
+* ``extract_pages`` OCR path — runs when ``fitz`` is installed and the
+  configured OCR backend is available. OCR is optional and handled via
+  Unlimited-OCR or remote HTTP OCR.
 
 A minimal valid text-only PDF is generated in-code (no PDF library required to
 *build* it) so the native extraction test has real bytes to feed ``fitz``.
@@ -31,12 +32,6 @@ try:
     _HAVE_FITZ = True
 except Exception:  # pragma: no cover - environment dependent
     _HAVE_FITZ = False
-
-try:
-    import easyocr  # noqa: F401
-    _HAVE_EASYOCR = True
-except Exception:  # pragma: no cover - environment dependent
-    _HAVE_EASYOCR = False
 
 
 # ---------------------------------------------------------------------------
@@ -190,9 +185,22 @@ class TestExtractNative(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# extract_pages — OCR path (needs fitz + easyocr)
+# OCR engine factory
 # ---------------------------------------------------------------------------
-@unittest.skipUnless(_HAVE_FITZ and _HAVE_EASYOCR, "pymupdf + easyocr required")
+class TestOCREngineFactory(unittest.TestCase):
+    def test_build_ocr_engine_none(self):
+        eng = build_ocr_engine("none")
+        self.assertIsInstance(eng, NoOpOCREngine)
+
+    def test_build_ocr_engine_unknown_raises(self):
+        with self.assertRaises(ValueError):
+            build_ocr_engine("unsupported_engine")
+
+
+# ---------------------------------------------------------------------------
+# extract_pages — OCR path (needs fitz)
+# ---------------------------------------------------------------------------
+@unittest.skipUnless(_HAVE_FITZ, "pymupdf (fitz) not installed")
 class TestExtractOCR(unittest.TestCase):
     def test_ocr_engine_factory_noop(self):
         eng = build_ocr_engine("none")

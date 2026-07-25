@@ -90,8 +90,10 @@ class KnowledgeConfig:
     retrieval_limit: int = 6        # chunks returned per RAG query
 
     # OCR (for scanned/image-only PDF pages)
-    ocr_engine: str = "easyocr"     # pluggable: "easyocr" | "none"
+    ocr_engine: str = "unlimited"     # pluggable: "easyocr" | "pytesseract" | "unlimited" | "remote" | "none"
     ocr_languages: list = field(default_factory=lambda: ["en"])
+    # If using `ocr_engine: "remote"`, set this to the external service URL
+    remote_ocr_url: str = ""  # e.g. http://localhost:9000/ocr/process
     # Pages with less than this much native text are sent to OCR.
     ocr_text_threshold: int = 30
 
@@ -172,25 +174,7 @@ def _safe_model_config(key, mdata):
 class Settings:
     """Master configuration container"""
     default_model: str = "qwen3-8b.gguf"
-    active_profile: str = "local"          
-    profiles: dict = field(default_factory=lambda: {
-        "local": {
-            "general": "general",
-            "code": "code",
-            "reasoning": "reasoning",
-            "docs": "docs",
-            "stem": "reasoning",
-        },
-        "cloud": {
-            "general": "cloud",
-            "code": "cloud",
-            "reasoning": "cloud",
-            "docs": "cloud",
-            "stem": "cloud",
-        }
-    })                                    
-
-    
+    active_profile: str = "default"
     models: dict = field(default_factory=lambda: {
         "general": ModelConfig(
             name="llama-3.2-3b-instruct-q4_k_m.gguf",
@@ -278,25 +262,11 @@ class Settings:
         if "knowledge" in data:
             settings.knowledge = _safe_dataclass(KnowledgeConfig, data["knowledge"], settings.knowledge)
 
-        # Profiles must remain a mapping for the model switcher
-        if "profiles" in data:
-            if isinstance(data["profiles"], dict):
-                settings.profiles = data["profiles"]
-            else:
-                logger.warning("'profiles' is not a mapping; using defaults")
+        if "active_profile" in data and isinstance(data["active_profile"], str):
+            settings.active_profile = data["active_profile"]
 
-        if "active_profile" in data:
-            candidate = data["active_profile"]
-            profiles_ok = isinstance(settings.profiles, dict)
-            if profiles_ok and candidate in settings.profiles:
-                settings.active_profile = candidate
-            else:
-                keys = list(settings.profiles.keys()) if profiles_ok else settings.profiles
-                logger.warning(
-                    "active_profile '%s' not found in profiles %s; "
-                    "falling back to '%s'",
-                    candidate, keys, settings.active_profile,
-                )
+        if "profiles" in data:
+            logger.warning("'profiles' config is no longer used; ignoring")
 
         return settings
 

@@ -1,4 +1,6 @@
-# Application Startup Flow for JARVIS v2.4.0
+# Application Startup Flow
+
+> Version note: Use Git tags as the canonical release source. The repository's latest tag is `v2.5.0`.
 
 This document outlines the startup sequence of the JARVIS application, tracing execution from its entry point to the initiation of user request processing.
 
@@ -139,3 +141,15 @@ The application handles shutdown gracefully when the user types "quit" or sends 
     *   `memory.save_if_dirty()`: Ensures any unsaved changes in the `MemoryManager` are persisted (e.g., to `data/memories.json`).
     *   `conversation.save_if_dirty()`: Ensures any unsaved changes in the `ConversationManager` are persisted (e.g., to `data/conversations/default.json`).
 -   **Exit**: The `break` statement exits the `while True:` loop, ending the `main()` function and thus the program.
+
+---
+
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+6ea9796|Er Sajan PLG|2026-07-11 22:42:47 +0545|feat(platform): expand model backends and configuration system
+```
+
+Notes: This log was generated from the repository history for `docs/STARTUP_FLOW.md`.

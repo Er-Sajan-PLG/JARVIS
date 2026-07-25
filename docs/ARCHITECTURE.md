@@ -201,6 +201,21 @@ The orchestrator should contain as little business logic as possible.
 
 ---
 
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+5fccb37|Er Sajan PLG|2026-07-04 18:40:14 +0545|Bug fixes and added archiecture, dev log and changelog for v2.0.0
+8519f65|Er Sajan PLG|2026-07-03 23:31:02 +0545|feat(core)!: JARVIS v2.0.0 - Complete architectural overhaul
+db51ccc|Er Sajan PLG|2026-06-29 12:14:52 +0545|feat(memory): implement multi-trigger extraction and behavior-based memory actions,left over
+8b1d0cb|Er Sajan PLG|2026-06-27 13:05:30 +0545|Added Architecture and Roadmap in docs for what to do seamless development
+```
+
+Notes: This log was generated from the repository history for `docs/ARCHITECTURE.md`.
+
+---
+
 ## Rules
 
 Rules define how information is recognized.

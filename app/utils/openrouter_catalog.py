@@ -68,13 +68,31 @@ def fetch_openrouter_models(force: bool = False) -> list[dict]:
             return _cache["data"] or []
 
 
-def search_openrouter_models(query: str, limit: int = 50) -> list[dict]:
+def is_free_model(m: dict) -> bool:
+    """True if a catalog entry is free to use (zero prompt + completion cost).
+
+    OpenRouter reports pricing as strings; "0" (or "0.0") means free. Some
+    entries omit pricing entirely — treat those as non-free to avoid surprises.
+    """
+    pricing = m.get("pricing") or {}
+    prompt = str(pricing.get("prompt", "")).strip()
+    completion = str(pricing.get("completion", "")).strip()
+    return prompt in ("0", "0.0") and completion in ("0", "0.0")
+
+
+def search_openrouter_models(query: str, limit: int = 50, free_only: bool = False) -> list[dict]:
     """Filter the catalog by a free-text query (substring, case-insensitive).
 
     Used by the web UI search box. Returns up to ``limit`` matches, newest
     (largest context) first for visibility of flagship models.
+
+    When ``free_only`` is True, only models whose ``pricing.prompt`` and
+    ``pricing.completion`` are both ``"0"`` are returned — i.e. the models
+    OpenRouter serves at no cost (their ids typically end in ``:free``).
     """
     models = fetch_openrouter_models()
+    if free_only:
+        models = [m for m in models if is_free_model(m)]
     q = (query or "").strip().lower()
     if q:
         models = [m for m in models if q in m["id"].lower() or q in m["name"].lower()]

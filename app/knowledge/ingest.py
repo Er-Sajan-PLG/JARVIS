@@ -12,7 +12,7 @@ API can use:
     5. Persist the original PDF bytes under data/papers/<doc_id>.pdf so the
        document can be re-ingested or audited later without re-uploading.
 
-The module is import-safe: heavy deps (pymupdf, easyocr) stay lazy inside the
+The module is import-safe: heavy deps (pymupdf) stay lazy inside the
 steps that need them, so importing ``ingest_pdf_bytes`` never pulls them in.
 """
 
@@ -61,13 +61,17 @@ def ingest_pdf_bytes(
     kcfg = settings.knowledge
     title = (title or "").strip() or os.path.splitext(os.path.basename(filename))[0]
 
-    # 1. OCR engine (NoOp if disabled or backend unavailable).
+    # 1. OCR engine. Fail ingestion if the configured backend is unavailable
+    # or misconfigured, unless the user explicitly disabled OCR with "none".
     try:
         ocr_engine = build_ocr_engine(
             kcfg.ocr_engine, langs=kcfg.ocr_languages, gpu=False
         )
-    except Exception:  # pragma: no cover - env dependent
-        ocr_engine = build_ocr_engine("none")
+    except Exception:
+        if kcfg.ocr_engine and kcfg.ocr_engine.lower() == "none":
+            ocr_engine = build_ocr_engine("none")
+        else:
+            raise
 
     # 2. Extract text per page (native + OCR as needed).
     pages = extract_pages(

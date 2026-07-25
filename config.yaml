@@ -1,34 +1,10 @@
-active_profile: "local"   # YOUR MASTER SWITCH
-
-profiles:
-  # 🟢 100% Local Machine
-  local:
-    general: "local_general"
-    code: "local_code"
-    reasoning: "local_reasoning"
-    docs: "local_docs"
-
-  # 🟠 100% Grok (XAI Free Tier)
-  grok:
-    general: "grok_general"
-    code: "grok_code"
-    reasoning: "grok_reasoning"
-    docs: "grok_docs"
-
-  # 🔵 100% OpenRouter (Free Llama 70B)
-  openrouter:
-    general: openrouter_general
-    code: openrouter_code
-    reasoning: openrouter_reasoning
-    docs: openrouter_docs
-    stem: openrouter_stem
-    
-  # 🟡 100% Google Gemini (backend: "google"; requires GOOGLE_API_KEY & billing enabled)
-  google:
-    general: "google_general"
-    code: "google_code"
-    reasoning: "google_reasoning"
-    docs: "google_docs"
+# Model configuration only needs a model registry. Profiles are no longer used.
+# The runtime builds:
+#   - default local Ollama router from the smallest configured Ollama model
+#   - omni router using every loaded client across providers
+#
+# Optional API keys go into .env for cloud providers:
+#   OPENROUTER_API_KEY, XAI_API_KEY, GOOGLE_API_KEY
 
 models:
   # --- 🟢 LOCAL ---
@@ -38,88 +14,26 @@ models:
     backend: "llamacpp"
     base_url: "http://localhost:8080/v1"
 
-  local_code:
-    name: "qwen3:8b"
-    role: "code"
-    backend: "ollama"
-    base_url: "http://localhost:11434"
-
-  local_reasoning:
-    name: "deepseek-r1:32b"
-    role: "reasoning"
-    backend: "ollama"
-    base_url: "http://localhost:11434"
-
-  local_docs:
-    name: "qwen3-8b.gguf"
-    role: "docs"
-    backend: "llamacpp"
-    base_url: "http://localhost:8080/v1"
 
   # --- 🟠 GROK (XAI) ---
-  grok_general:
+  grok:
     name: "grok-3-beta"
     role: "general"
     backend: "llamacpp"
     base_url: "https://api.x.ai/v1"
     api_key: "env:XAI_API_KEY"
 
-  grok_code:
-    name: "grok-3-beta"
-    role: "code"
-    backend: "llamacpp"
-    base_url: "https://api.x.ai/v1"
-    api_key: "env:XAI_API_KEY"
-
-  grok_reasoning:
-    name: "grok-3-beta"
-    role: "reasoning"
-    backend: "llamacpp"
-    base_url: "https://api.x.ai/v1"
-    api_key: "env:XAI_API_KEY"
-
-  grok_docs:
-    name: "grok-3-beta"
-    role: "docs"
-    backend: "llamacpp"
-    base_url: "https://api.x.ai/v1"
-    api_key: "env:XAI_API_KEY"
 
   # --- 🔵 OPENROUTER ---
-  openrouter_general:
-    name: "meta-llama/llama-3.3-70b-instruct:free"
-    role: "general"
-    backend: "openrouter"
-    base_url: "https://openrouter.ai/api/v1"
-    api_key: "env:OPENROUTER_API_KEY"
-
-  openrouter_code:
+ 
+  openrouter:
     name: "qwen/qwen3-coder:free"
     role: "code"
     backend: "openrouter"
     base_url: "https://openrouter.ai/api/v1"
     api_key: "env:OPENROUTER_API_KEY"
 
-  openrouter_reasoning:
-    name: "openai/gpt-oss-20b:free"
-    role: "reasoning"
-    backend: "openrouter"
-    base_url: "https://openrouter.ai/api/v1"
-    api_key: "env:OPENROUTER_API_KEY"
-
-  openrouter_docs:
-    name: "meta-llama/llama-3.2-3b-instruct:free"
-    role: "docs"
-    backend: "openrouter"
-    base_url: "https://openrouter.ai/api/v1"
-    api_key: "env:OPENROUTER_API_KEY"
-
-  openrouter_stem:
-    name: "qwen/qwen3-next-80b-a3b-instruct:free"
-    role: "stem"
-    backend: "openrouter"
-    base_url: "https://openrouter.ai/api/v1"
-    api_key: "env:OPENROUTER_API_KEY"
+ 
 
   # --- 🟡 GOOGLE (backend: "google" -> app/models/google_client.py) ---
   google_general:
@@ -127,28 +41,3 @@ models:
     role: "general"
     backend: "google"
     api_key: "env:GOOGLE_API_KEY"
-
-  google_code:
-    name: "gemini-2.0-flash"
-    role: "code"
-    backend: "google"
-    api_key: "env:GOOGLE_API_KEY"
-
-  google_reasoning:
-    name: "gemini-2.0-flash"
-    role: "reasoning"
-    backend: "google"
-    api_key: "env:GOOGLE_API_KEY"
-
-  google_docs:
-    name: "gemini-2.0-flash"
-    role: "docs"
-    backend: "google"
-    api_key: "env:GOOGLE_API_KEY"
-
-  cerebras_general:
-    name: "gemini-2.0-flash"
-    role: "general"
-    backend: "llamacpp"
-    base_url: "http://localhost" # Ignored by Python block
-    api_key: "env:"

@@ -16,11 +16,11 @@ of scanned figures/appendices only pays the OCR cost on those pages.
 
 Concerns are kept separate:
 * ``extract_pages`` is the high-level orchestrator (page loop + routing).
-* ``OCREngine`` is a Protocol; ``EasyOCREngine`` / ``NoOpOCREngine`` are the
+* ``OCREngine`` is a Protocol; ``UnlimitedOCREngine`` / ``NoOpOCREngine`` are the
   pluggable implementations. Swapping OCR backends does not touch the rest.
 
-Heavy imports (``fitz``, ``easyocr``) are lazy (inside functions/classes) so
-this module is safe to import even before those optional deps are installed.
+Heavy imports (``fitz``) are lazy so this module is safe to import even before
+those optional deps are installed.
 """
 
 from __future__ import annotations
@@ -58,40 +58,95 @@ class NoOpOCREngine:
         return ""
 
 
-class EasyOCREngine:
+class UnlimitedOCREngine:
+    """Wrapper around the external Unlimited-OCR integration.
+
+    Delegates to `app.services.ocr.backends.unlimited_ocr.UnlimitedOCREngine`.
+    This indirection keeps the PDF extraction module free of heavyweight
+    external imports and provides a single place to adapt integration code.
     """
-    OCR via ``easyocr`` (https://github.com/JaidedAI/EasyOCR).
 
-    The ``easyocr`` module and its model download are heavy, so the reader is
-    imported and the model is instantiated **lazily** on first use. Construction
-    arguments (``langs``, ``gpu``) are cached so repeated pages reuse one reader.
-    """
-
-    def __init__(self, langs: Optional[list[str]] = None, gpu: bool = False):
-        self._langs = langs or ["en"]
-        self._gpu = gpu
-        self._reader = None  # created on first ocr_image() call
-
-    def _get_reader(self):
-        if self._reader is None:
-            try:
-                import easyocr  # lazy import — only when OCR is actually needed
-            except ImportError as exc:  # pragma: no cover - env dependent
-                raise RuntimeError(
-                    "easyocr is not installed. Run `pip install easyocr` or set "
-                    "knowledge.ocr_engine to 'none' to skip OCR of scanned pages."
-                ) from exc
-            logger.info("Loading EasyOCR reader (langs=%s, gpu=%s)…", self._langs, self._gpu)
-            self._reader = easyocr.Reader(self._langs, gpu=self._gpu)
-        return self._reader
+    def __init__(self, opts: Optional[list[str]] = None, gpu: bool = False):
+        try:
+            from app.services.ocr.backends.unlimited_ocr import UnlimitedOCREngine as _U
+        except Exception as exc:  # pragma: no cover - env dependent
+            raise RuntimeError(
+                "Unlimited-OCR backend is not available. Install the project "
+                "from https://github.com/baidu/Unlimited-OCR and ensure it is importable."
+            ) from exc
+        self._impl = _U(opts={"langs": opts, "gpu": gpu})
 
     def ocr_image(self, image_bytes: bytes) -> str:
-        reader = self._get_reader()
-        # easyocr.readtext accepts a raw bytes object / numpy array / path.
-        results = reader.readtext(image_bytes, detail=0, paragraph=True)
-        if isinstance(results, str):
-            return results
-        return "\n".join(str(line) for line in results)
+        return self._impl.ocr_image(image_bytes)
+
+
+class RemoteOCREngine:
+    """Adapter that calls an external HTTP OCR service.
+
+    Expects a JSON reply with a top-level `text` field containing the
+    recognized text. The endpoint URL is read from the global settings
+    (`knowledge.remote_ocr_url`). Timeouts and network errors raise
+    RuntimeError to allow the ingestion code to fall back to NoOp.
+    """
+
+    def __init__(self, url: Optional[str] = None, timeout: int = 60):
+        # Lazy import of settings to avoid import cycles at module import time
+        try:
+            from app.config.settings import get_settings
+        except Exception:  # pragma: no cover - environment dependent
+            get_settings = None
+        self._timeout = timeout
+        self._url = url
+        if not self._url and get_settings:
+            try:
+                self._url = str(get_settings().knowledge.remote_ocr_url or "")
+            except Exception:
+                self._url = ""
+
+    def ocr_image(self, image_bytes: bytes) -> str:
+        if not self._url:
+            raise RuntimeError("Remote OCR URL not configured (knowledge.remote_ocr_url)")
+        # Use requests if available, else fallback to urllib
+        try:
+            import requests
+        except Exception:
+            requests = None
+
+        if requests:
+            try:
+                files = {"file": ("page.png", image_bytes, "image/png")}
+                resp = requests.post(self._url, files=files, timeout=self._timeout)
+                resp.raise_for_status()
+                j = resp.json()
+                text = j.get("text") if isinstance(j, dict) else None
+                return str(text or "")
+            except Exception as exc:  # pragma: no cover - network dependent
+                raise RuntimeError(f"Remote OCR request failed: {exc}") from exc
+
+        # Fallback to stdlib POST using urllib
+        try:
+            import mimetypes
+            import uuid
+            from urllib import request as _request
+            boundary = uuid.uuid4().hex
+            data = []
+            data.append(f"--{boundary}")
+            data.append('Content-Disposition: form-data; name="file"; filename="page.png"')
+            data.append('Content-Type: image/png')
+            data.append("")
+            body = b"\r\n".join(part.encode("utf-8") if isinstance(part, str) else part for part in data) + b"\r\n" + image_bytes + b"\r\n"
+            tail = (f"--{boundary}--\r\n").encode("utf-8")
+            body = body + tail
+            req = _request.Request(self._url, data=body)
+            req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+            req.add_header("Content-Length", str(len(body)))
+            with _request.urlopen(req, timeout=self._timeout) as resp:
+                raw = resp.read()
+                import json as _json
+                j = _json.loads(raw.decode("utf-8", errors="replace"))
+                return str(j.get("text") or "")
+        except Exception as exc:  # pragma: no cover - network dependent
+            raise RuntimeError(f"Remote OCR request failed: {exc}") from exc
 
 
 def build_ocr_engine(engine_name: str, langs: Optional[list[str]] = None, gpu: bool = False) -> OCREngine:
@@ -99,16 +154,24 @@ def build_ocr_engine(engine_name: str, langs: Optional[list[str]] = None, gpu: b
     Factory for the configured OCR backend.
 
     ``engine_name`` is taken from ``KnowledgeConfig.ocr_engine``
-    ("easyocr" | "none"). Unknown names fall back to the no-op engine so a bad
-    config can never crash ingestion of digital PDFs.
+    ("unlimited" | "remote" | "none").
+    Unknown names raise an error so misconfigured OCR backends fail fast.
     """
     name = (engine_name or "none").lower()
-    if name == "easyocr":
-        return EasyOCREngine(langs=langs, gpu=gpu)
-    # "none" or anything unrecognized -> skip OCR entirely.
-    if name != "none":
-        logger.warning("Unknown ocr_engine '%s'; OCR disabled.", engine_name)
-    return NoOpOCREngine()
+    if name == "unlimited":
+        return UnlimitedOCREngine(opts=langs, gpu=gpu)
+    if name == "remote":
+        # langs passed through as url if user provided a direct URL string
+        url = None
+        if langs and isinstance(langs, list) and len(langs) == 1 and isinstance(langs[0], str):
+            url = langs[0]
+        return RemoteOCREngine(url=url)
+    if name == "none":
+        return NoOpOCREngine()
+    raise ValueError(
+        f"Unknown ocr_engine '{engine_name}'. Supported values: "
+        "unlimited, remote, none."
+    )
 
 
 def _render_page_to_png(page, dpi: int = 200) -> bytes:

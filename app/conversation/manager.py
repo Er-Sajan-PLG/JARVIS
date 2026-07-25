@@ -32,6 +32,7 @@ class Message:
     content: str
     timestamp: float = field(default_factory=time.time)
     metadata: dict = field(default_factory=dict)
+    pinned: bool = False  # For pin/favorite messages
     
     def to_dict(self) -> dict:
         return {
@@ -39,6 +40,7 @@ class Message:
             "content": self.content,
             "timestamp": self.timestamp,
             "metadata": self.metadata,
+            "pinned": self.pinned,
         }
     
     @classmethod
@@ -48,6 +50,7 @@ class Message:
             content=data["content"],
             timestamp=data.get("timestamp", time.time()),
             metadata=data.get("metadata", {}),
+            pinned=data.get("pinned", False),
         )
     
     def to_openai_format(self) -> dict:
@@ -141,6 +144,37 @@ class ConversationManager:
             return popped
         return None
     
+    # Pin/Favorite methods
+    def toggle_pin(self, message_index: int) -> bool:
+        """Toggle pin status of a message by index."""
+        if 0 <= message_index < len(self._messages):
+            self._messages[message_index].pinned = not self._messages[message_index].pinned
+            self._dirty = True
+            self.save()
+            return self._messages[message_index].pinned
+        return False
+    
+    def get_pinned_messages(self) -> list[Message]:
+        """Get all pinned messages."""
+        return [m for m in self._messages if m.pinned]
+    
+    def search_messages(self, query: str) -> list[dict]:
+        """Search messages by content."""
+        q = query.lower().strip()
+        if not q:
+            return []
+        results = []
+        for i, m in enumerate(self._messages):
+            if q in m.content.lower():
+                results.append({
+                    "index": i,
+                    "role": m.role,
+                    "content": m.content[:200] + ("..." if len(m.content) > 200 else ""),
+                    "timestamp": m.timestamp,
+                    "pinned": m.pinned,
+                })
+        return results
+
     def save(self):
         """Save conversation to disk"""
         if not self._dirty:

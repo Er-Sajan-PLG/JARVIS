@@ -40,7 +40,7 @@ they reuse the Attachment Library's **folder** model so the UI stays consistent.
 
 | File | Responsibility |
 |------|----------------|
-| `extract.py` | Per-page text extraction. Native text via `pymupdf` (`fitz`); pages with `< ocr_text_threshold` chars are rendered to PNG and OCR'd via `easyocr`. Returns ordered `Page` objects (`source` = `"text"` / `"ocr"`). Heavy imports are lazy. |
+| `extract.py` | Per-page text extraction. Native text via `pymupdf` (`fitz`); pages with `< ocr_text_threshold` chars are rendered to PNG and OCR'd with the configured backend. Default is `unlimited`; local options like `easyocr`/`pytesseract` are optional. Returns ordered `Page` objects (`source` = `"text"` / `"ocr"`). Heavy imports are lazy. |
 | `chunk.py` | Pure-Python, word-based overlapping chunker. Produces `Chunk` records carrying `doc_id`, `filename`, `title`, `page` (1-based), `chunk_index`, `text`. Overlap flows across page boundaries. |
 | `store.py` | `PaperStore` — ChromaDB-backed store (collection `jarvis-papers`, `OllamaEmbeddingFunction(nomic-embed-text)`, cosine space). `add_document` / `search(folder=)` / `list_documents(folder=)` / `clear_document`. `doc_id` is a stable hash of the filename (idempotent re-ingest). |
 | `rag.py` | `answer()` — retrieves chunks (optionally folder-scoped), builds a grounding prompt requiring `[title, p.X]` citations, calls `model_client.generate`, returns `RAGResult(answer, sources)`. Folder filter is forwarded to `store.search` so queries can be "asked within a folder". |
@@ -74,7 +74,7 @@ knowledge:
   chunk_overlap: 150        # overlap between chunks (context continuity)
   min_chunk_chars: 50       # fragments shorter than this are merged/dropped
   retrieval_limit: 6        # default chunks returned by a query
-  ocr_engine: "easyocr"     # "easyocr" | "none"  (none = digital PDFs only)
+  ocr_engine: "unlimited"     # "easyocr" | "pytesseract" | "unlimited" | "remote" | "none"  (none = digital PDFs only)
   ocr_languages: ["en"]
   ocr_text_threshold: 30    # native-text char count below which a page is OCR'd
 
@@ -87,7 +87,7 @@ paths:
 
 > **Prerequisites for live ingestion:** `pymupdf` (for text + page rendering)
 > and an Ollama server at `ollama_url` serving `embed_model` (`nomic-embed-text`)
-> for embeddings. `easyocr` is only needed for scanned/image-only pages.
+> for embeddings. `unlimited` is the preferred OCR backend; `easyocr` or `pytesseract` are only optional alternatives if you explicitly choose them.
 
 ---
 
@@ -123,7 +123,7 @@ Open the app (`python -m app.api.server` → `http://localhost:8000`) and click
 ## Testing
 
 The knowledge layer is covered by focused unit/integration tests that isolate
-heavy dependencies (ChromaDB, Ollama, `fitz`, `easyocr`):
+heavy dependencies (ChromaDB, Ollama, `fitz`, Unlimited-OCR/remote OCR):
 
 * `tests/test_store.py` — `PaperStore` with a deterministic bag-of-words fake
   embedding function and an isolated temp ChromaDB dir.
@@ -137,4 +137,16 @@ heavy dependencies (ChromaDB, Ollama, `fitz`, `easyocr`):
   folder, folder threading, list/query/findings/delete, and the
   `finding` category.
 
-OCR-dependent paths are skipped automatically when `easyocr` is unavailable.
+OCR-dependent paths do not silently fall back; configure `knowledge.ocr_engine` explicitly. The default is `unlimited` to use Baidu Unlimited-OCR for scanned/image-only pages.
+
+---
+
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+ba2026f|Er Sajan PLG|2026-07-19 15:49:02 +0545|Step 9: KNOWLEDGE.md + consolidated knowledge tests
+```
+
+Notes: This log was generated from the repository history for `docs/KNOWLEDGE.md`.

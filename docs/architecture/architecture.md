@@ -4,6 +4,11 @@
 > `app/config/version.py`). These diagrams were derived by reading the
 > implementation, not from prose docs. Where a component is a placeholder
 > (empty module) or dead code, it is marked explicitly.
+> Source of truth: the running code under `app/`. For release identity prefer
+Git tags (latest: `v2.5.0`); `app/config/version.py` may reflect a working-tree
+banner that differs from committed tags. These diagrams were derived by
+reading the implementation, not from prose docs. Where a component is a
+placeholder (empty module) or dead code, it is marked explicitly.
 
 JARVIS is a **local-first, modular CLI personal assistant**. Every capability —
 memory, conversation, model routing, tooling — is an independent subsystem that
@@ -253,6 +258,18 @@ flowchart TB
         PARSE{"has tool_call?"}
         EXEC["ToolExecutor.parse()"]
         RUN["ToolExecutor.run()<br/>confirm + cap + wrap"]
+
+    ---
+
+    ## Git history verification
+
+    Full git history for this file (commit|author|date|subject):
+
+    ```
+    1cab1b1|Er Sajan PLG|2026-07-13 08:12:24 +0545|mermaid added in docs/architecture and mermaid dependencies
+    ```
+
+    Notes: This history was generated from the repository commit log for `docs/architecture/architecture.md`.
         INJECT["inject tool_result as user msg"]
     end
 

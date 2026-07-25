@@ -112,7 +112,24 @@ def _startup_model_select(switcher, settings) -> None:
     # Entry index -> resolver
     entries: list[dict] = []
 
-    # [1] Ollama
+    # [0] Default local router
+    if "default" in switcher._routers:
+        default_router = switcher._routers["default"]
+        entries.append({
+            "label": "Default local (smallest Ollama model)",
+            "detail": f"{default_router.default_model.model_name} — local default",
+            "kind": "default",
+        })
+
+    # [1] Omni router across all loaded providers
+    if "omni" in switcher._routers:
+        entries.append({
+            "label": "Omni (mixed providers, auto-failover)",
+            "detail": "Routes across every loaded provider by role",
+            "kind": "omni",
+        })
+
+    # [2] Ollama
     ollama_status = f"{len(ollama_models)} model(s) pulled" if ollama_models else "not reachable"
     entries.append({
         "label": "Ollama (local, free)",
@@ -161,22 +178,22 @@ def _startup_model_select(switcher, settings) -> None:
             })
 
     if not entries:
-        print("  No backends/models configured. Using default profile.\n")
+        print("  No backends/models configured. Using default router.\n")
         return
 
     for i, e in enumerate(entries, 1):
         marker = "●" if (
             e["kind"] == "local"
-            and (settings.active_profile == "local"
-                 or settings.active_profile.startswith("model:"))
+            and (switcher.active_profile == "local"
+                 or switcher.active_profile.startswith("model:"))
         ) else " "
         print(f"  {i}. {marker} {e['label']}")
         print(f"       ↳ {e['detail']}")
 
-    print("  [Enter] keep current ('%s')" % settings.active_profile)
+    print("  [Enter] keep current ('%s')" % switcher.active_profile)
     choice = input("Backend (number, or Enter to skip): ").strip()
     if not choice:
-        print(f"  Keeping '{settings.active_profile}'.\n")
+        print(f"  Keeping '{switcher.active_profile}'.\n")
         return
     try:
         entry = entries[int(choice) - 1]
@@ -185,6 +202,20 @@ def _startup_model_select(switcher, settings) -> None:
         return
 
     # ----- Resolve the chosen backend -----
+    if entry["kind"] == "default":
+        if switcher.switch("default"):
+            print("  ✅ Using default local Ollama router\n")
+        else:
+            print("  ⚠️ Default local router is not usable.\n")
+        return
+
+    if entry["kind"] == "omni":
+        if switcher.switch("omni"):
+            print("  ✅ Using Omni router (all loaded providers)\n")
+        else:
+            print("  ⚠️ Omni router is not usable.\n")
+        return
+
     if entry["kind"] == "ollama":
         if not ollama_models:
             print("  ⚠️ Ollama is not reachable. Start `ollama serve` first.\n")
@@ -206,7 +237,7 @@ def _startup_model_select(switcher, settings) -> None:
         pool = local_models
         print("\n  Running local llama.cpp models:")
         for i, m in enumerate(pool, 1):
-            marker = "●" if settings.active_profile == f"model:{m['key']}" else " "
+            marker = "●" if switcher.active_profile == f"model:{m['key']}" else " "
             print(f"    {i}. {marker} {m['name']}  [{m['key']}]")
         sel = input(f"  Select model (1-{len(pool)}): ").strip()
         try:
