@@ -106,3 +106,15 @@ flowchart TB
 > router.default_model` where `router` is the *imported module*, not the
 > `switcher.router` instance — would raise `NameError` if reached. `select()`
 > never returns `None`, so the branch is dead today.
+
+---
+
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+1cab1b1|Er Sajan PLG|2026-07-13 08:12:24 +0545|mermaid added in docs/architecture and mermaid dependencies
+```
+
+Notes: This log was generated from the repository history for `docs/architecture/data-flow.md`.

@@ -72,6 +72,12 @@ from app.utils.server_manager import ollama_model_names
 from app.utils.logging_setup import setup_logging, get_logger
 from app.utils.model_selector import _categorize_cloud_models
 
+# Knowledge / RAG subsystem (research assistant).
+from app.knowledge.store import PaperStore
+from app.knowledge.ingest import ingest_pdf_bytes
+from app.knowledge.rag import answer
+from app.knowledge.findings import save_finding
+
 
 # --------------------------------------------------------------------------
 # Paths
@@ -138,6 +144,20 @@ class JarvisEngine:
             attachments_dir=self.settings.paths.attachments_dir
         )
 
+        # Pre-create the default research folder so the UI always has a
+        # sensible target for uploads ("ask within a folder").
+        try:
+            self.attachments.create_folder("Materials Science")
+        except ValueError:
+            pass  # already exists — fine
+
+        # RAG knowledge base for ingested papers (ChromaDB: jarvis-papers).
+        self.papers = PaperStore(
+            persist_dir=str(self.settings.paths.chroma_dir),
+            ollama_url=self.settings.paths.ollama_url,
+            embed_model=self.settings.paths.embed_model,
+        )
+
     # ---- conversation helpers ----
     def get_or_create_conversation(self, conv_id: str) -> ConversationManager:
         cm = self.conversations.get(conv_id)
@@ -202,6 +222,14 @@ def list_models(engine: JarvisEngine) -> list[dict]:
         "models": [{"id": f"ollama:{m}", "name": m, "backend": "ollama"} for m in ollama_models],
     })
 
+    if "omni" in engine.switcher._routers:
+        groups.append({
+            "provider": "omni",
+            "label": "Omni (all providers)",
+            "requires_key": False,
+            "models": [{"id": "omni", "name": "Omni", "backend": "omni"}],
+        })
+
     # llama.cpp local servers that are actually running
     from app.utils.server_manager import llamacpp_live_models
     live = llamacpp_live_models(settings)
@@ -213,28 +241,42 @@ def list_models(engine: JarvisEngine) -> list[dict]:
             "models": [{"id": f"model:{m['key']}", "name": m["name"], "backend": "llamacpp"} for m in live],
         })
 
-    # Cloud providers (free tiers) — only show if configured.
-    free_apis = [
-        ("google", "Google (free API)", "GOOGLE_API_KEY"),
-        ("grok", "Grok (free API)", "XAI_API_KEY"),
-        ("openrouter", "OpenRouter (free API)", "OPENROUTER_API_KEY"),
+    # Cloud providers — show configured provider models by provider, deduped by model name.
+    cloud_providers = [
+        ("openrouter", "OpenRouter", "OPENROUTER_API_KEY"),
+        ("together", "Together AI", "TOGETHER_API_KEY"),
+        ("cerebras", "Cerebras", "CEREBRAS_API_KEY"),
+        ("openai", "OpenAI", "OPENAI_API_KEY"),
+        ("anthropic", "Anthropic", "ANTHROPIC_API_KEY"),
     ]
-    for provider, label, env_var in free_apis:
+    for provider, label, env_var in cloud_providers:
+        if provider == "openrouter":
+            continue
         keys = cloud.get(provider, [])
         if not keys:
             continue
-        groups.append({
-            "provider": provider,
-            "label": label,
-            "requires_key": True,
-            "key_env": env_var,
-            "key_set": bool(os.environ.get(env_var, "")),
-            "models": [{
+        seen: set[tuple[str, str]] = set()
+        provider_models: list[dict] = []
+        for k in keys:
+            cfg = settings.models[k]
+            key = (cfg.backend or "", cfg.name or "")
+            if key in seen:
+                continue
+            seen.add(key)
+            provider_models.append({
                 "id": f"model:{k}",
-                "name": settings.models[k].name,
-                "backend": settings.models[k].backend,
-            } for k in keys],
-        })
+                "name": cfg.name,
+                "backend": cfg.backend,
+            })
+        if provider_models:
+            groups.append({
+                "provider": provider,
+                "label": label,
+                "requires_key": True,
+                "key_env": env_var,
+                "key_set": bool(os.environ.get(env_var, "")),
+                "models": provider_models,
+            })
 
     # "All models" — live catalog browse for providers that expose one. This
     # lets the user pick ANY model the provider serves without hardcoding it in
@@ -247,37 +289,54 @@ def list_models(engine: JarvisEngine) -> list[dict]:
              if "free" in settings.models[k].name.lower()),
             "anthropic/claude-3.5-sonnet",
         )
+
+        # Pick a live free OpenRouter model if possible; otherwise fall back to
+        # the configured default or a safe shared model.
+        default_free_model = default_or_model
+        try:
+            from app.utils.openrouter_catalog import search_openrouter_models
+            free_candidates = search_openrouter_models("", limit=1, free_only=True)
+            if free_candidates:
+                default_free_model = free_candidates[0]["id"]
+        except Exception:
+            pass
+
         groups.append({
-            "provider": "openrouter-all",
-            "label": "OpenRouter — all models (live catalog)",
+            "provider": "openrouter",
+            "label": "OpenRouter — live catalog",
             "requires_key": True,
             "key_env": "OPENROUTER_API_KEY",
-            "key_set": True,
+            "key_set": bool(os.environ.get("OPENROUTER_API_KEY", "")),
             "dynamic": True,
-            "default_model": default_or_model,
-            "models": [{
-                "id": "dyn",
-                "backend": "openrouter",
-                "name": default_or_model,
-                "dynamic": True,
-            }],
+            "models": [],
         })
 
-    # Always-available configured local profile models (so the user can pick a
-    # local profile even before its server is up; selection will report failure).
-    profile_models = []
-    for key, cfg in settings.models.items():
-        profile_models.append({
-            "id": f"model:{key}",
-            "name": cfg.name,
-            "backend": cfg.backend,
+    # Dynamic catalog providers (live model browsing with API key)
+    # These are shown regardless of whether OPENROUTER_API_KEY is set
+    dynamic_providers = [
+        ("google", "Google", "GOOGLE_API_KEY"),
+        ("grok", "Grok", "XAI_API_KEY"),
+        ("groq", "Groq", "GROQ_API_KEY"),
+        ("sambanova", "SambaNova", "SAMBANOVA_API_KEY"),
+        ("nvidia", "NVIDIA NIM", "NVIDIA_API_KEY"),
+        ("together", "Together AI", "TOGETHER_API_KEY"),
+        ("cerebras", "Cerebras", "CEREBRAS_API_KEY"),
+        ("openai", "OpenAI", "OPENAI_API_KEY"),
+        ("anthropic", "Anthropic", "ANTHROPIC_API_KEY"),
+    ]
+    for provider, label, env_var in dynamic_providers:
+        key_set = bool(os.environ.get(env_var, ""))
+        groups.append({
+            "provider": provider,
+            "label": f"{label} — live catalog",
+            "requires_key": True,
+            "key_env": env_var,
+            "key_set": key_set,
+            "dynamic": True,
+            "models": [],
         })
-    groups.append({
-        "provider": "configured",
-        "label": "Configured profiles",
-        "requires_key": False,
-        "models": profile_models,
-    })
+
+    # Always-available configured models are already surfaced per provider.
 
     return groups
 
@@ -285,6 +344,12 @@ def list_models(engine: JarvisEngine) -> list[dict]:
 def apply_model_selection(engine: JarvisEngine, model_id: str) -> dict:
     """Select a model (or ollama model) on the switcher. Returns status dict."""
     switcher = engine.switcher
+    # Allow selecting a pre-built router/profile by name (e.g. 'omni').
+    if model_id in switcher._routers:
+        ok = switcher.switch(model_id)
+        if ok:
+            return {"ok": True, "active": switcher.active_profile, "name": model_id}
+        return {"ok": False, "error": f"Profile '{model_id}' is not usable"}
     if model_id.startswith("ollama:"):
         model_name = model_id[len("ollama:"):]
         # Build an ad-hoc single-model router for the Ollama model.
@@ -320,7 +385,7 @@ def apply_model_selection(engine: JarvisEngine, model_id: str) -> dict:
     return {"ok": False, "error": f"Unknown model id '{model_id}'"}
 
 
-def apply_dynamic_selection(engine: JarvisEngine, backend: str, model_id: str) -> dict:
+def apply_dynamic_selection(engine: JarvisEngine, backend: str, model_id: str, user_keys: dict = None) -> dict:
     """Build an on-the-fly client for ANY provider model id and route to it.
 
     ``backend`` is "openrouter" / "grok" / "google". The provider routes to
@@ -331,12 +396,21 @@ def apply_dynamic_selection(engine: JarvisEngine, backend: str, model_id: str) -
         "openrouter": "OPENROUTER_API_KEY",
         "grok": "XAI_API_KEY",
         "google": "GOOGLE_API_KEY",
+        "together": "TOGETHER_API_KEY",
+        "cerebras": "CEREBRAS_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
     }.get(backend)
     if not key_env:
         return {"ok": False, "error": f"Unknown backend '{backend}'"}
-    if not os.environ.get(key_env, ""):
+    
+    # ONLY use user-provided key from headers
+    if user_keys and key_env in user_keys and user_keys[key_env]:
+        api_key = user_keys[key_env]
+    else:
         return {"ok": False, "error": f"{key_env} is not set — add it in Settings"}
-    ok = engine.switcher.switch_to_dynamic_model(backend, model_id, key_env)
+    
+    ok = engine.switcher.switch_to_dynamic_model(backend, model_id, api_key)
     if ok:
         return {
             "ok": True,
@@ -348,49 +422,18 @@ def apply_dynamic_selection(engine: JarvisEngine, backend: str, model_id: str) -
 
 
 def apply_settings(engine: JarvisEngine, payload: dict) -> dict:
-    """Persist API keys / developer keys to the running process + .env file.
-
-    "use_developer_keys" means: rely on the keys already present in the
-    environment / .env (the developer's keys). If a user supplies their own
-    key for a provider, we set the env var in-process and append/overwrite it
-    in the project .env file so it survives restarts.
+    """Rebuild switcher clients.
+    
+    In Phase 1, we no longer persist user keys to .env or os.environ 
+    globally via this endpoint. The keys are sent in request headers.
+    This endpoint is now mainly for rebuilding the switcher or 
+    updating dev key usage.
     """
-    env_path = PROJECT_ROOT / ".env"
-    changed: list[str] = []
-
-    # API keys keyed by environment variable name.
-    key_map = {
-        "GOOGLE_API_KEY": payload.get("google_api_key"),
-        "XAI_API_KEY": payload.get("xai_api_key"),
-        "OPENROUTER_API_KEY": payload.get("openrouter_api_key"),
-        "OPENAI_API_KEY": payload.get("openai_api_key"),
-    }
-
-    # If the user explicitly wants to use developer keys, we don't overwrite.
     use_dev = bool(payload.get("use_developer_keys", False))
-
-    for env_var, value in key_map.items():
-        if value and not use_dev:
-            os.environ[env_var] = value
-            _write_env_var(env_path, env_var, value)
-            changed.append(env_var)
-
-    if use_dev:
-        # When using developer keys, prefer the .env file's values. Force them
-        # into the live process (overriding any stale value inherited from the
-        # shell at startup) so the running server actually uses them.
-        if env_path.exists():
-            for line in env_path.read_text().splitlines():
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, _, v = line.partition("=")
-                    if k.strip() in key_map:
-                        os.environ[k.strip()] = v.strip()
-                        changed.append(k.strip())
-
-    # Rebuild switcher clients so new keys take effect for cloud models.
+    
+    # Rebuild switcher clients so new settings take effect.
     engine.switcher = ModelSwitcher(engine.settings)
-    return {"ok": True, "changed": changed, "use_developer_keys": use_dev}
+    return {"ok": True, "use_developer_keys": use_dev}
 
 
 def _write_env_var(env_path: Path, key: str, value: str) -> None:
@@ -463,17 +506,32 @@ def extract_file_text(name: str, mime: str, raw: bytes) -> str:
                 return out.stdout.decode("utf-8", errors="replace")
         except (FileNotFoundError, subprocess.SubprocessError, OSError):
             pass
-        # Fallback: pull the human-readable strings out of the PDF stream.
-        import re
-        texts = re.findall(rb"BT\s*(.*?)\s*ET", raw, re.DOTALL)
-        chunks = []
-        for t in texts:
-            chunks.append(re.sub(rb"\((?:[^()\\]|\\.)*\)", lambda m: m.group(0), t).decode("latin-1", errors="replace"))
-        scraped = "\n".join(chunks)
-        if scraped.strip():
-            return "[PDF — partial text extracted]\n" + scraped
+        # If pdftotext did not return usable text, prefer OCR using
+        # pdftoppm + tesseract. This handles scanned/image-only PDFs.
+        try:
+            import tempfile
+            import glob
+
+            with tempfile.TemporaryDirectory() as td:
+                pdf_path = Path(td) / "input.pdf"
+                pdf_path.write_bytes(raw)
+                # Convert all pages to PNGs (prefix 'page')
+                subprocess.run(["pdftoppm", "-png", str(pdf_path), str(Path(td) / "page")], check=True, timeout=60)
+                ocr_texts = []
+                for img in sorted(glob.glob(str(Path(td) / "page-*.png"))):
+                    try:
+                        p = subprocess.run(["tesseract", img, "stdout", "-l", "eng"], capture_output=True, timeout=30)
+                        if p.returncode == 0 and p.stdout.strip():
+                            ocr_texts.append(p.stdout.decode("utf-8", errors="replace"))
+                    except Exception:
+                        continue
+                if ocr_texts:
+                    return "[PDF — OCR text]\n" + "\n\n".join(ocr_texts)
+        except Exception:
+            pass
+
         return ("[PDF file — text extraction unavailable. Install poppler "
-                "(`apt install poppler-utils`) or a Python PDF library to read this file.]")
+                "(`apt install poppler-utils`) or a Python PDF library to read this file, or enable Tesseract for OCR.]")
 
     if low.endswith(".docx"):
         try:
@@ -601,6 +659,42 @@ def run_chat_stream(engine: JarvisEngine, conv_id: str, user_text: str, attachme
     })
 
 
+def apply_dynamic_selection(engine: JarvisEngine, backend: str, model_id: str, user_keys: dict = None) -> dict:
+    """Build an on-the-fly client for ANY provider model id and route to it.
+
+    ``backend" is "openrouter" / "grok" / "google" / "together" / "cerebras" / "openai" / "anthropic". The provider routes to
+    whatever ``model_id`` we pass, so no config entry is required. Returns a
+    status dict like ``apply_model_selection``.
+    """
+    key_env = {
+        "openrouter": "OPENROUTER_API_KEY",
+        "grok": "XAI_API_KEY",
+        "google": "GOOGLE_API_KEY",
+        "together": "TOGETHER_API_KEY",
+        "cerebras": "CEREBRAS_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+    }.get(backend)
+    if not key_env:
+        return {"ok": False, "error": f"Unknown backend '{backend}'"}
+    
+    # ONLY use user-provided key from headers
+    if user_keys and key_env in user_keys and user_keys[key_env]:
+        api_key = user_keys[key_env]
+    else:
+        return {"ok": False, "error": f"{key_env} is not set — add it in Settings"}
+    
+    ok = engine.switcher.switch_to_dynamic_model(backend, model_id, api_key)
+    if ok:
+        return {
+            "ok": True,
+            "active": engine.switcher.active_profile,
+            "name": model_id,
+            "dynamic": True,
+        }
+    return {"ok": False, "error": f"Could not load {backend} model '{model_id}' (key missing?)"}
+
+
 # --------------------------------------------------------------------------
 # App factory
 # --------------------------------------------------------------------------
@@ -611,6 +705,72 @@ def create_app() -> FastAPI:
     engine = JarvisEngine()
 
     app = FastAPI(title="JARVIS Web UI", version=VERSION)
+    # Expose the engine for tests / introspection (e.g. swap stores/clients).
+    app.state.engine = engine
+
+    def _remote_health_check(url: str | None, timeout: int = 5) -> dict:
+        """Check a remote OCR service for basic health.
+
+        Tries a GET on the service's /health endpoint (derived from the
+        configured URL) using `requests` if available, else falls back to
+        urllib. Returns a dict with `ok` boolean and optional details.
+        """
+        if not url:
+            return {"ok": False, "error": "remote_ocr_url not configured"}
+        try:
+            # prefer requests for simplicity
+            import requests
+            from urllib.parse import urlparse, urlunparse
+
+            p = urlparse(url)
+            base = urlunparse((p.scheme, p.netloc, "", "", "", ""))
+            health_url = base.rstrip("/") + "/health"
+            try:
+                r = requests.get(health_url, timeout=timeout)
+                if r.status_code == 200:
+                    # try parse json
+                    content = None
+                    try:
+                        content = r.json()
+                    except Exception:
+                        content = r.text
+                    return {"ok": True, "status_code": r.status_code, "detail": content}
+            except Exception:
+                pass
+            # fallback: try the configured URL directly
+            r2 = requests.get(url, timeout=timeout)
+            if r2.status_code == 200:
+                return {"ok": True, "status_code": r2.status_code}
+            return {"ok": False, "status_code": r2.status_code}
+        except Exception:
+            # urllib fallback
+            try:
+                from urllib import request as _request
+                from urllib.parse import urlparse, urlunparse
+
+                p = urlparse(url)
+                base = urlunparse((p.scheme, p.netloc, "", "", "", ""))
+                health_url = base.rstrip("/") + "/health"
+                req = _request.Request(health_url, method="GET")
+                with _request.urlopen(req, timeout=timeout) as resp:
+                    raw = resp.read().decode("utf-8", errors="replace")
+                    return {"ok": True, "status_code": resp.status, "detail": raw}
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+
+
+    @app.middleware("http")
+    async def extract_api_keys(request: Request, call_next):
+        """Extract API keys from X-API-Key headers and put them in request state."""
+        headers = request.headers
+        keys = {}
+        for k, v in headers.items():
+            if k.lower().startswith("x-api-key-"):
+                env_var = k[10:].upper().replace("-", "_")
+                keys[env_var] = v
+        request.state.user_keys = keys
+        response = await call_next(request)
+        return response
 
     # ---- models ----
     @app.get("/api/models")
@@ -622,7 +782,8 @@ def create_app() -> FastAPI:
         }
 
     @app.post("/api/models/select")
-    def select_model(payload: dict = Body(...)):
+    @app.post("/api/models/select")
+    def select_model(payload: dict = Body(...), request: Request = None):
         model_id = payload.get("model_id")
         if not model_id:
             raise HTTPException(400, "model_id required")
@@ -632,7 +793,8 @@ def create_app() -> FastAPI:
             model = payload.get("model")
             if not backend or not model:
                 raise HTTPException(400, "backend and model required for dynamic selection")
-            result = apply_dynamic_selection(engine, backend, model)
+            user_keys = request.state.user_keys if request else {}
+            result = apply_dynamic_selection(engine, backend, model, user_keys)
             if not result.get("ok"):
                 raise HTTPException(400, result.get("error", "selection failed"))
             return result
@@ -642,13 +804,108 @@ def create_app() -> FastAPI:
         return result
 
     @app.get("/api/models/catalog")
-    def model_catalog(provider: str = "openrouter", query: str = "", limit: int = 50):
-        """Live catalog of every model a provider serves (OpenRouter only for now)."""
-        if provider != "openrouter":
-            raise HTTPException(400, "Only 'openrouter' catalog is supported")
-        from app.utils.openrouter_catalog import search_openrouter_models
-        models = search_openrouter_models(query, limit=limit)
-        return {"provider": provider, "count": len(models), "models": models}
+    def model_catalog(provider: str = "openrouter", query: str = "", limit: int = 50, free_only: bool = False):
+        """Live catalog of every model a provider serves."""
+        catalog_functions = {
+            "openrouter": "app.utils.openrouter_catalog.search_openrouter_models",
+            "together": "app.utils.together_catalog.search_together_models",
+            "cerebras": "app.utils.cerebras_catalog.search_cerebras_models",
+            "openai": "app.utils.openai_catalog.search_openai_models",
+            "anthropic": "app.utils.anthropic_catalog.search_anthropic_models",
+            "google": "app.utils.provider_catalog.search_google_models",
+            "grok": "app.utils.provider_catalog.search_grok_models",
+            "groq": "app.utils.provider_catalog.search_groq_models",
+            "sambanova": "app.utils.provider_catalog.search_sambanova_models",
+            "nvidia": "app.utils.provider_catalog.search_nvidia_models",
+            "mistral": "app.utils.provider_catalog.search_mistral_models",
+            "cohere": "app.utils.provider_catalog.search_cohere_models",
+            "github": "app.utils.provider_catalog.search_github_models",
+            "cloudflare": "app.utils.provider_catalog.search_cloudflare_models",
+            "zhipu": "app.utils.provider_catalog.search_zhipu_models",
+            "huggingface": "app.utils.provider_catalog.search_huggingface_models",
+        }
+        
+        if provider not in catalog_functions:
+            raise HTTPException(400, f"Provider '{provider}' catalog not supported. Available: {list(catalog_functions.keys())}")
+        
+        # Dynamic import
+        module_path, func_name = catalog_functions[provider].rsplit(".", 1)
+        module = __import__(module_path, fromlist=[func_name])
+        search_func = getattr(module, func_name)
+        
+        models = search_func(query, limit=limit, free_only=free_only)
+        return {"provider": provider, "count": len(models), "models": models, "free_only": free_only}
+
+
+    @app.get("/api/models/info")
+    def model_info(provider: str, model: str):
+        """Get detailed metadata for a specific model."""
+        catalog_functions = {
+            "openrouter": "app.utils.openrouter_catalog.search_openrouter_models",
+            "together": "app.utils.together_catalog.search_together_models",
+            "cerebras": "app.utils.cerebras_catalog.search_cerebras_models",
+            "openai": "app.utils.openai_catalog.search_openai_models",
+            "anthropic": "app.utils.anthropic_catalog.search_anthropic_models",
+            "google": "app.utils.provider_catalog.search_google_models",
+            "grok": "app.utils.provider_catalog.search_grok_models",
+            "groq": "app.utils.provider_catalog.search_groq_models",
+            "sambanova": "app.utils.provider_catalog.search_sambanova_models",
+            "nvidia": "app.utils.provider_catalog.search_nvidia_models",
+            "mistral": "app.utils.provider_catalog.search_mistral_models",
+            "cohere": "app.utils.provider_catalog.search_cohere_models",
+            "github": "app.utils.provider_catalog.search_github_models",
+            "cloudflare": "app.utils.provider_catalog.search_cloudflare_models",
+            "zhipu": "app.utils.provider_catalog.search_zhipu_models",
+            "huggingface": "app.utils.provider_catalog.search_huggingface_models",
+        }
+        
+        if provider not in catalog_functions:
+            raise HTTPException(400, f"Provider '{provider}' not supported")
+        
+        module_path, func_name = catalog_functions[provider].rsplit(".", 1)
+        module = __import__(module_path, fromlist=[func_name])
+        search_func = getattr(module, func_name)
+        
+        # Search for exact model match
+        models = search_func(model, limit=5, free_only=False)
+        exact = next((m for m in models if m.get("id") == model), None)
+        if not exact and models:
+            exact = models[0]  # fallback to first match
+        
+        if not exact:
+            raise HTTPException(404, f"Model '{model}' not found in {provider}")
+        
+        return {"provider": provider, "model": exact}
+
+
+    @app.get("/api/models/capabilities")
+    def capabilities_matrix():
+        """Provider capability comparison matrix."""
+        from app.provider_registry import get_provider_registry
+        reg = get_provider_registry()
+        providers = reg.get_all_providers(force_refresh=False)
+        
+        matrix = []
+        for p in providers:
+            caps = p.get("capabilities", {})
+            matrix.append({
+                "provider": p["key"],
+                "name": p["name"],
+                "openai_compatible": caps.get("is_openai_compatible", False),
+                "reasoning": caps.get("is_reasoning_capable", False),
+                "code_generation": caps.get("is_code_generation_capable", False),
+                "stem": caps.get("is_stem_capable", False),
+                "documentation": caps.get("is_documentation_capable", False),
+                "realtime": caps.get("is_realtime_capable", False),
+                "has_free_models": caps.get("has_free_models", False),
+                "context_window": caps.get("context_window_size", 0),
+                "max_output": caps.get("max_output_tokens", 0),
+                "status": p.get("status", "unknown"),
+                "has_key": p.get("has_api_key", False),
+            })
+        
+        return {"providers": matrix}
+
 
     # ---- settings ----
     @app.get("/api/settings")
@@ -696,6 +953,28 @@ def create_app() -> FastAPI:
         if p.exists():
             p.unlink()
         return {"ok": True}
+
+    @app.get("/api/conversations/{conv_id}/search")
+    def search_conversation(conv_id: str, q: str = ""):
+        """Search messages within a conversation."""
+        cm = engine.get_or_create_conversation(conv_id)
+        return {"results": cm.search_messages(q)}
+
+    @app.post("/api/conversations/{conv_id}/pin")
+    def pin_message(conv_id: str, payload: dict = Body(default={})):
+        """Toggle pin status of a message."""
+        index = payload.get("index")
+        if index is None:
+            raise HTTPException(400, "Missing message index")
+        cm = engine.get_or_create_conversation(conv_id)
+        pinned = cm.toggle_pin(index)
+        return {"ok": True, "pinned": pinned}
+
+    @app.get("/api/conversations/{conv_id}/pinned")
+    def get_pinned_messages(conv_id: str):
+        """Get all pinned messages in a conversation."""
+        cm = engine.get_or_create_conversation(conv_id)
+        return {"pinned": [m.to_dict() for m in cm.get_pinned_messages()]}
 
     # ---- chat (SSE streaming) ----
     @app.post("/api/chat")
@@ -868,10 +1147,174 @@ def create_app() -> FastAPI:
     def search_attachment_files(query: str = ""):
         return {"files": engine.attachments.search(query)}
 
+    # ---- research papers (RAG knowledge base) ----
+    @app.get("/api/papers/folders")
+    def list_paper_folders():
+        """Folder names available for scoping ingestion/queries.
+
+        Reuses the Attachments Library folder system so papers live alongside
+        other uploaded files in the same folders.
+        """
+        return {"folders": engine.attachments.list_folders()}
+
+    @app.get("/api/papers")
+    def list_papers(folder: str = ""):
+        docs = engine.papers.list_documents(folder=folder or None)
+        return {"documents": docs, "count": len(docs)}
+
+    @app.post("/api/papers/ingest")
+    async def ingest_paper(
+        file: UploadFile = File(...),
+        folder: str = Form("Materials Science"),
+        title: str = Form(""),
+    ):
+        """Upload + ingest a PDF into the knowledge base.
+
+        The PDF bytes are also saved into the Attachments Library under
+        ``folder`` (default "Materials Science") so it appears in the file
+        browser and can be re-attached to a chat. Returns ingestion summary.
+        """
+        raw = await file.read()
+        if not raw:
+            raise HTTPException(400, "Empty file")
+        if len(raw) > 100 * 1024 * 1024:
+            raise HTTPException(400, "PDF too large (100MB max)")
+        fname = os.path.basename(file.filename or "paper.pdf")
+        if not fname.lower().endswith(".pdf"):
+            raise HTTPException(400, "Only PDF files are supported")
+
+        # If configured to use remote OCR, pre-check the remote service.
+        if engine.settings.knowledge.ocr_engine and engine.settings.knowledge.ocr_engine.lower() == "remote":
+            url = engine.settings.knowledge.remote_ocr_url
+            hc = _remote_health_check(url)
+            if not hc.get("ok"):
+                raise HTTPException(503, f"Remote OCR not available: {hc.get('error') or hc.get('status_code')}")
+
+        try:
+            result = ingest_pdf_bytes(
+                pdf_bytes=raw,
+                filename=fname,
+                store=engine.papers,
+                title=title or "",
+                folder=folder or "",
+            )
+        except Exception as e:
+            raise HTTPException(500, f"Ingestion failed: {e}")
+
+        # Persist the original PDF in the Attachments Library folder too.
+        try:
+            engine.attachments.save_file(
+                raw, fname, folder or "", file.content_type or "application/pdf"
+            )
+        except Exception as e:  # non-fatal — ingestion already succeeded
+            logger.warning("Could not save PDF to attachments: %s", e)
+
+        return result
+
+    @app.post("/api/papers/query")
+    def query_papers(payload: dict = Body(default={})):
+        """Ask a question across ingested papers (optionally within a folder)."""
+        query = (payload.get("query") or "").strip()
+        if not query:
+            raise HTTPException(400, "query required")
+        folder = payload.get("folder") or None
+        limit = int(payload.get("limit") or engine.settings.knowledge.retrieval_limit)
+
+        try:
+            selected_model = engine.switcher.router.default_model
+            if selected_model is None:
+                raise HTTPException(400, "No active model. Pick one in Settings.")
+            result = answer(
+                query=query,
+                model_client=selected_model,
+                store=engine.papers,
+                limit=limit,
+                folder=folder,
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(500, f"RAG query failed: {e}")
+
+        return {
+            "answer": result.answer,
+            "sources": result.sources,
+        }
+
+    @app.post("/api/papers/findings")
+    def save_paper_finding(payload: dict = Body(default={})):
+        """Save a research finding into long-term memory."""
+        text = (payload.get("text") or "").strip()
+        if not text:
+            raise HTTPException(400, "text required")
+        try:
+            memory = save_finding(
+                engine.memory,
+                text=text,
+                source_meta=payload.get("source_meta") or {},
+            )
+        except Exception as e:
+            raise HTTPException(500, f"Could not save finding: {e}")
+        if memory is None:
+            raise HTTPException(400, "Finding text was empty")
+        return {
+            "ok": True,
+            "memory_id": memory.id,
+            "category": memory.category,
+            "memory_type": memory.memory_type,
+            "metadata": memory.metadata,
+        }
+
+    @app.delete("/api/papers/{doc_id}")
+    def delete_paper(doc_id: str):
+        removed = engine.papers.clear_document(doc_id)
+        # Best-effort: also drop the persisted PDF bytes.
+        pdf_path = engine.settings.paths.papers_dir / f"{doc_id}.pdf"
+        if pdf_path.exists():
+            try:
+                pdf_path.unlink()
+            except OSError:
+                pass
+        return {"ok": True, "removed_chunks": removed}
+
     # ---- static frontend ----
     @app.get("/api/health")
     def health():
-        return {"status": "ok", "version": VERSION}
+        return {"ok": True, "version": VERSION}
+
+    @app.get("/api/ocr/remote_health")
+    def ocr_remote_health():
+        url = engine.settings.knowledge.remote_ocr_url
+        hc = _remote_health_check(url)
+        return hc
+
+    @app.get("/api/ocr/local_health")
+    def ocr_local_health():
+        """Check if local Tesseract OCR is available."""
+        import subprocess
+        try:
+            result = subprocess.run(['tesseract', '--version'], capture_output=True, timeout=5)
+            if result.returncode == 0:
+                version = result.stdout.decode('utf-8', errors='replace').split('\n')[0]
+                # Get available languages
+                lang_result = subprocess.run(['tesseract', '--list-langs'], capture_output=True, timeout=5)
+                langs = []
+                if lang_result.returncode == 0:
+                    langs = lang_result.stdout.decode('utf-8', errors='replace').strip().split('\n')[1:]
+                return {
+                    "ok": True,
+                    "available": True,
+                    "engine": "tesseract",
+                    "version": version,
+                    "languages": langs
+                }
+            return {"ok": False, "available": False, "error": "tesseract not found"}
+        except FileNotFoundError:
+            return {"ok": False, "available": False, "error": "tesseract not installed"}
+        except Exception as e:
+            return {"ok": False, "available": False, "error": str(e)}
+
+
 
     # Serve index.html at "/" and static assets.
     @app.get("/")

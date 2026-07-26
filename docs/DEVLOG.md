@@ -1,4 +1,265 @@
-# JARVIS Development Log
-Decisions, reasoning, and context behind each release.
+# Development Log
+
+## v2.5.0
+### Why This Release Existed
+The project had broadened its feature set but still relied on CLI-driven flows and brittle startup behavior. This release was a stabilization pivot: build a browser entrypoint, make model selection config-driven, and stop silent failures from corrupt memory and misconfigured backends.
+
+### What Changed and Why
+#### Web Interface
+Added a FastAPI server and browser UI so chat, conversation management, attachment uploads, and memory inspection could be handled over HTTP. This separated UI concerns from the core pipeline and made state easier to inspect.
+
+#### Model Routing
+Centralized startup discovery and model profile loading so local Ollama, llama.cpp, Google, and OpenRouter options could be selected at runtime. The new approach replaces brittle hardcoded paths with configuration-driven backend choice.
+
+#### Error and State Safety
+Quarantined invalid memory records and improved error handling during generation and attachment operations. The goal was to preserve usable state rather than aborting on malformed storage.
+
+#### Developer Tooling
+Added git hooks, a version bump script, and regression tests around memory, conversation, context, and routing. This gives contributors a safer path for making changes to the core runtime.
+
+### Architecture
+The FastAPI backend now sits between the frontend and the existing runtime pipeline, turning UI requests into the same chat and memory operations the CLI previously drove. Startup now resolves backend profiles before the runtime begins model routing.
+
+### Key Decisions
+Decision: Treat corrupt memory files as quarantine candidates instead of fatal startup errors.
+Why: Users should not lose the entire session because of one malformed record.
+Trade-off: The app now needs explicit recovery behavior rather than assuming storage is always valid.
+
+Decision: Expose model backend selection through configuration, not code.
+Why: This makes adding or switching providers faster and safer for contributors.
+Trade-off: Startup complexity increased because discovery must handle both local and cloud backend variants.
+
+### What This Enables
+This release makes it practical to continue adding UI-driven features, attachments, and new model providers without rewriting the runtime architecture.
+
+## v2.4.2
+### Why This Release Existed
+Local backend configuration was still awkward and opaque for users. The release was a small polish to make runtime model definitions easier to express and to expose release metadata in code.
+
+### What Changed and Why
+Added explicit release metadata support so the application can read version information at runtime. Added Ollama Modelfile support to let local model definitions live in a standard file instead of being configured implicitly.
+
+### What This Enables
+This work reduces friction for local Ollama setups and makes version tracking available to the application itself.
+
+## v2.4.1
+### Why This Release Existed
+The system had grown enough that contributors needed clearer architecture documentation. This release was about making the existing design visible instead of changing behavior.
+
+### What Changed and Why
+Published architecture documentation with diagrams for agents, memory, model interactions, and startup flow. Updated memory schema documentation so the guide matched the implemented design.
+
+### What This Enables
+New contributors can understand the repository structure and system boundaries without reading the full codebase first.
+
+## v2.4.0
+### Why This Release Existed
+Model backend support was inconsistent and the documentation set did not map to the project’s platform aspirations. This release was about making backends pluggable and capturing project knowledge in docs.
+
+### What Changed and Why
+#### Model Routing
+Added OpenRouter support and a provider abstraction so cloud and local backends could coexist behind a single runtime switcher. This avoids provider-specific startup hacks and keeps backend selection consistent.
+
+#### Configuration
+Moved backend definitions into `config.yaml` and made runtime profile switching the default. This separates deployment configuration from application code.
+
+#### Documentation Platform
+Published a broad set of docs for API, configuration, database, memory, tools, and startup flow. That work was meant to prevent future changes from being hidden in code alone.
+
+### Architecture
+A new backend router abstraction now mediates between configured profiles and live model clients. The runtime no longer assumes a single provider type at startup.
+
+### Key Decisions
+Decision: Use a router abstraction for model backends.
+Why: It makes adding new providers easier and keeps runtime code consistent.
+Trade-off: It adds an extra layer between model selection and model execution.
+
+### What This Enables
+The project can now add additional backends and deployment targets without changing the core chat flow.
+
+## v2.3.0
+### Why This Release Existed
+The assistant could describe actions but not execute them reliably in the repository. This release created the bridge between generated instructions and actual file/git operations.
+
+### What Changed and Why
+#### Agent Loop
+Added a DocumentationAgent and a tool execution framework so the agent can invoke concrete actions rather than only producing text output.
+
+#### Tool Infrastructure
+Added file and git tools to support repository-aware automation tasks. This makes document generation and repo changes reproducible.
+
+#### Runtime Wiring
+Updated the main runtime to integrate agent execution with the application flow, so the agent can participate in live operations.
+
+### What This Enables
+This release enables repository-aware automation and the ability to safely extend the system with action-capable agents.
+
+## v2.2.0
+### Why This Release Existed
+Keyword-based retrieval was not enough for long-term memory recall. The release was driven by the need to surface semantically related past exchanges in new conversations.
+
+### What Changed and Why
+#### Memory Layer
+Added a conversation store, vector retriever, and hybrid retriever so the system can combine semantic search with keyword candidates. This avoids over-relying on exact text matches.
+
+#### Prompt Pipeline
+Integrated embedding-backed retrieval into the chat flow so each turn can use both recent context and semantically similar memory.
+
+### Key Decisions
+Decision: Blend embeddings with keyword retrieval.
+Why: It improves recall while still preserving precise matches.
+Trade-off: The retrieval path became more complex and required multiple memory components.
+
+### What This Enables
+The system can now use stored memory more intelligently, making past conversations relevant again.
+
+## v2.1.0
+### Why This Release Existed
+The application was still tied to a narrow set of backend startup assumptions. This release externalized backend configuration and added runtime discovery so the system could operate in more deployment environments.
+
+### What Changed and Why
+#### Backend Configuration
+Added a model factory and support for local/cloud backend instantiation from configuration. This separates backend creation from the core application logic.
+
+#### Runtime Discovery
+Added server management utilities to find live llama.cpp processes and expose them as available runtime options.
+
+### What This Enables
+The project can now support a wider range of local and cloud model setups without code changes.
+
+## v2.0.0
+### Why This Release Existed
+The codebase had become a monolithic prototype with tangled memory, context, and routing. This release was a deliberate rewrite to make behavior explicit and maintainable.
+
+### What Changed and Why
+#### Core Pipeline
+Decomposed the main loop into extraction, storage, retrieval, ranking, and prompt assembly. This makes each stage easier to reason about and change independently.
+
+#### Memory Design
+Split memory responsibilities into store, retriever, and ranker components. Added immutable `created_at` and mutable `updated_at` metadata so records could be audited correctly.
+
+#### Model Routing
+Moved from first-match keyword routing to score-based classification to reduce bias and make backend selection more predictable.
+
+#### Infrastructure
+Added strict offline startup handling and real token counting to avoid runtime surprises from missing model resources.
+
+### Architecture
+The new flow now reads: extract facts, store them, retrieve candidates, rank them, build the prompt, then generate. That explicit pipeline replaced the older ad hoc state machine.
+
+### Key Decisions
+Decision: Enforce offline-safe startup.
+Why: Network-dependent startup caused unpredictability during development.
+Trade-off: Some remote model paths required explicit configuration.
+
+Decision: Adopt immutable creation timestamps.
+Why: It makes memory history reliable when facts are rewritten or updated.
+Trade-off: The persistence format and migration path became more complex.
+
+### What This Enables
+The release set a foundation for later memory, retrieval, and multi-backend work by making the core runtime modular.
+
+## v1.0.0
+### Why This Release Existed
+The project needed a stable memory engine capable of recognizing multiple memory triggers and acting on them.
+
+### What Changed and Why
+Added multi-trigger memory extraction and behavior-based memory actions so the assistant could store facts from varied input and treat them differently based on intent.
+
+### What This Enables
+This work made the system’s memory behavior more flexible and paved the way for richer, long-term state tracking.
+
+## v0.8.0
+### Why This Release Existed
+The early memory flow was too ad hoc and needed a consistent processing pipeline.
+
+### What Changed and Why
+Introduced a structured memory pipeline so facts could move through a repeatable, predictable lifecycle.
+
+### What This Enables
+This created a stable foundation for later retrieval and ranking improvements.
+
+## v0.7.0
+### Why This Release Existed
+The assistant needed better context assembly from prior conversations.
+
+### What Changed and Why
+Added a context builder and long-term memory integration so the prompt construction could include earlier relevant information more reliably.
+
+### What This Enables
+This made conversation state more coherent across turns.
+
+## v0.5.0
+### Why This Release Existed
+The system needed to keep memory and conversations across sessions.
+
+### What Changed and Why
+Added persistent memory core and conversation storage so state could survive restarts.
+
+### What This Enables
+This enabled session persistence and longer-running assistant usage.
 
 ---
+
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+c84d53b|Er Sajan PLG|2026-07-06 06:13:31 +0545|feat(agent): add DocumentationAgent, tool infrastructure, and execution framework
+b2c2211|Er Sajan PLG|2026-07-05 22:01:06 +0545|Semantic Memory with chromaDB installed vector_retriver, hybrid_retriever with keyword retriever, conversation_store, past_exchange and ollama isnallation for ebmedding, Agent imtegration for git automation with auto make devlog and change reverted
+df45be2|Er Sajan PLG|2026-07-05 07:23:59 +0545|Multi-Backend + Streaming + External Config
+5fccb37|Er Sajan PLG|2026-07-04 18:40:14 +0545|Bug fixes and added archiecture, dev log and changelog for v2.0.0
+db51ccc|Er Sajan PLG|2026-06-29 12:14:52 +0545|feat(memory): implement multi-trigger extraction and behavior-based memory actions,left over
+4f71baf|Er Sajan PLG|2026-06-29 08:56:24 +0545|feat(memory): implement behavior-driven memory engine and multi-fact extraction
+2922129|Er Sajan PLG|2026-06-29 07:02:35 +0545|feat(memory): implement multi-fact extraction pipeline
+d43f6e9|Er Sajan PLG|2026-06-29 03:50:36 +0545|feat(v0.8): implement structured memory pipeline
+7803a93|Er Sajan PLG|2026-06-28 22:50:49 +0545|Context Builder & Long-Term Memory Integration
+9aa2fb2|Er Sajan PLG|2026-06-28 16:23:10 +0545|JARVIS MEMORY SEPARATION FROM CONVERSATION ANDFACTS
+4034bf7|Er Sajan PLG|2026-06-28 04:52:42 +0545|Persistent Memory Core
+ded44b9|Er Sajan PLG|2026-06-27 04:59:01 +0545|v0.2: working CLI chat loop with Ollama integration
+e13ee67|Er Sajan PLG|2026-06-27 03:25:01 +0545|Build Jarvis v0.1: Connect to Ollama
+1999e53|Er Sajan PLG|2026-06-27 02:44:04 +0545|Initial project structure
+```
+
+Notes: This log was generated from the repository history for `docs/DEVLOG.md`.
+
+## v0.4.0
+### Why This Release Existed
+Assistant behavior was inconsistent because system prompts were not managed explicitly.
+
+### What Changed and Why
+Added system prompt architecture to make the assistant’s base behavior more explicit in the message flow.
+
+### What This Enables
+This improved consistency across generated responses.
+
+## v0.3.0
+### Why This Release Existed
+The project needed an explicit direction before more features were added.
+
+### What Changed and Why
+Added architecture and roadmap documentation to clarify what the project should do next and how its components fit together.
+
+### What This Enables
+This guided future development and aligned contributors on the overall design.
+
+## v0.2.0
+### Why This Release Existed
+The earliest prototype needed a working interactive interface.
+
+### What Changed and Why
+Delivered a CLI chat loop with Ollama integration so the assistant became usable in practice.
+
+### What This Enables
+This turned the project from an idea into a working conversational system.
+
+## v0.1.0
+### Why This Release Existed
+The first step was to connect the assistant to a model backend.
+
+### What Changed and Why
+Built the initial Ollama-backed foundation and project scaffolding.
+
+### What This Enables
+This provided the minimal runtime for future development.

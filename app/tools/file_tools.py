@@ -36,6 +36,12 @@ ALLOWED_WRITE: set[str] = {
     "DEVLOG.md",
 }
 
+# Directories the agent can create
+ALLOWED_CREATE_DIR: set[str] = {
+    "knowledge/papers", # Example: for storing research papers
+    "knowledge/temp",   # Example: for temporary files
+}
+
 
 # ─── Raw functions ─────────────────────────────────────────────────────────────
 
@@ -82,6 +88,22 @@ def append_file(path: str, content: str) -> str:
     with open(p, "a", encoding="utf-8") as f:
         f.write(content)
     return f"Appended {len(content)} chars to {path}"
+
+def create_directory(path: str) -> str:
+    """
+    Create a new directory, including any necessary parent directories.
+    Raises PermissionError if path is not in the allowed create directory list.
+    """
+    # Check if the requested path is in the allowed list or a subpath of an allowed path
+    if not any(Path(path).is_relative_to(allowed_path) or Path(path) == Path(allowed_path) for allowed_path in ALLOWED_CREATE_DIR):
+        raise PermissionError(
+            f"'{path}' is not in the allowed directory creation list or a subpath of an allowed directory.\n"
+            f"Allowed base paths: {sorted(ALLOWED_CREATE_DIR)}"
+        )
+
+    p = Path(path)
+    p.mkdir(parents=True, exist_ok=True)
+    return f"Created directory: {path}"
 
 
 # ─── Tool definitions ──────────────────────────────────────────────────────────
@@ -157,4 +179,25 @@ FILE_TOOLS: list[ToolDefinition] = [
         risk_level="medium",
         requires_confirmation=True,   # always confirm before appending
     ),
+    ToolDefinition(
+        name="create_directory",
+        description=(
+            "Create a new directory, including any necessary parent directories. "
+            f"Allowed base paths: {sorted(ALLOWED_CREATE_DIR)}"
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path of the directory to create (must be an allowed path or a subpath of an allowed path)",
+                }
+            },
+            "required": ["path"],
+        },
+        handler=create_directory,
+        risk_level="medium",
+        requires_confirmation=True, # always confirm before creating a directory
+    ),
 ]
+

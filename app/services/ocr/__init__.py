@@ -1,0 +1,1 @@
+"""JARVIS OCR Service - Unified interface for Unlimited-OCR and PaddleOCR."""

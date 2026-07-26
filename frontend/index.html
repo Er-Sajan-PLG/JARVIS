@@ -19,12 +19,17 @@
         <button id="new-chat-btn" class="icon-btn" title="New chat">+</button>
       </div>
 
+      <div class="conversation-search">
+        <input type="search" id="conversation-search-input" placeholder="Search conversations…" />
+      </div>
+
       <div id="conversation-list" class="conversation-list">
         <!-- conversation items injected here -->
       </div>
 
       <div class="sidebar-footer">
         <button id="attachments-btn" class="sidebar-btn">📁 Library</button>
+        <button id="papers-btn" class="sidebar-btn">📚 Papers</button>
         <button id="settings-btn" class="sidebar-btn">⚙ Settings</button>
         <button id="memories-btn" class="sidebar-btn">🧠 Memories</button>
       </div>
@@ -36,6 +41,9 @@
         <button id="toggle-sidebar" class="icon-btn mobile-only" title="Menu">☰</button>
         <div class="chat-title" id="chat-title">New Chat</div>
         <div class="model-indicator" id="active-model">no model selected</div>
+        <div id="ocr-health" class="ocr-health" title="OCR health status">●</div>
+        <button id="activate-omni" class="icon-btn" title="Activate Omni router">OMNI</button>
+        <button id="dev-unlock" class="icon-btn" title="Developer mode">DEV</button>
       </header>
 
       <div id="messages" class="messages">
@@ -70,36 +78,73 @@
       </div>
 
       <section class="modal-section">
-        <h4>Model</h4>
-        <div id="model-groups" class="model-groups"><!-- injected --></div>
-      </section>
+        <div class="settings-tabs" id="settings-tabs">
+          <button type="button" class="settings-tab selected" data-tab="models">Models</button>
+          <button type="button" class="settings-tab" data-tab="keys">API Keys</button>
+          <button type="button" class="settings-tab" data-tab="capabilities">Capabilities</button>
+        </div>
 
-      <section class="modal-section">
-        <h4>API Keys</h4>
-        <label class="check-row">
-          <input type="checkbox" id="use-dev-keys" />
-          <span>Use my developer keys (from environment / .env)</span>
-        </label>
-        <p class="hint">Uncheck to supply your own keys below. They are saved to <code>.env</code>.</p>
+        <div id="settings-tab-models" class="settings-tab-panel">
+          <h4>Provider</h4>
+          <div id="model-provider-tabs" class="model-provider-tabs"></div>
+          <div class="model-search-row">
+            <input id="model-search-input" type="search" class="model-search" placeholder="Search the current provider or type free to filter free models…" />
+          </div>
+          <div id="model-groups" class="model-groups"><!-- injected --></div>
+        </div>
 
-        <div class="key-row">
-          <label for="google-key">Google (Gemini)</label>
-          <input type="password" id="google-key" placeholder="GOOGLE_API_KEY" autocomplete="off" />
+        <div id="settings-tab-keys" class="settings-tab-panel hidden">
+          <h4>API Keys</h4>
+          <p class="hint">Add keys here so provider tabs can use live catalog and dynamic models.</p>
+          <div class="key-row">
+            <label for="google-key">Google (Gemini)</label>
+            <input type="password" id="google-key" placeholder="GOOGLE_API_KEY" autocomplete="off" />
+          </div>
+          <div class="key-row">
+            <label for="xai-key">Grok (XAI)</label>
+            <input type="password" id="xai-key" placeholder="XAI_API_KEY" autocomplete="off" />
+          </div>
+          <div class="key-row">
+            <label for="openrouter-key">OpenRouter</label>
+            <input type="password" id="openrouter-key" placeholder="OPENROUTER_API_KEY" autocomplete="off" />
+          </div>
+          <div class="key-row">
+            <label for="openai-key">OpenAI</label>
+            <input type="password" id="openai-key" placeholder="OPENAI_API_KEY" autocomplete="off" />
+          </div>
+          <div class="key-row">
+            <label for="anthropic-key">Anthropic (Claude)</label>
+            <input type="password" id="anthropic-key" placeholder="ANTHROPIC_API_KEY" autocomplete="off" />
+          </div>
+          <div class="key-row">
+            <label for="together-key">Together AI</label>
+            <input type="password" id="together-key" placeholder="TOGETHER_API_KEY" autocomplete="off" />
+          </div>
+          <div class="key-row">
+            <label for="cerebras-key">Cerebras</label>
+            <input type="password" id="cerebras-key" placeholder="CEREBRAS_API_KEY" autocomplete="off" />
+          </div>
+          <div class="key-row">
+            <label for="groq-key">Groq</label>
+            <input type="password" id="groq-key" placeholder="GROQ_API_KEY" autocomplete="off" />
+          </div>
+          <div class="key-row">
+            <label for="sambanova-key">SambaNova</label>
+            <input type="password" id="sambanova-key" placeholder="SAMBANOVA_API_KEY" autocomplete="off" />
+          </div>
+          <div class="key-row">
+            <label for="nvidia-key">NVIDIA NIM</label>
+            <input type="password" id="nvidia-key" placeholder="NVIDIA_API_KEY" autocomplete="off" />
+          </div>
+          <button id="save-settings" class="primary-btn">Save settings</button>
+          <div id="settings-status" class="settings-status"></div>
         </div>
-        <div class="key-row">
-          <label for="xai-key">Grok (XAI)</label>
-          <input type="password" id="xai-key" placeholder="XAI_API_KEY" autocomplete="off" />
+
+        <div id="settings-tab-capabilities" class="settings-tab-panel hidden">
+          <h4>Provider Capabilities</h4>
+          <p class="hint">Comparison of all configured providers and their capabilities.</p>
+          <div id="capabilities-matrix" class="capability-matrix"><!-- injected --></div>
         </div>
-        <div class="key-row">
-          <label for="openrouter-key">OpenRouter</label>
-          <input type="password" id="openrouter-key" placeholder="OPENROUTER_API_KEY" autocomplete="off" />
-        </div>
-        <div class="key-row">
-          <label for="openai-key">OpenAI</label>
-          <input type="password" id="openai-key" placeholder="OPENAI_API_KEY" autocomplete="off" />
-        </div>
-        <button id="save-settings" class="primary-btn">Save settings</button>
-        <div id="settings-status" class="settings-status"></div>
       </section>
     </div>
   </div>
@@ -158,6 +203,56 @@
     </div>
   </div>
 
+  <!-- Research Papers modal -->
+  <div id="papers-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close="papers"></div>
+    <div class="modal-card papers-card">
+      <div class="modal-head">
+        <h3>📚 Research Papers</h3>
+        <button class="icon-btn" data-close="papers">✕</button>
+      </div>
+
+      <div class="papers-toolbar">
+        <select id="papers-folder" class="model-search papers-folder-select" title="Scope to a folder">
+          <option value="">All folders</option>
+        </select>
+        <button id="papers-upload-btn" class="primary-btn small" title="Upload a PDF into the selected folder">⬆ Upload PDF</button>
+        <input type="file" id="papers-file-input" accept="application/pdf" hidden />
+      </div>
+
+      <div id="papers-upload-row" class="papers-upload-row hidden">
+        <input type="text" id="papers-title-input" class="model-search" placeholder="Optional title (defaults to file name)" />
+        <button id="papers-upload-confirm" class="primary-btn small">Ingest</button>
+        <button id="papers-upload-cancel" class="secondary-btn">Cancel</button>
+      </div>
+
+      <div id="papers-list" class="papers-list"><!-- ingested documents --></div>
+
+      <div class="papers-ask">
+        <div class="papers-ask-label">
+          Ask within <b id="papers-scope-label">all folders</b>:
+        </div>
+        <div class="papers-ask-row">
+          <textarea id="papers-query" class="input" rows="2" placeholder="e.g. What electrolyte do solid-state batteries use?"></textarea>
+          <button id="papers-ask-btn" class="send-btn" title="Ask">➤</button>
+        </div>
+      </div>
+
+      <div id="papers-answer" class="papers-answer hidden">
+        <div class="papers-answer-head">
+          <span>Answer</span>
+          <button id="papers-save-finding" class="mini-btn attach" title="Save as a finding in memory">💾 Save finding</button>
+        </div>
+        <div id="papers-answer-body" class="papers-answer-body"></div>
+        <div class="papers-sources">
+          <div class="papers-sources-head">Sources</div>
+          <div id="papers-sources" class="papers-sources-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
+

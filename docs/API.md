@@ -7,17 +7,13 @@
 > or runtime/network behavior that cannot be executed here), it is called out in
 > **§ AI Verification Status** at the end, and inline with a ⚠️ marker.
 >
-> **Authoritative version string:** `app/config/version.py` → `VERSION = "v.2.4.0"`
-> (this is what `main()` prints). Other version strings in the tree
-> (`app/main.py` docstring says `v2.1.0`; `docs/STARTUP_FLOW.md` mentions `v.2.2.0`)
-> are stale and do **not** match the canonical value.
+> **Version note:** The canonical version information is derived from Git tags; the repository's latest tag is `v2.5.0`. Runtime version metadata is exposed via `app/config/version.py`, which reads git metadata when available.
 
 ---
 
 ## 1. What "API" means in this codebase
 
-JARVIS (as it currently exists) is a **command-line (CLI) personal assistant**.
-There is **no HTTP / REST / WebSocket server** anywhere in the source:
+JARVIS provides both a CLI and a web API surface. The repository includes a FastAPI-based HTTP server (`app/api/server.py`) added in tag `v2.5.0`; it exposes endpoints for chat (SSE streaming), conversation management, attachment uploads, and memory inspection. The CLI (`python app/main.py`) remains supported and is the traditional entrypoint.
 
 - `requirements.txt` lists `fastapi`, `uvicorn`, and `starlette`, but **no code
   instantiates `FastAPI`, defines `@app.route`/`APIRouter`, or calls

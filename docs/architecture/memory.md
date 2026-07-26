@@ -166,3 +166,15 @@ classDiagram
 **Behavior constants:** `append` · `replace` · `ignore` · `delete`
 **Source constants:** `user` · `system` · `inferred`
 **Importance constants:** `low (0.3)` · `medium (0.5)` · `high (0.7)` · `critical (0.9)`
+
+---
+
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+1cab1b1|Er Sajan PLG|2026-07-13 08:12:24 +0545|mermaid added in docs/architecture and mermaid dependencies
+```
+
+Notes: This log was generated from the repository history for `docs/architecture/memory.md`.

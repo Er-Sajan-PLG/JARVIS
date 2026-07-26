@@ -198,6 +198,19 @@ All memories
 Build prompts like
 
 ```text
+
+---
+
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+df45be2|Er Sajan PLG|2026-07-05 07:23:59 +0545|Multi-Backend + Streaming + External Config
+2922129|Er Sajan PLG|2026-06-29 07:02:35 +0545|feat(memory): implement multi-fact extraction pipeline
+```
+
+Notes: This log was generated from the repository history for `docs/project_notes.md`.
 System Prompt
 
 ↓

@@ -139,6 +139,18 @@ graph TD
     end
 
     MainLoop --> Settings
+
+---
+
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+6ea9796|Er Sajan PLG|2026-07-11 22:42:47 +0545|feat(platform): expand model backends and configuration system
+```
+
+Notes: This log was generated from the repository history for `docs/ARCHITECTURE_CONTINUE_AGENT.md`.
 ```
 
 ## Startup Flow

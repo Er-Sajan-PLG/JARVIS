@@ -161,3 +161,16 @@ sequenceDiagram
         C-->>R: ModelResponse(content, model, tokens_used, finish_reason)
     end
 ```
+
+---
+
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+f9fa068|Er Sajan PLG|2026-07-18 18:05:40 +0545|feat: add web UI, FastAPI server, and fix batch of issues
+1cab1b1|Er Sajan PLG|2026-07-13 08:12:24 +0545|mermaid added in docs/architecture and mermaid dependencies
+```
+
+Notes: This log was generated from the repository history for `docs/architecture/models.md`.

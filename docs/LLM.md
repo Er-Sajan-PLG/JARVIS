@@ -101,6 +101,19 @@ Selection of provider is driven by `ModelConfig.backend`
 
 ---
 
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+f9fa068|Er Sajan PLG|2026-07-18 18:05:40 +0545|feat: add web UI, FastAPI server, and fix batch of issues
+6ea9796|Er Sajan PLG|2026-07-11 22:42:47 +0545|feat(platform): expand model backends and configuration system
+```
+
+Notes: This log was generated from the repository history for `docs/LLM.md`.
+
+---
+
 ## 3. Factory pattern
 
 `app/models/factory.py` → `create_client(config: ModelConfig) -> ModelClient`

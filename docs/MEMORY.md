@@ -198,6 +198,18 @@ Vector search is implemented using ChromaDB and `OllamaEmbeddingFunction` for bo
 -   **`chromadb.PersistentClient`**: Initializes a client that persists data to disk in a specified directory (`data/chroma`).
 -   **Collections**:
     -   `VectorRetriever` uses a collection named "jarvis-memories".
+
+---
+
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+6ea9796|Er Sajan PLG|2026-07-11 22:42:47 +0545|feat(platform): expand model backends and configuration system
+```
+
+Notes: This log was generated from the repository history for `docs/MEMORY.md`.
     -   `ConversationVectorStore` uses a collection named "jarvis-conversations".
     -   Both collections use "cosine" similarity for HNSW (Hierarchical Navigable Small World) indexing.
 

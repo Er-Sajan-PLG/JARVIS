@@ -4,11 +4,14 @@ Runtime model profile switcher.
 Lets you switch between local and cloud mid-session without restarting.
 """
 
+import re
+
 from app.config.settings import get_settings
 from app.models.client import ModelClient
 from app.models.factory import create_client
 from app.models.router import ModelRouter, TaskType
 from app.utils.logging_setup import get_logger
+from app.models.omni_client import OmniModelClient
 
 logger = get_logger(__name__)
 
@@ -26,31 +29,63 @@ class ModelSwitcher:
     """
 
     def __init__(self, settings):
+        # New behavior: no hardcoded profiles. Build clients and create a
+        # single automatic "omni" router that contains all available clients
+        # grouped by role. Default active profile is "omni" and the router's
+        # default model prefers a local Ollama client when present.
         self._settings = settings
-        self._active_profile = settings.active_profile
         self._routers: dict[str, ModelRouter] = {}
         self._clients: dict[str, ModelClient] = {}
 
-        # Pre-build clients for all configured models
+        # Pre-build clients for all configured models.
         for key, model_cfg in settings.models.items():
             try:
                 self._clients[key] = create_client(model_cfg)
             except Exception as e:
                 logger.warning("Could not load '%s': %s", key, e)
 
-        # Build routers for each profile
-        for profile_name, mapping in settings.profiles.items():
-            self._routers[profile_name] = self._build_router(mapping)
+        # Build an "omni" router from all successfully created clients.
+        try:
+            role_clients: dict[str, list] = {}
+            for key, client in self._clients.items():
+                try:
+                    role = getattr(client, 'role', 'general') or 'general'
+                except Exception:
+                    role = 'general'
+                role_clients.setdefault(role, []).append(client)
 
-        # Don't start on a dead profile: if the configured active profile's
-        # router has no usable model, fall back to the first one that does.
-        if not self._is_usable(self._routers.get(self._active_profile)):
-            usable = next(
-                (p for p, r in self._routers.items() if self._is_usable(r)),
-                None,
-            )
-            if usable is not None:
-                self._active_profile = usable
+            omni_router = ModelRouter()
+            for role, clients in role_clients.items():
+                try:
+                    omni = OmniModelClient(clients)
+                    omni_router.register(TaskType(role), omni)
+                except Exception:
+                    logger.warning("Could not register omni role %s", role)
+
+            default_local = self._build_default_local_router(settings)
+            if default_local is not None:
+                self._routers['default'] = default_local
+                omni_router.set_default(default_local.default_model)
+
+            if self._is_usable(omni_router):
+                self._routers['omni'] = omni_router
+            else:
+                logger.warning('No usable models found for omni router')
+
+            requested = getattr(settings, 'active_profile', '')
+            if requested in self._routers and self._is_usable(self._routers[requested]):
+                self._active_profile = requested
+            elif 'default' in self._routers:
+                self._active_profile = 'default'
+            elif 'omni' in self._routers:
+                self._active_profile = 'omni'
+            elif self._routers:
+                self._active_profile = next(iter(self._routers))
+            else:
+                self._active_profile = ''
+        except Exception:
+            logger.exception('Failed to build omni router')
+            self._active_profile = ''
 
     def _build_router(self, mapping: dict) -> ModelRouter:
         router = ModelRouter()
@@ -70,6 +105,46 @@ class ModelSwitcher:
             router.set_default(self._clients[default_key])
 
         return router
+
+    def _build_default_local_router(self, settings) -> ModelRouter | None:
+        candidates = [
+            key for key, model_cfg in settings.models.items()
+            if getattr(model_cfg, 'backend', '') == 'ollama' and key in self._clients
+        ]
+        if not candidates:
+            return None
+
+        default_key = min(
+            candidates,
+            key=lambda key: self._ollama_model_size(settings.models[key].name),
+        )
+        client = self._clients[default_key]
+        router = ModelRouter()
+        for role in ["general", "code", "reasoning", "docs", "stem", "autocomplete"]:
+            try:
+                router.register(TaskType(role), client)
+            except ValueError:
+                pass
+        router.set_default(client)
+        return router
+
+    def _ollama_model_size(self, name: str) -> float:
+        if not isinstance(name, str):
+            return float('inf')
+        match = re.search(r"(\d+(?:\.\d+)?)(?:\s*)([kKmMgGbB])\b", name)
+        if not match:
+            return float('inf')
+        value = float(match.group(1))
+        unit = match.group(2).lower()
+        if unit == 'k':
+            return value / 1000.0
+        if unit == 'm':
+            return value
+        if unit == 'g':
+            return value * 1000.0
+        if unit == 'b':
+            return value
+        return value
 
     def switch(self, profile: str) -> bool:
         if profile not in self._routers:
@@ -125,18 +200,29 @@ class ModelSwitcher:
         self._active_profile = key
         return True
 
-    def switch_to_dynamic_model(self, backend: str, model_id: str, api_key_env: str) -> bool:
+    def switch_to_dynamic_model(self, backend: str, model_id: str, api_key: str) -> bool:
         """Route every role to an arbitrary cloud model id, building the client on the fly.
 
         Lets the user pick ANY model OpenRouter/Grok/Google serves without
         pre-listing it in config.yaml — the provider routes dynamically to the
         model id we pass. ``backend`` is "openrouter"/"grok"/"google";
-        ``api_key_env`` names the key env var (e.g. "OPENROUTER_API_KEY").
+        ``api_key`` can be either:
+          - "env:ENV_VAR_NAME" to read from environment
+          - direct API key string (user-provided via headers)
         Returns False if the client can't be built (e.g. missing key).
         """
         import os
         from app.config.settings import ModelConfig
-        cfg = ModelConfig(name=model_id, role="general", backend=backend, api_key=f"env:{api_key_env}")
+        
+        # If it's an env reference, resolve it
+        if api_key.startswith("env:"):
+            env_var = api_key[4:]
+            api_key = os.environ.get(env_var, "")
+            if not api_key:
+                logger.warning("Dynamic model %s: %s not set", backend, env_var)
+                return False
+        
+        cfg = ModelConfig(name=model_id, role="general", backend=backend, api_key=api_key)
         try:
             client = create_client(cfg)
         except Exception as e:

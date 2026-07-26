@@ -117,3 +117,15 @@ A `reset_settings()` function is available (primarily for testing purposes) whic
 4.  **Singleton Assignment**: The fully constructed and configured `Settings` object is assigned to the global `_settings` variable.
 5.  **Subsequent Access**: All subsequent calls to `get_settings()` will directly return this previously loaded `_settings` instance, ensuring consistent configuration across the application without repeated loading operations.
 6.  **Reset Capability**: The `reset_settings()` function, when called, sets `_settings = None`. This effectively "resets" the singleton, causing the next call to `get_settings()` to go through the loading process again. This is typically used in testing scenarios or for explicit re-initialization.
+
+---
+
+## Git history verification
+
+Full git history for this file (commit|author|date|subject):
+
+```
+6ea9796|Er Sajan PLG|2026-07-11 22:42:47 +0545|feat(platform): expand model backends and configuration system
+```
+
+Notes: This log was generated from the repository history for `docs/CONFIG.md`.

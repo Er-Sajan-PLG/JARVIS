@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "serve": "python3 -m http.server 8081 --directory .",
-    "dev": "python3 -m http.server 8081 --directory ."
+    "dev": "python3 -m http.server 8081 --directory .",
+    "test": "echo \"No tests specified for frontend\""
   },
   "keywords": [],
   "author": "",

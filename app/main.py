@@ -191,11 +191,7 @@ def main():
     # pick a backend and a concrete model before the chat loop begins.
     _startup_model_select(switcher, settings)
 
-    doc_agent = DocumentationAgent(
-        model=switcher.get_client(
-            settings.profiles.get(settings.active_profile, {}).get("docs", "general")
-        ) or switcher.router.default_model
-    )
+    doc_agent = DocumentationAgent(model=switcher.router.default_model)
 
     # Show tokenizer info
     tokenizer_info = context_manager.get_tokenizer_info()
@@ -249,11 +245,7 @@ def main():
             # without restarting JARVIS.
             _startup_model_select(switcher, settings)
             # Rebuild the documentation agent so it uses the new model.
-            doc_agent = DocumentationAgent(
-                model=switcher.get_client(
-                    settings.profiles.get(settings.active_profile, {}).get("docs", "general")
-                ) or switcher.router.default_model
-            )
+            doc_agent = DocumentationAgent(model=switcher.router.default_model)
             continue
 
         # === MAIN PIPELINE ===

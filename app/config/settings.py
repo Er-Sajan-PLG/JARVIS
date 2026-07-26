@@ -74,6 +74,31 @@ class RankingConfig:
 
 
 @dataclass
+class KnowledgeConfig:
+    """RAG / paper-knowledge subsystem configuration.
+
+    Controls chunking of ingested PDFs and the OCR backend used for
+    scanned/image-only pages. Kept separate from ``MemoryConfig`` because
+    knowledge (documents/papers) is a distinct subsystem from personal memory.
+    """
+    # Chunking
+    chunk_size: int = 1000          # target chars per chunk
+    chunk_overlap: int = 150        # overlap chars between consecutive chunks
+    min_chunk_chars: int = 50       # drop chunks shorter than this
+
+    # Retrieval
+    retrieval_limit: int = 6        # chunks returned per RAG query
+
+    # OCR (for scanned/image-only PDF pages)
+    ocr_engine: str = "unlimited"     # pluggable: "easyocr" | "pytesseract" | "unlimited" | "remote" | "none"
+    ocr_languages: list = field(default_factory=lambda: ["en"])
+    # If using `ocr_engine: "remote"`, set this to the external service URL
+    remote_ocr_url: str = ""  # e.g. http://localhost:9000/ocr/process
+    # Pages with less than this much native text are sent to OCR.
+    ocr_text_threshold: int = 30
+
+
+@dataclass
 class PathsConfig:
     """All file paths in one place"""
     data_dir: Path = field(default_factory=lambda: Path("data"))
@@ -96,6 +121,12 @@ class PathsConfig:
     @property
     def attachments_dir(self) -> Path:
         return self.data_dir / "attachments"
+
+    @property
+    def papers_dir(self) -> Path:
+        # Persisted PDF bytes for the knowledge/RAG subsystem. Kept separate
+        # from attachments so papers can be re-ingested / audited independently.
+        return self.data_dir / "papers"
 
     @property
     def default_conversation(self) -> Path:
@@ -143,25 +174,7 @@ def _safe_model_config(key, mdata):
 class Settings:
     """Master configuration container"""
     default_model: str = "qwen3-8b.gguf"
-    active_profile: str = "local"          
-    profiles: dict = field(default_factory=lambda: {
-        "local": {
-            "general": "general",
-            "code": "code",
-            "reasoning": "reasoning",
-            "docs": "docs",
-            "stem": "reasoning",
-        },
-        "cloud": {
-            "general": "cloud",
-            "code": "cloud",
-            "reasoning": "cloud",
-            "docs": "cloud",
-            "stem": "cloud",
-        }
-    })                                    
-
-    
+    active_profile: str = "default"
     models: dict = field(default_factory=lambda: {
         "general": ModelConfig(
             name="llama-3.2-3b-instruct-q4_k_m.gguf",
@@ -184,6 +197,7 @@ class Settings:
     retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
     ranking: RankingConfig = field(default_factory=RankingConfig)
     paths: PathsConfig = field(default_factory=PathsConfig)
+    knowledge: KnowledgeConfig = field(default_factory=KnowledgeConfig)
     
     @classmethod
     def load(cls, path: Optional[str] = None) -> "Settings":
@@ -245,26 +259,14 @@ class Settings:
             settings.retrieval = _safe_dataclass(RetrievalConfig, data["retrieval"], settings.retrieval)
         if "ranking" in data:
             settings.ranking = _safe_dataclass(RankingConfig, data["ranking"], settings.ranking)
+        if "knowledge" in data:
+            settings.knowledge = _safe_dataclass(KnowledgeConfig, data["knowledge"], settings.knowledge)
 
-        # Profiles must remain a mapping for the model switcher
+        if "active_profile" in data and isinstance(data["active_profile"], str):
+            settings.active_profile = data["active_profile"]
+
         if "profiles" in data:
-            if isinstance(data["profiles"], dict):
-                settings.profiles = data["profiles"]
-            else:
-                logger.warning("'profiles' is not a mapping; using defaults")
-
-        if "active_profile" in data:
-            candidate = data["active_profile"]
-            profiles_ok = isinstance(settings.profiles, dict)
-            if profiles_ok and candidate in settings.profiles:
-                settings.active_profile = candidate
-            else:
-                keys = list(settings.profiles.keys()) if profiles_ok else settings.profiles
-                logger.warning(
-                    "active_profile '%s' not found in profiles %s; "
-                    "falling back to '%s'",
-                    candidate, keys, settings.active_profile,
-                )
+            logger.warning("'profiles' config is no longer used; ignoring")
 
         return settings
 

@@ -26,9 +26,9 @@
 
 **Authoritative sources used:**
 
-- **Git history** — 26 commits, `HEAD = 891fe4b` (titled `fix: v2.2.1 — Documentation agent wired, package structure fixed`). All version blocks v0.0.0 → v2.2.1 are committed.
-- **Committed docs** — `docs/CHANGELOG.md` (Keep-a-Changelog, 17 version blocks) and `docs/DEVLOG.md`.
-- **Current source** — the working tree (which is **staged but not yet committed**); its `app/config/version.py` reports `VERSION = "v.2.4.0"`. The architecture described below reflects this working-tree state.
+- **Git history** — 38 commits in the repository; `HEAD = ba2026f` (short). The latest annotated tag is `v2.5.0` (commit f9fa0689bd3ee09a7daa01deef6cdfe2947d1230, tagged Sat Jul 18 2026 +0545). Git tags are treated as the canonical source for release versions in these docs.
+- **Committed docs** — `docs/CHANGELOG.md` and `docs/DEVLOG.md` are taken from the committed tree and reconciled with git history.
+- **Current source (working tree)** — the working tree may differ from the committed `HEAD`; `app/config/version.py` and other docstrings may contain version strings that do not match git tags. Prefer the git tag for canonical release identity and dates.
 
 **Caveats the reader must keep in mind:**
 
