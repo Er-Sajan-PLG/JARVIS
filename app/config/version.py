@@ -30,7 +30,7 @@ from dataclasses import dataclass
 
 # Last known release — used ONLY when git is unavailable. When git is present
 # this constant is ignored in favour of the actual tag history.
-_FALLBACK_VERSION = "v2.5.0"
+_FALLBACK_VERSION = "v3.0.0"
 
 # Canonical release tag: vA.B.C
 _TAG_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")

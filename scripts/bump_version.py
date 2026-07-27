@@ -164,16 +164,18 @@ def create_tag(tag: str, ref: str, message: str) -> None:
 
 
 def sync_package_json(tag: str) -> None:
-    pj = os.path.join(REPO_ROOT, "package.json")
-    if not os.path.exists(pj):
-        return
-    with open(pj) as f:
-        data = json.load(f)
-    data["version"] = tag.lstrip("v")
-    with open(pj, "w") as f:
-        json.dump(data, f, indent=2)
-        f.write("\n")
-    print(f"📦 Updated package.json version -> {data['version']}")
+    for pj_rel in ["package.json", "frontend/package.json"]:
+        pj = os.path.join(REPO_ROOT, pj_rel)
+        if not os.path.exists(pj):
+            continue
+        with open(pj) as f:
+            data = json.load(f)
+        data["version"] = tag.lstrip("v")
+        with open(pj, "w") as f:
+            json.dump(data, f, indent=2)
+            f.write("\n")
+        print(f"📦 Updated {pj_rel} version -> {data['version']}")
+
 
 
 def iter_source_files():

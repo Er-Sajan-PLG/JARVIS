@@ -875,102 +875,119 @@ I would put this at the very top of your roadmap document:
 That single paragraph explains the entire roadmap and serves as a guiding principle for future development. Looking at how you've structured the versions, there's a consistent evolution from **conversation → memory → agency → planning → learning → cooperation → platform**, which is a strong architectural narrative rather than just a list of features.
 
 # v0.1.0
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`) \| Tag Release Date: 2026-06-27*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v0.1.0.
 
 # v0.2.0
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`ded44b9`) \| Tag Release Date: 2026-06-27*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v0.2.0.
 
 # v0.3.0
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`8b1d0cb`) \| Tag Release Date: 2026-06-27*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v0.3.0.
 
 # v0.4.0
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e5c6fd6`) \| Tag Release Date: 2026-06-27*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v0.4.0.
 
 # v0.5.0
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`4034bf7`) \| Tag Release Date: 2026-06-28*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v0.5.0.
 
 # v0.7.0
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`7803a93`) \| Tag Release Date: 2026-06-28*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v0.7.0.
 
 # v0.8.0
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`d43f6e9`) \| Tag Release Date: 2026-06-29*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v0.8.0.
 
 # v1.0.0
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`6316917`) \| Tag Release Date: 2026-06-29*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v1.0.0.
 
 # v2.0.0
+- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`) \| Tag Release Date: 2026-07-03*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v2.0.0.
 
 # v2.1.0
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`df45be2`) \| Tag Release Date: 2026-07-05*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v2.1.0.
 
 # v2.2.0
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`b2c2211`) \| Tag Release Date: 2026-07-05*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v2.2.0.
 
 # v2.3.0
+- **Timeline Metadata**: *Feature Author Date: 2026-07-06 (`c84d53b`) \| Tag Release Date: 2026-07-14*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v2.3.0.
 
 # v2.4.0
+- **Timeline Metadata**: *Feature Author Date: 2026-07-11 (`6ea9796`) \| Tag Release Date: 2026-07-14*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v2.4.0.
 
 # v2.4.1
+- **Timeline Metadata**: *Feature Author Date: 2026-07-13 (`1cab1b1`) \| Tag Release Date: 2026-07-14*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v2.4.1.
 
 # v2.4.2
+- **Timeline Metadata**: *Feature Author Date: 2026-07-14 (`6034224`) \| Tag Release Date: 2026-07-14*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v2.4.2.
 
 # v2.5.0
+- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`) \| Tag Release Date: 2026-07-18*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v2.5.0.
 
 # v3.0.0
+- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`) \| Tag Release Date: 2026-07-26*
 ## System Topology & Subsystem Boundaries
 ### Architectural Invariants
 #### Release Layer Topology

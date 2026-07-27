@@ -3,15 +3,19 @@
 ## Version-by-Version Evolutionary History
 
 ### Version v0.1.0 to v2.2.0 (`e13ee67` - `b2c2211`)
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 | Tag Release Date: 2026-06-27*
 - **Unrestricted Local Execution**: Direct model calls and script execution had no authorization policy checks or safety gates.
 
 ### Version v2.3.0 (`c84d53b`)
+- **Timeline Metadata**: *Feature Author Date: 2026-07-06 | Tag Release Date: 2026-07-14*
 - **Tool Registry Metadata**: Basic tool parameter schema validation inside `ToolRegistry`.
 
 ### Version v3.0.0 (`81e45f0`)
+- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 | Tag Release Date: 2026-07-26*
 - **Security Hardening**: Sanitization of input file paths and system prompt parameters.
 
 ### Version v3.0.0 Refactored (`f4d5e01` - `ec0dc4e`) - Current HEAD
+- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 | Tag Release Date: 2026-07-26*
 - **Tiered Tool Safety Policy & Decorator Gates (`app/guardrails/`)**:
   - `ToolSafetyPolicy` (`policy.py`): Central policy evaluation engine.
   - `@safety_gate` (`decorator.py`): Decorator wrapping atomic tool functions.

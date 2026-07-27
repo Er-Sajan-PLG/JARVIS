@@ -36,6 +36,8 @@ Welcome to the central master index and LLM navigation map for the **JARVIS** re
 - 🔌 **[API.md](file:///home/sajan/JARVIS/docs/API.md)**: Exported API signature history across all versions.
 - 📝 **[CHANGELOG.md](file:///home/sajan/JARVIS/docs/CHANGELOG.md)**: Release notes for all version tags.
 - 🛣️ **[ROADMAP.md](file:///home/sajan/JARVIS/docs/ROADMAP.md)**: Technical Debt Register (`DEBT-001` through `DEBT-007`) across commits.
+- 💻 **[DEVLOG.md](file:///home/sajan/JARVIS/docs/DEVLOG.md)**: Developer code shift & architectural evolution log across releases.
+- 🩺 **[DEBUGGING.md](file:///home/sajan/JARVIS/docs/DEBUGGING.md)**: Diagnostic matrix, error symptoms, and verified fixes across versions.
 - 🏥 **[HEALTH_REPORT.md](file:///home/sajan/JARVIS/docs/HEALTH_REPORT.md)**: Repository health metrics across versions.
 
 ---

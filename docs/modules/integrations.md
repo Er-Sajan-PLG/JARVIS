@@ -3,15 +3,19 @@
 ## Version-by-Version Evolutionary History
 
 ### Version v0.1.0 (`e13ee67`)
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 | Tag Release Date: 2026-06-27*
 - **Direct HTTP Requests**: Direct `httpx` / `urllib` calls to Ollama local API inside model client module.
 
 ### Version v2.2.0 (`b2c2211`)
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 | Tag Release Date: 2026-07-05*
 - **ChromaDB Client**: Direct instantiation of `chromadb.PersistentClient` in `VectorRetriever`.
 
 ### Version v3.0.0 (`81e45f0`)
+- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 | Tag Release Date: 2026-07-26*
 - **OCR Subsystem**: Introduced PaddleOCR, PyMuPDF (`fitz`), and UnlimitedOCR services in `app/services/ocr/`.
 
 ### Version v3.0.0 Refactored (`ec0dc4e`) - Current HEAD
+- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 | Tag Release Date: 2026-07-26*
 - **Third-Party Integrations Package (`app/integrations/`)**:
   - `app/integrations/ocr/`: OCR service backends (`PaddleOCRBackend`, `UnlimitedOCRBackend`, `OCRService`).
   - `app/integrations/vector/chroma.py`: `ChromaVectorStore` wrapper isolating ChromaDB client and `OllamaEmbeddingFunction`.
