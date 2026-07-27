@@ -11,11 +11,11 @@ In v3.0, this becomes a proper permission system with user-configurable rules.
 """
 
 from pathlib import Path
+from app.domain import SafetyTier
+from app.guardrails import safety_gate
 from app.tools.base import ToolDefinition
 
-# ─── Allowlists ───────────────────────────────────────────────────────────────
 
-# Files the agent can read (documentation + context)
 ALLOWED_READ: set[str] = {
     "docs/CHANGELOG.md",
     "docs/DEVLOG.md",
@@ -28,7 +28,6 @@ ALLOWED_READ: set[str] = {
     "config.yaml",
 }
 
-# Files the agent can write (documentation only)
 ALLOWED_WRITE: set[str] = {
     "docs/CHANGELOG.md",
     "docs/DEVLOG.md",
@@ -41,62 +40,37 @@ ALLOWED_CREATE_DIR: set[str] = set()
 
 # ─── Raw functions ─────────────────────────────────────────────────────────────
 
+@safety_gate(tier=SafetyTier.SAFE, description="Read file content")
 def read_file(path: str) -> str:
-    """
-    Read a documentation file.
-    Raises PermissionError if path is not in the allowlist.
-    Returns a placeholder string if the file doesn't exist yet
-    (useful when CHANGELOG doesn't exist on a fresh project).
-    """
-    if path not in ALLOWED_READ:
-        raise PermissionError(
-            f"'{path}' is not in the allowed read list.\n"
-            f"Allowed: {sorted(ALLOWED_READ)}"
-        )
+    """Read a documentation file."""
     p = Path(path)
     if not p.exists():
         return f"(file not found: {path} — this may be a new file)"
     return p.read_text(encoding="utf-8")
 
 
+@safety_gate(tier=SafetyTier.SENSITIVE, description="Write file content")
 def write_file(path: str, content: str) -> str:
-    """
-    Write content to a documentation file.
-    Raises PermissionError if path is not in the write allowlist.
-    Creates parent directories if needed.
-    """
-    if path not in ALLOWED_WRITE:
-        raise PermissionError(
-            f"'{path}' is not in the allowed write list.\n"
-            f"Allowed: {sorted(ALLOWED_WRITE)}"
-        )
+    """Write content to a file."""
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content, encoding="utf-8")
     return f"Written {len(content)} chars to {path}"
 
+
+@safety_gate(tier=SafetyTier.SENSITIVE, description="Append file content")
 def append_file(path: str, content: str) -> str:
     """Append content to an existing file without overwriting."""
-    if path not in ALLOWED_WRITE:
-        raise PermissionError(f"'{path}' not in allowed write list")
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "a", encoding="utf-8") as f:
         f.write(content)
     return f"Appended {len(content)} chars to {path}"
 
-def create_directory(path: str) -> str:
-    """
-    Create a new directory, including any necessary parent directories.
-    Raises PermissionError if path is not in the allowed create directory list.
-    """
-    # Check if the requested path is in the allowed list or a subpath of an allowed path
-    if not any(Path(path).is_relative_to(allowed_path) or Path(path) == Path(allowed_path) for allowed_path in ALLOWED_CREATE_DIR):
-        raise PermissionError(
-            f"'{path}' is not in the allowed directory creation list or a subpath of an allowed directory.\n"
-            f"Allowed base paths: {sorted(ALLOWED_CREATE_DIR)}"
-        )
 
+@safety_gate(tier=SafetyTier.DESTRUCTIVE, description="Create directory")
+def create_directory(path: str) -> str:
+    """Create a new directory."""
     p = Path(path)
     p.mkdir(parents=True, exist_ok=True)
     return f"Created directory: {path}"

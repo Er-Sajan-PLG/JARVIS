@@ -4,6 +4,7 @@ Executes steps sequentially within an ExecutionPlan, enforcing safety policy eva
 triggering HITL approval gates for destructive steps, and emitting step status events to InMemoryAsyncBus.
 """
 
+import inspect
 import logging
 from typing import Any, Callable
 
@@ -82,7 +83,16 @@ class ExecutionRunner:
             # 2. Invoke Tool if registered
             if tool_name in self._tool_registry:
                 tool_func = self._tool_registry[tool_name]
-                res = await tool_func(**tool_call.arguments) if callable(tool_func) else None
+                kwargs = dict(tool_call.arguments)
+                if hitl_approved is not None:
+                    kwargs["_hitl_approved"] = hitl_approved
+
+                if inspect.iscoroutinefunction(tool_func):
+                    res = await tool_func(**kwargs)
+                else:
+                    res = tool_func(**kwargs)
+                    if inspect.iscoroutine(res):
+                        res = await res
                 step.result = res
 
             step.status = StepStatus.COMPLETED
