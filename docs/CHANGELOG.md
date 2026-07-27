@@ -284,3 +284,15 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-03 23:31:02 +0545
 #### Commit `8519f65` - feat(core)!: JARVIS v2.0.0 - Complete architectural overhaul
 - **Author**: Er Sajan PLG | **Date**: 2026-07-03 23:31:02 +0545
+
+# v2.1.0
+## Release Summary
+### Commit Window (4 commits)
+#### Commit `5fccb37` - Bug fixes and added archiecture, dev log and changelog for v2.0.0
+- **Author**: Er Sajan PLG | **Date**: 2026-07-04 18:40:14 +0545
+#### Commit `5fccb37` - Bug fixes and added archiecture, dev log and changelog for v2.0.0
+- **Author**: Er Sajan PLG | **Date**: 2026-07-04 18:40:14 +0545
+#### Commit `df45be2` - Multi-Backend + Streaming + External Config
+- **Author**: Er Sajan PLG | **Date**: 2026-07-05 07:23:59 +0545
+#### Commit `df45be2` - Multi-Backend + Streaming + External Config
+- **Author**: Er Sajan PLG | **Date**: 2026-07-05 07:23:59 +0545

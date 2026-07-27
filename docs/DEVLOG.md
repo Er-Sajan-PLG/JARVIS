@@ -471,3 +471,23 @@ feat(core)!: JARVIS v2.0.0 - Complete architectural overhaul
 ```text
 feat(core)!: JARVIS v2.0.0 - Complete architectural overhaul
 ```
+
+# v2.1.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `5fccb37` Implementation Details
+```text
+Bug fixes and added archiecture, dev log and changelog for v2.0.0
+```
+#### `5fccb37` Implementation Details
+```text
+Bug fixes and added archiecture, dev log and changelog for v2.0.0
+```
+#### `df45be2` Implementation Details
+```text
+Multi-Backend + Streaming + External Config
+```
+#### `df45be2` Implementation Details
+```text
+Multi-Backend + Streaming + External Config
+```
