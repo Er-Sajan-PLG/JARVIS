@@ -344,3 +344,43 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-18 18:10:01 +0545
 #### Commit `f9fa068` - feat: add web UI, FastAPI server, and fix batch of issues
 - **Author**: Er Sajan PLG | **Date**: 2026-07-18 18:10:01 +0545
+
+# v3.0.0
+## Release Summary
+### Commit Window (18 commits)
+#### Commit `e5875fa` - chore: remove stray debug artifacts (home/ duplicate, tmp/ scratch)
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 10:16:49 +0545
+#### Commit `e5875fa` - chore: remove stray debug artifacts (home/ duplicate, tmp/ scratch)
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 10:16:49 +0545
+#### Commit `e35d468` - feat(knowledge): scaffold RAG subsystem — PDF extraction, OCR, chunking
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 13:53:07 +0545
+#### Commit `e35d468` - feat(knowledge): scaffold RAG subsystem — PDF extraction, OCR, chunking
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 13:53:07 +0545
+#### Commit `4b93857` - feat(knowledge): add PaperStore ChromaDB layer (Step 4)
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 13:59:54 +0545
+#### Commit `4b93857` - feat(knowledge): add PaperStore ChromaDB layer (Step 4)
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 13:59:54 +0545
+#### Commit `7be0863` - feat(knowledge): add RAG answer() with grounded citations (Step 5)
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 14:19:27 +0545
+#### Commit `7be0863` - feat(knowledge): add RAG answer() with grounded citations (Step 5)
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 14:19:27 +0545
+#### Commit `5e7937b` - feat(knowledge): save findings to memory + forward metadata in MemoryManager (Step 6)
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 14:31:40 +0545
+#### Commit `5e7937b` - feat(knowledge): save findings to memory + forward metadata in MemoryManager (Step 6)
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 14:31:40 +0545
+#### Commit `3c80fe7` - Step 7: RAG papers API + folder-scoped retrieval
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 15:36:23 +0545
+#### Commit `3c80fe7` - Step 7: RAG papers API + folder-scoped retrieval
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 15:36:23 +0545
+#### Commit `6e1b09a` - Step 8: Research Papers web UI
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 15:40:44 +0545
+#### Commit `6e1b09a` - Step 8: Research Papers web UI
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 15:40:44 +0545
+#### Commit `ba2026f` - Step 9: KNOWLEDGE.md + consolidated knowledge tests
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 15:49:02 +0545
+#### Commit `ba2026f` - Step 9: KNOWLEDGE.md + consolidated knowledge tests
+- **Author**: Er Sajan PLG | **Date**: 2026-07-19 15:49:02 +0545
+#### Commit `81e45f0` - feat: v3.0.0 — Major Release: Provider Expansion, Live Catalog, Security & Polish
+- **Author**: Er Sajan PLG | **Date**: 2026-07-26 01:40:15 +0545
+#### Commit `81e45f0` - feat: v3.0.0 — Major Release: Provider Expansion, Live Catalog, Security & Polish
+- **Author**: Er Sajan PLG | **Date**: 2026-07-26 01:40:15 +0545

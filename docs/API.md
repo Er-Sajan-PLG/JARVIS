@@ -183,3 +183,9 @@ Validated interface stability for v2.4.2.
 ### Exported Methods & Signatures
 #### Release API Delta
 Validated interface stability for v2.5.0.
+
+# v3.0.0
+## Public Interface & API Changes
+### Exported Methods & Signatures
+#### Release API Delta
+Validated interface stability for v3.0.0.

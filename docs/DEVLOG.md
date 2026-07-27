@@ -563,3 +563,79 @@ feat: add web UI, FastAPI server, and fix batch of issues
 ```text
 feat: add web UI, FastAPI server, and fix batch of issues
 ```
+
+# v3.0.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `e5875fa` Implementation Details
+```text
+chore: remove stray debug artifacts (home/ duplicate, tmp/ scratch)
+```
+#### `e5875fa` Implementation Details
+```text
+chore: remove stray debug artifacts (home/ duplicate, tmp/ scratch)
+```
+#### `e35d468` Implementation Details
+```text
+feat(knowledge): scaffold RAG subsystem — PDF extraction, OCR, chunking
+```
+#### `e35d468` Implementation Details
+```text
+feat(knowledge): scaffold RAG subsystem — PDF extraction, OCR, chunking
+```
+#### `4b93857` Implementation Details
+```text
+feat(knowledge): add PaperStore ChromaDB layer (Step 4)
+```
+#### `4b93857` Implementation Details
+```text
+feat(knowledge): add PaperStore ChromaDB layer (Step 4)
+```
+#### `7be0863` Implementation Details
+```text
+feat(knowledge): add RAG answer() with grounded citations (Step 5)
+```
+#### `7be0863` Implementation Details
+```text
+feat(knowledge): add RAG answer() with grounded citations (Step 5)
+```
+#### `5e7937b` Implementation Details
+```text
+feat(knowledge): save findings to memory + forward metadata in MemoryManager (Step 6)
+```
+#### `5e7937b` Implementation Details
+```text
+feat(knowledge): save findings to memory + forward metadata in MemoryManager (Step 6)
+```
+#### `3c80fe7` Implementation Details
+```text
+Step 7: RAG papers API + folder-scoped retrieval
+```
+#### `3c80fe7` Implementation Details
+```text
+Step 7: RAG papers API + folder-scoped retrieval
+```
+#### `6e1b09a` Implementation Details
+```text
+Step 8: Research Papers web UI
+```
+#### `6e1b09a` Implementation Details
+```text
+Step 8: Research Papers web UI
+```
+#### `ba2026f` Implementation Details
+```text
+Step 9: KNOWLEDGE.md + consolidated knowledge tests
+```
+#### `ba2026f` Implementation Details
+```text
+Step 9: KNOWLEDGE.md + consolidated knowledge tests
+```
+#### `81e45f0` Implementation Details
+```text
+feat: v3.0.0 — Major Release: Provider Expansion, Live Catalog, Security & Polish
+```
+#### `81e45f0` Implementation Details
+```text
+feat: v3.0.0 — Major Release: Provider Expansion, Live Catalog, Security & Polish
+```
