@@ -7,8 +7,14 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- ======================================================================= -->
+  <!-- App Shell Workspace                                                    -->
+  <!-- ======================================================================= -->
   <div id="app">
-    <!-- Sidebar -->
+    
+    <!-- ------------------------------------------------------------------- -->
+    <!-- Sidebar Navigation                                                  -->
+    <!-- ------------------------------------------------------------------- -->
     <aside id="sidebar">
       <div class="sidebar-header">
         <div class="brand">
@@ -24,19 +30,20 @@
       </div>
 
       <div id="conversation-list" class="conversation-list">
-        <!-- conversation items injected here -->
+        <!-- conversation items injected dynamically -->
       </div>
 
       <div class="sidebar-footer">
-        <button id="attachments-btn" class="sidebar-btn">📁 Library</button>
-        <button id="papers-btn" class="sidebar-btn">📚 Papers</button>
         <button id="settings-btn" class="sidebar-btn">⚙ Settings</button>
         <button id="memories-btn" class="sidebar-btn">🧠 Memories</button>
       </div>
     </aside>
 
-    <!-- Main chat area -->
+    <!-- ------------------------------------------------------------------- -->
+    <!-- Main Chat Workspace                                                 -->
+    <!-- ------------------------------------------------------------------- -->
     <main id="main">
+      <!-- Chat Header -->
       <header id="chat-header">
         <button id="toggle-sidebar" class="icon-btn mobile-only" title="Menu">☰</button>
         <div class="chat-title" id="chat-title">New Chat</div>
@@ -46,6 +53,7 @@
         <button id="dev-unlock" class="icon-btn" title="Developer mode">DEV</button>
       </header>
 
+      <!-- Message History Container -->
       <div id="messages" class="messages">
         <button id="scroll-bottom-btn" class="scroll-bottom-btn hidden" title="Scroll to latest">↓</button>
         <div class="empty-state" id="empty-state">
@@ -55,6 +63,7 @@
         </div>
       </div>
 
+      <!-- Composer / Chat Input -->
       <div id="composer" class="composer">
         <div id="attachments" class="attachments"></div>
         <div class="composer-row">
@@ -68,7 +77,11 @@
     </main>
   </div>
 
-  <!-- Settings modal -->
+  <!-- ======================================================================= -->
+  <!-- Application Modals                                                     -->
+  <!-- ======================================================================= -->
+
+  <!-- Settings & Model Registry Modal -->
   <div id="settings-modal" class="modal hidden">
     <div class="modal-backdrop" data-close="settings"></div>
     <div class="modal-card">
@@ -84,6 +97,7 @@
           <button type="button" class="settings-tab" data-tab="capabilities">Capabilities</button>
         </div>
 
+        <!-- Models Panel -->
         <div id="settings-tab-models" class="settings-tab-panel">
           <h4>Provider</h4>
           <div id="model-provider-tabs" class="model-provider-tabs"></div>
@@ -93,6 +107,7 @@
           <div id="model-groups" class="model-groups"><!-- injected --></div>
         </div>
 
+        <!-- API Keys Panel -->
         <div id="settings-tab-keys" class="settings-tab-panel hidden">
           <h4>API Keys</h4>
           <p class="hint">Add keys here so provider tabs can use live catalog and dynamic models.</p>
@@ -140,6 +155,7 @@
           <div id="settings-status" class="settings-status"></div>
         </div>
 
+        <!-- Capabilities Matrix Panel -->
         <div id="settings-tab-capabilities" class="settings-tab-panel hidden">
           <h4>Provider Capabilities</h4>
           <p class="hint">Comparison of all configured providers and their capabilities.</p>
@@ -149,7 +165,7 @@
     </div>
   </div>
 
-  <!-- Memories modal -->
+  <!-- Memories Modal -->
   <div id="memories-modal" class="modal hidden">
     <div class="modal-backdrop" data-close="memories"></div>
     <div class="modal-card">
@@ -161,6 +177,7 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <!-- Main ES Module Entry Point -->
+  <script type="module" src="js/main.js"></script>
 </body>
-
+</html>
