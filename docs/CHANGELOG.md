@@ -244,3 +244,11 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-28 22:50:49 +0545
 #### Commit `7803a93` - Context Builder & Long-Term Memory Integration
 - **Author**: Er Sajan PLG | **Date**: 2026-06-28 22:50:49 +0545
+
+# v0.8.0
+## Release Summary
+### Commit Window (2 commits)
+#### Commit `d43f6e9` - [200~feat(v0.8): implement structured memory pipeline~
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 03:50:36 +0545
+#### Commit `d43f6e9` - [200~feat(v0.8): implement structured memory pipeline~
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 03:50:36 +0545

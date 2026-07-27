@@ -403,3 +403,15 @@ Context Builder & Long-Term Memory Integration
 ```text
 Context Builder & Long-Term Memory Integration
 ```
+
+# v0.8.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `d43f6e9` Implementation Details
+```text
+[200~feat(v0.8): implement structured memory pipeline~
+```
+#### `d43f6e9` Implementation Details
+```text
+[200~feat(v0.8): implement structured memory pipeline~
+```

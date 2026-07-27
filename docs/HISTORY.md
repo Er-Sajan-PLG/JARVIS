@@ -389,3 +389,13 @@
 #### [15] Commit `7803a93`
 - **Subject**: Context Builder & Long-Term Memory Integration
 - **Author**: Er Sajan PLG | **Date**: 2026-06-28 22:50:49 +0545
+
+# v0.8.0
+## Release Milestone & Code Lineage
+### Tag Boundary `v0.8.0`
+#### [16] Commit `d43f6e9`
+- **Subject**: [200~feat(v0.8): implement structured memory pipeline~
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 03:50:36 +0545
+#### [16] Commit `d43f6e9`
+- **Subject**: [200~feat(v0.8): implement structured memory pipeline~
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 03:50:36 +0545

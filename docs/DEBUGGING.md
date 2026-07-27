@@ -34,3 +34,9 @@ Zero unresolved diagnostic failures for v0.5.0.
 ### Verified Bug Fixes & Refactors
 #### Release Diagnostic Logs
 Zero unresolved diagnostic failures for v0.7.0.
+
+# v0.8.0
+## Diagnostic Matrix & Error Fixes
+### Verified Bug Fixes & Refactors
+#### Release Diagnostic Logs
+Zero unresolved diagnostic failures for v0.8.0.
