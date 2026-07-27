@@ -328,3 +328,11 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:48:42 +0545
 #### Commit `1cab1b1` - mermaid added in docs/architecture and mermaid dependencies
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:48:42 +0545
+
+# v2.4.2
+## Release Summary
+### Commit Window (2 commits)
+#### Commit `6034224` - chore: update configuration and add Ollama Modelfile
+- **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:48:42 +0545
+#### Commit `6034224` - chore: update configuration and add Ollama Modelfile
+- **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:48:42 +0545
