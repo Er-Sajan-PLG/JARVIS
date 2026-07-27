@@ -252,3 +252,19 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-29 03:50:36 +0545
 #### Commit `d43f6e9` - [200~feat(v0.8): implement structured memory pipeline~
 - **Author**: Er Sajan PLG | **Date**: 2026-06-29 03:50:36 +0545
+
+# v1.0.0
+## Release Summary
+### Commit Window (6 commits)
+#### Commit `2922129` - feat(memory): implement multi-fact extraction pipeline
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 07:02:35 +0545
+#### Commit `2922129` - feat(memory): implement multi-fact extraction pipeline
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 07:02:35 +0545
+#### Commit `4f71baf` - feat(memory): implement behavior-driven memory engine and multi-fact extraction
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 08:56:24 +0545
+#### Commit `4f71baf` - feat(memory): implement behavior-driven memory engine and multi-fact extraction
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 08:56:24 +0545
+#### Commit `6316917` - feat(memory): implement multi-trigger extraction and behavior-based memory actions
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 12:13:20 +0545
+#### Commit `6316917` - feat(memory): implement multi-trigger extraction and behavior-based memory actions
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 12:13:20 +0545

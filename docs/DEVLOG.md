@@ -415,3 +415,31 @@ Context Builder & Long-Term Memory Integration
 ```text
 [200~feat(v0.8): implement structured memory pipeline~
 ```
+
+# v1.0.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `2922129` Implementation Details
+```text
+feat(memory): implement multi-fact extraction pipeline
+```
+#### `2922129` Implementation Details
+```text
+feat(memory): implement multi-fact extraction pipeline
+```
+#### `4f71baf` Implementation Details
+```text
+feat(memory): implement behavior-driven memory engine and multi-fact extraction
+```
+#### `4f71baf` Implementation Details
+```text
+feat(memory): implement behavior-driven memory engine and multi-fact extraction
+```
+#### `6316917` Implementation Details
+```text
+feat(memory): implement multi-trigger extraction and behavior-based memory actions
+```
+#### `6316917` Implementation Details
+```text
+feat(memory): implement multi-trigger extraction and behavior-based memory actions
+```

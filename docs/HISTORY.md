@@ -399,3 +399,25 @@
 #### [16] Commit `d43f6e9`
 - **Subject**: [200~feat(v0.8): implement structured memory pipeline~
 - **Author**: Er Sajan PLG | **Date**: 2026-06-29 03:50:36 +0545
+
+# v1.0.0
+## Release Milestone & Code Lineage
+### Tag Boundary `v1.0.0`
+#### [17] Commit `2922129`
+- **Subject**: feat(memory): implement multi-fact extraction pipeline
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 07:02:35 +0545
+#### [17] Commit `2922129`
+- **Subject**: feat(memory): implement multi-fact extraction pipeline
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 07:02:35 +0545
+#### [18] Commit `4f71baf`
+- **Subject**: feat(memory): implement behavior-driven memory engine and multi-fact extraction
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 08:56:24 +0545
+#### [18] Commit `4f71baf`
+- **Subject**: feat(memory): implement behavior-driven memory engine and multi-fact extraction
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 08:56:24 +0545
+#### [19] Commit `6316917`
+- **Subject**: feat(memory): implement multi-trigger extraction and behavior-based memory actions
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 12:13:20 +0545
+#### [19] Commit `6316917`
+- **Subject**: feat(memory): implement multi-trigger extraction and behavior-based memory actions
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 12:13:20 +0545
