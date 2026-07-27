@@ -311,3 +311,31 @@ Added Architecture and Roadmap in docs for what to do seamless development
 ```text
 Added Architecture and Roadmap in docs for what to do seamless development
 ```
+
+# v0.4.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `39b3d5b` Implementation Details
+```text
+Making prompt
+```
+#### `39b3d5b` Implementation Details
+```text
+Making prompt
+```
+#### `7491e9a` Implementation Details
+```text
+prompt failure, prompts to prompt
+```
+#### `7491e9a` Implementation Details
+```text
+prompt failure, prompts to prompt
+```
+#### `e5c6fd6` Implementation Details
+```text
+added SYSTEM_PROMPT in messege
+```
+#### `e5c6fd6` Implementation Details
+```text
+added SYSTEM_PROMPT in messege
+```

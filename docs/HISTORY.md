@@ -317,3 +317,25 @@
 #### [5] Commit `8b1d0cb`
 - **Subject**: Added Architecture and Roadmap in docs for what to do seamless development
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 13:05:30 +0545
+
+# v0.4.0
+## Release Milestone & Code Lineage
+### Tag Boundary `v0.4.0`
+#### [6] Commit `39b3d5b`
+- **Subject**: Making prompt
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 13:51:06 +0545
+#### [6] Commit `39b3d5b`
+- **Subject**: Making prompt
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 13:51:06 +0545
+#### [7] Commit `7491e9a`
+- **Subject**: prompt failure, prompts to prompt
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 14:03:01 +0545
+#### [7] Commit `7491e9a`
+- **Subject**: prompt failure, prompts to prompt
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 14:03:01 +0545
+#### [8] Commit `e5c6fd6`
+- **Subject**: added SYSTEM_PROMPT in messege
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 14:10:19 +0545
+#### [8] Commit `e5c6fd6`
+- **Subject**: added SYSTEM_PROMPT in messege
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 14:10:19 +0545
