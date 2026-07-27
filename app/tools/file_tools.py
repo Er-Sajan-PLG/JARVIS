@@ -36,11 +36,7 @@ ALLOWED_WRITE: set[str] = {
     "DEVLOG.md",
 }
 
-# Directories the agent can create
-ALLOWED_CREATE_DIR: set[str] = {
-    "knowledge/papers", # Example: for storing research papers
-    "knowledge/temp",   # Example: for temporary files
-}
+ALLOWED_CREATE_DIR: set[str] = set()
 
 
 # ─── Raw functions ─────────────────────────────────────────────────────────────

@@ -58,7 +58,6 @@ from app.config.prompt import SYSTEM_PROMPT
 from app.config.version import VERSION
 from app.memory.manager import MemoryManager
 from app.memory.fact_extractor import extract_facts
-from app.attachments.store import AttachmentStore
 from app.conversation.manager import ConversationManager
 from app.prompt.builder import PromptBuilder
 from app.context.manager import ContextWindowManager
@@ -71,12 +70,6 @@ from app.models.router import TaskType
 from app.utils.server_manager import ollama_model_names
 from app.utils.logging_setup import setup_logging, get_logger
 from app.utils.model_selector import _categorize_cloud_models
-
-# Knowledge / RAG subsystem (research assistant).
-from app.knowledge.store import PaperStore
-from app.knowledge.ingest import ingest_pdf_bytes
-from app.knowledge.rag import answer
-from app.knowledge.findings import save_finding
 
 
 # --------------------------------------------------------------------------
@@ -138,25 +131,6 @@ class JarvisEngine:
         # Active cancellation event for the currently streaming chat request.
         self._stop_lock = threading.Lock()
         self.stop_requested: bool = False
-
-        # Persistent Attachments Library (files organized into folders/subfolders).
-        self.attachments = AttachmentStore(
-            attachments_dir=self.settings.paths.attachments_dir
-        )
-
-        # Pre-create the default research folder so the UI always has a
-        # sensible target for uploads ("ask within a folder").
-        try:
-            self.attachments.create_folder("Materials Science")
-        except ValueError:
-            pass  # already exists — fine
-
-        # RAG knowledge base for ingested papers (ChromaDB: jarvis-papers).
-        self.papers = PaperStore(
-            persist_dir=str(self.settings.paths.chroma_dir),
-            ollama_url=self.settings.paths.ollama_url,
-            embed_model=self.settings.paths.embed_model,
-        )
 
     # ---- conversation helpers ----
     def get_or_create_conversation(self, conv_id: str) -> ConversationManager:
@@ -1073,220 +1047,10 @@ def create_app() -> FastAPI:
             ]
         }
 
-    # ---- attachments library (persistent files organized into folders) ----
-    @app.get("/api/attachments/tree")
-    def attachments_tree():
-        return {"tree": engine.attachments.list_tree()}
-
-    @app.post("/api/attachments/folders")
-    def create_folder(payload: dict = Body(default={})):
-        try:
-            return engine.attachments.create_folder(payload.get("path", ""))
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-
-    @app.put("/api/attachments/folders")
-    def rename_folder(payload: dict = Body(default={})):
-        try:
-            return engine.attachments.rename_folder(
-                payload.get("old_path", ""), payload.get("new_path", ""))
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-
-    @app.delete("/api/attachments/folders")
-    def delete_folder(path: str = "", recursive: bool = False):
-        try:
-            return engine.attachments.delete_folder(path, recursive=recursive)
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-
-    @app.get("/api/attachments/files")
-    def list_attachment_files(folder: str = ""):
-        return {"files": engine.attachments.list_files(folder)}
-
-    @app.post("/api/attachments/files")
-    async def upload_attachment_file(
-        folder: str = Form(""),
-        file: UploadFile = File(...),
-    ):
-        raw = await file.read()
-        if len(raw) > 50 * 1024 * 1024:
-            raise HTTPException(400, "File too large (50MB max)")
-        try:
-            meta = engine.attachments.save_file(
-                raw, file.filename or "upload", folder, file.content_type or "application/octet-stream")
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-        return meta
-
-    @app.get("/api/attachments/files/{file_id}")
-    def get_attachment_file(file_id: str):
-        try:
-            data, fm = engine.attachments.read_file(file_id)
-        except FileNotFoundError:
-            raise HTTPException(404, "File not found")
-        from fastapi.responses import Response
-        return Response(content=data, media_type=fm.mime or "application/octet-stream",
-                         headers={"Content-Disposition": f'inline; filename="{fm.name}"'})
-
-    @app.put("/api/attachments/files/{file_id}")
-    def move_attachment_file(file_id: str, payload: dict = Body(default={})):
-        try:
-            return engine.attachments.move_file(file_id, payload.get("folder", ""))
-        except (ValueError, FileNotFoundError) as e:
-            raise HTTPException(400, str(e))
-
-    @app.delete("/api/attachments/files/{file_id}")
-    def delete_attachment_file(file_id: str):
-        try:
-            return engine.attachments.delete_file(file_id)
-        except FileNotFoundError:
-            raise HTTPException(404, "File not found")
-
-    @app.get("/api/attachments/search")
-    def search_attachment_files(query: str = ""):
-        return {"files": engine.attachments.search(query)}
-
-    # ---- research papers (RAG knowledge base) ----
-    @app.get("/api/papers/folders")
-    def list_paper_folders():
-        """Folder names available for scoping ingestion/queries.
-
-        Reuses the Attachments Library folder system so papers live alongside
-        other uploaded files in the same folders.
-        """
-        return {"folders": engine.attachments.list_folders()}
-
-    @app.get("/api/papers")
-    def list_papers(folder: str = ""):
-        docs = engine.papers.list_documents(folder=folder or None)
-        return {"documents": docs, "count": len(docs)}
-
-    @app.post("/api/papers/ingest")
-    async def ingest_paper(
-        file: UploadFile = File(...),
-        folder: str = Form("Materials Science"),
-        title: str = Form(""),
-    ):
-        """Upload + ingest a PDF into the knowledge base.
-
-        The PDF bytes are also saved into the Attachments Library under
-        ``folder`` (default "Materials Science") so it appears in the file
-        browser and can be re-attached to a chat. Returns ingestion summary.
-        """
-        raw = await file.read()
-        if not raw:
-            raise HTTPException(400, "Empty file")
-        if len(raw) > 100 * 1024 * 1024:
-            raise HTTPException(400, "PDF too large (100MB max)")
-        fname = os.path.basename(file.filename or "paper.pdf")
-        if not fname.lower().endswith(".pdf"):
-            raise HTTPException(400, "Only PDF files are supported")
-
-        # If configured to use remote OCR, pre-check the remote service.
-        if engine.settings.knowledge.ocr_engine and engine.settings.knowledge.ocr_engine.lower() == "remote":
-            url = engine.settings.knowledge.remote_ocr_url
-            hc = _remote_health_check(url)
-            if not hc.get("ok"):
-                raise HTTPException(503, f"Remote OCR not available: {hc.get('error') or hc.get('status_code')}")
-
-        try:
-            result = ingest_pdf_bytes(
-                pdf_bytes=raw,
-                filename=fname,
-                store=engine.papers,
-                title=title or "",
-                folder=folder or "",
-            )
-        except Exception as e:
-            raise HTTPException(500, f"Ingestion failed: {e}")
-
-        # Persist the original PDF in the Attachments Library folder too.
-        try:
-            engine.attachments.save_file(
-                raw, fname, folder or "", file.content_type or "application/pdf"
-            )
-        except Exception as e:  # non-fatal — ingestion already succeeded
-            logger.warning("Could not save PDF to attachments: %s", e)
-
-        return result
-
-    @app.post("/api/papers/query")
-    def query_papers(payload: dict = Body(default={})):
-        """Ask a question across ingested papers (optionally within a folder)."""
-        query = (payload.get("query") or "").strip()
-        if not query:
-            raise HTTPException(400, "query required")
-        folder = payload.get("folder") or None
-        limit = int(payload.get("limit") or engine.settings.knowledge.retrieval_limit)
-
-        try:
-            selected_model = engine.switcher.router.default_model
-            if selected_model is None:
-                raise HTTPException(400, "No active model. Pick one in Settings.")
-            result = answer(
-                query=query,
-                model_client=selected_model,
-                store=engine.papers,
-                limit=limit,
-                folder=folder,
-            )
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(500, f"RAG query failed: {e}")
-
-        return {
-            "answer": result.answer,
-            "sources": result.sources,
-        }
-
-    @app.post("/api/papers/findings")
-    def save_paper_finding(payload: dict = Body(default={})):
-        """Save a research finding into long-term memory."""
-        text = (payload.get("text") or "").strip()
-        if not text:
-            raise HTTPException(400, "text required")
-        try:
-            memory = save_finding(
-                engine.memory,
-                text=text,
-                source_meta=payload.get("source_meta") or {},
-            )
-        except Exception as e:
-            raise HTTPException(500, f"Could not save finding: {e}")
-        if memory is None:
-            raise HTTPException(400, "Finding text was empty")
-        return {
-            "ok": True,
-            "memory_id": memory.id,
-            "category": memory.category,
-            "memory_type": memory.memory_type,
-            "metadata": memory.metadata,
-        }
-
-    @app.delete("/api/papers/{doc_id}")
-    def delete_paper(doc_id: str):
-        removed = engine.papers.clear_document(doc_id)
-        # Best-effort: also drop the persisted PDF bytes.
-        pdf_path = engine.settings.paths.papers_dir / f"{doc_id}.pdf"
-        if pdf_path.exists():
-            try:
-                pdf_path.unlink()
-            except OSError:
-                pass
-        return {"ok": True, "removed_chunks": removed}
-
     # ---- static frontend ----
     @app.get("/api/health")
     def health():
         return {"ok": True, "version": VERSION}
-
-    @app.get("/api/ocr/remote_health")
-    def ocr_remote_health():
-        url = engine.settings.knowledge.remote_ocr_url
-        hc = _remote_health_check(url)
-        return hc
 
     @app.get("/api/ocr/local_health")
     def ocr_local_health():
