@@ -1,0 +1,12 @@
+# Symbol Lifecycle & Lineage Timeline
+
+| Symbol Name | Created Commit | Transition History | Current Status | Replacement Symbol |
+| :--- | :--- | :--- | :--- | :--- |
+| `OllamaClient` | `e13ee67` | Created ➔ Wrapped in `BaseLLMProvider` (`bb7e20b`) | Active | `BaseLLMProvider` |
+| `Memory` | `4034bf7` | Created ➔ Mapped to `MemoryRecord` (`c5a97b4`) | Active | `MemoryRecord` |
+| `PromptBuilder` | `39b3d5b` | Created ➔ Superseded by `PromptLoader` & `ContextBuilder` (`8a34243`) | Deprecated/Removed | `PromptLoader` / `ContextBuilder` |
+| `ModelRouter` | `8519f65` | Created ➔ Refactored with Failover Pool & Circuit Breaker (`bb7e20b`) | Active | `ModelRouter` |
+| `SessionManager` | `930fa7e` | Created as PostgreSQL + JSON session manager (`930fa7e`) | Active | `SessionManager` |
+| `MemoryService` | `8a34243` | Created as domain-pure memory façade (`8a34243`) | Active | `MemoryService` |
+| `ToolSafetyPolicy` | `c5a97b4` | Created as tiered safety policy engine (`c5a97b4`) | Active | `ToolSafetyPolicy` |
+| `ApplicationContainer` | `fef3297` | Created as Composition Root DI container (`fef3297`) | Active | `ApplicationContainer` |
