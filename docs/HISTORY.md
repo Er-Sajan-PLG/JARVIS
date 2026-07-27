@@ -361,3 +361,31 @@
 #### [11] Commit `4034bf7`
 - **Subject**: Persistent Memory Core
 - **Author**: Er Sajan PLG | **Date**: 2026-06-28 04:52:42 +0545
+
+# v0.7.0
+## Release Milestone & Code Lineage
+### Tag Boundary `v0.7.0`
+#### [12] Commit `7a840ee`
+- **Subject**: Save Fact based on preferences
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 05:16:44 +0545
+#### [12] Commit `7a840ee`
+- **Subject**: Save Fact based on preferences
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 05:16:44 +0545
+#### [13] Commit `b145614`
+- **Subject**: Fact Extraction
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 05:22:19 +0545
+#### [13] Commit `b145614`
+- **Subject**: Fact Extraction
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 05:22:19 +0545
+#### [14] Commit `9aa2fb2`
+- **Subject**:  JARVIS MEMORY SEPERATION FROM CONVERSATION ANDFACTS
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 16:23:10 +0545
+#### [14] Commit `9aa2fb2`
+- **Subject**:  JARVIS MEMORY SEPERATION FROM CONVERSATION ANDFACTS
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 16:23:10 +0545
+#### [15] Commit `7803a93`
+- **Subject**: Context Builder & Long-Term Memory Integration
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 22:50:49 +0545
+#### [15] Commit `7803a93`
+- **Subject**: Context Builder & Long-Term Memory Integration
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 22:50:49 +0545

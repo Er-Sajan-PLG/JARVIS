@@ -367,3 +367,39 @@ Persistent Memory Core
 ```text
 Persistent Memory Core
 ```
+
+# v0.7.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `7a840ee` Implementation Details
+```text
+Save Fact based on preferences
+```
+#### `7a840ee` Implementation Details
+```text
+Save Fact based on preferences
+```
+#### `b145614` Implementation Details
+```text
+Fact Extraction
+```
+#### `b145614` Implementation Details
+```text
+Fact Extraction
+```
+#### `9aa2fb2` Implementation Details
+```text
+ JARVIS MEMORY SEPERATION FROM CONVERSATION ANDFACTS
+```
+#### `9aa2fb2` Implementation Details
+```text
+ JARVIS MEMORY SEPERATION FROM CONVERSATION ANDFACTS
+```
+#### `7803a93` Implementation Details
+```text
+Context Builder & Long-Term Memory Integration
+```
+#### `7803a93` Implementation Details
+```text
+Context Builder & Long-Term Memory Integration
+```
