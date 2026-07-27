@@ -52,7 +52,7 @@ def scan_and_enrich_file(filepath):
 
             if matched_key:
                 feat_date, tag_date, commit = VERSION_DATE_MAP[matched_key]
-                metadata_line = f"- **Timeline Metadata**: *Feature Author Date: {feat_date} (`{commit}`) \| Tag Release Date: {tag_date}*"
+                metadata_line = f"- **Timeline Metadata**: *Feature Author Date: {feat_date} (`{commit}`) | Tag Release Date: {tag_date}*"
                 
                 # Ensure we don't add duplicate metadata lines
                 if len(new_lines) > 0:

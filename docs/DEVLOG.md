@@ -1,7 +1,7 @@
 # Development Log
 
 ## v3.0.0 Refactored
-- **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`ec0dc4e`) \| Tag Release Date: 2026-07-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`ec0dc4e`)  |  Tag Release Date: 2026-07-28*
 - **Feature Commit Date**: 2026-07-28 (`c5a97b4` - `ec0dc4e`)
 - **Tag Release Date**: 2026-07-28
 ### Why This Release Existed
@@ -38,7 +38,7 @@ Created `app/adapters/` for REST HTTP routes, WebSocket / SSE streaming, and Bea
 ---
 
 ## v3.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`) \| Tag Release Date: 2026-07-26*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`)  |  Tag Release Date: 2026-07-26*
 - **Feature Commit Dates**: 2026-07-19 (RAG Subsystem `e35d468`-`ba2026f`) | 2026-07-26 (Catalog Expansion `81e45f0`)
 - **Tag Release Date**: 2026-07-26
 ### Why This Release Existed
@@ -57,7 +57,7 @@ Added Research Papers tab, live catalog provider selection, and model status ind
 ---
 
 ## v2.5.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`) \| Tag Release Date: 2026-07-18*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`)  |  Tag Release Date: 2026-07-18*
 - **Feature Commit Date**: 2026-07-18 (`f9fa068`)
 - **Tag Release Date**: 2026-07-18
 ### Why This Release Existed
@@ -92,7 +92,7 @@ Trade-off: Startup complexity increased because discovery must handle both local
 This release makes it practical to continue adding UI-driven features, attachments, and new model providers without rewriting the runtime architecture.
 
 ## v2.4.2
-- **Timeline Metadata**: *Feature Author Date: 2026-07-14 (`6034224`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-14 (`6034224`)  |  Tag Release Date: 2026-07-14*
 - **Feature Commit Date**: 2026-07-14 (`6034224`)
 - **Tag Release Date**: 2026-07-14
 ### Why This Release Existed
@@ -105,7 +105,7 @@ Added explicit release metadata support so the application can read version info
 This work reduces friction for local Ollama setups and makes version tracking available to the application itself.
 
 ## v2.4.1
-- **Timeline Metadata**: *Feature Author Date: 2026-07-13 (`1cab1b1`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-13 (`1cab1b1`)  |  Tag Release Date: 2026-07-14*
 - **Feature Commit Date**: 2026-07-13 (`1cab1b1`)
 - **Tag Release Date**: 2026-07-14
 ### Why This Release Existed
@@ -118,7 +118,7 @@ Published architecture documentation with diagrams for agents, memory, model int
 New contributors can understand the repository structure and system boundaries without reading the full codebase first.
 
 ## v2.4.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-11 (`6ea9796`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-11 (`6ea9796`)  |  Tag Release Date: 2026-07-14*
 - **Feature Commit Date**: 2026-07-11 (`6ea9796`)
 - **Tag Release Date**: 2026-07-14
 ### Why This Release Existed
@@ -146,7 +146,7 @@ Trade-off: It adds an extra layer between model selection and model execution.
 The project can now add additional backends and deployment targets without changing the core chat flow.
 
 ## v2.3.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-06 (`c84d53b`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-06 (`c84d53b`)  |  Tag Release Date: 2026-07-14*
 - **Feature Commit Date**: 2026-07-06 (`c84d53b`)
 - **Tag Release Date**: 2026-07-14
 ### Why This Release Existed
@@ -166,7 +166,7 @@ Updated the main runtime to integrate agent execution with the application flow,
 This release enables repository-aware automation and the ability to safely extend the system with action-capable agents.
 
 ## v2.2.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`b2c2211`) \| Tag Release Date: 2026-07-05*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`b2c2211`)  |  Tag Release Date: 2026-07-05*
 - **Feature Commit Date**: 2026-07-05 (`b2c2211`)
 - **Tag Release Date**: 2026-07-05
 ### Why This Release Existed
@@ -188,7 +188,7 @@ Trade-off: The retrieval path became more complex and required multiple memory c
 The system can now use stored memory more intelligently, making past conversations relevant again.
 
 ## v2.1.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`df45be2`) \| Tag Release Date: 2026-07-05*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`df45be2`)  |  Tag Release Date: 2026-07-05*
 - **Feature Commit Date**: 2026-07-04 (`5fccb37`) - 2026-07-05 (`df45be2`)
 - **Tag Release Date**: 2026-07-05
 ### Why This Release Existed
@@ -205,7 +205,7 @@ Added server management utilities to find live llama.cpp processes and expose th
 The project can now support a wider range of local and cloud model setups without code changes.
 
 ## v2.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`) \| Tag Release Date: 2026-07-03*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`)  |  Tag Release Date: 2026-07-03*
 - **Feature Commit Date**: 2026-07-02 (`63addf6`) - 2026-07-03 (`8519f65`)
 - **Tag Release Date**: 2026-07-03
 ### Why This Release Existed
@@ -240,7 +240,7 @@ Trade-off: The persistence format and migration path became more complex.
 The release set a foundation for later memory, retrieval, and multi-backend work by making the core runtime modular.
 
 ## v1.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`6316917`) \| Tag Release Date: 2026-06-29*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`6316917`)  |  Tag Release Date: 2026-06-29*
 - **Feature Commit Date**: 2026-06-29 (`2922129` - `6316917`)
 - **Tag Release Date**: 2026-06-29
 ### Why This Release Existed
@@ -253,7 +253,7 @@ Added multi-trigger memory extraction and behavior-based memory actions so the a
 This work made the system’s memory behavior more flexible and paved the way for richer, long-term state tracking.
 
 ## v0.8.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`d43f6e9`) \| Tag Release Date: 2026-06-29*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`d43f6e9`)  |  Tag Release Date: 2026-06-29*
 - **Feature Commit Date**: 2026-06-29 (`d43f6e9`)
 - **Tag Release Date**: 2026-06-29
 ### Why This Release Existed
@@ -266,7 +266,7 @@ Introduced a structured memory pipeline so facts could move through a repeatable
 This created a stable foundation for later retrieval and ranking improvements.
 
 ## v0.7.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`7803a93`) \| Tag Release Date: 2026-06-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`7803a93`)  |  Tag Release Date: 2026-06-28*
 - **Feature Commit Date**: 2026-06-28 (`7a840ee` - `7803a93`)
 - **Tag Release Date**: 2026-06-28
 ### Why This Release Existed
@@ -279,7 +279,7 @@ Added a context builder and long-term memory integration so the prompt construct
 This made conversation state more coherent across turns.
 
 ## v0.5.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`4034bf7`) \| Tag Release Date: 2026-06-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`4034bf7`)  |  Tag Release Date: 2026-06-28*
 - **Feature Commit Date**: 2026-06-28 (`94e1956` - `4034bf7`)
 - **Tag Release Date**: 2026-06-28
 ### Why This Release Existed
@@ -317,7 +317,7 @@ e13ee67|Er Sajan PLG|2026-06-27 03:25:01 +0545|Build Jarvis v0.1: Connect to Oll
 Notes: This log was generated from the repository history for `docs/DEVLOG.md`.
 
 ## v0.4.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e5c6fd6`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e5c6fd6`)  |  Tag Release Date: 2026-06-27*
 - **Feature Commit Date**: 2026-06-27 (`39b3d5b` - `e5c6fd6`)
 - **Tag Release Date**: 2026-06-27
 ### Why This Release Existed
@@ -330,7 +330,7 @@ Added system prompt architecture to make the assistant’s base behavior more ex
 This improved consistency across generated responses.
 
 ## v0.3.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`8b1d0cb`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`8b1d0cb`)  |  Tag Release Date: 2026-06-27*
 - **Feature Commit Date**: 2026-06-27 (`163f8a1` - `8b1d0cb`)
 - **Tag Release Date**: 2026-06-27
 ### Why This Release Existed
@@ -343,7 +343,7 @@ Added architecture and roadmap documentation to clarify what the project should 
 This guided future development and aligned contributors on the overall design.
 
 ## v0.2.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`ded44b9`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`ded44b9`)  |  Tag Release Date: 2026-06-27*
 - **Feature Commit Date**: 2026-06-27 (`ded44b9`)
 - **Tag Release Date**: 2026-06-27
 ### Why This Release Existed
@@ -356,7 +356,7 @@ Delivered a CLI chat loop with Ollama integration so the assistant became usable
 This turned the project from an idea into a working conversational system.
 
 ## v0.1.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`)  |  Tag Release Date: 2026-06-27*
 - **Feature Commit Date**: 2026-06-27 (`1999e53` - `e13ee67`)
 - **Tag Release Date**: 2026-06-27
 ### Why This Release Existed
@@ -369,7 +369,7 @@ Built the initial Ollama-backed foundation and project scaffolding.
 This provided the minimal runtime for future development.
 
 # v0.1.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`)  |  Tag Release Date: 2026-06-27*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `1999e53` Implementation Details
@@ -386,7 +386,7 @@ Build Jarvis v0.1: Connect to Ollama
 ```
 
 # v0.2.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`ded44b9`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`ded44b9`)  |  Tag Release Date: 2026-06-27*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `ded44b9` Implementation Details
@@ -399,7 +399,7 @@ v0.2: working CLI chat loop with Ollama integration
 ```
 
 # v0.3.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`8b1d0cb`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`8b1d0cb`)  |  Tag Release Date: 2026-06-27*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `163f8a1` Implementation Details
@@ -420,7 +420,7 @@ Added Architecture and Roadmap in docs for what to do seamless development
 ```
 
 # v0.4.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e5c6fd6`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e5c6fd6`)  |  Tag Release Date: 2026-06-27*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `39b3d5b` Implementation Details
@@ -449,7 +449,7 @@ added SYSTEM_PROMPT in messege
 ```
 
 # v0.5.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`4034bf7`) \| Tag Release Date: 2026-06-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`4034bf7`)  |  Tag Release Date: 2026-06-28*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `94e1956` Implementation Details
@@ -478,7 +478,7 @@ Persistent Memory Core
 ```
 
 # v0.7.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`7803a93`) \| Tag Release Date: 2026-06-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`7803a93`)  |  Tag Release Date: 2026-06-28*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `7a840ee` Implementation Details
@@ -515,7 +515,7 @@ Context Builder & Long-Term Memory Integration
 ```
 
 # v0.8.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`d43f6e9`) \| Tag Release Date: 2026-06-29*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`d43f6e9`)  |  Tag Release Date: 2026-06-29*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `d43f6e9` Implementation Details
@@ -528,7 +528,7 @@ Context Builder & Long-Term Memory Integration
 ```
 
 # v1.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`6316917`) \| Tag Release Date: 2026-06-29*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`6316917`)  |  Tag Release Date: 2026-06-29*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `2922129` Implementation Details
@@ -557,7 +557,7 @@ feat(memory): implement multi-trigger extraction and behavior-based memory actio
 ```
 
 # v2.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`) \| Tag Release Date: 2026-07-03*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`)  |  Tag Release Date: 2026-07-03*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `db51ccc` Implementation Details
@@ -586,7 +586,7 @@ feat(core)!: JARVIS v2.0.0 - Complete architectural overhaul
 ```
 
 # v2.1.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`df45be2`) \| Tag Release Date: 2026-07-05*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`df45be2`)  |  Tag Release Date: 2026-07-05*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `5fccb37` Implementation Details
@@ -607,7 +607,7 @@ Multi-Backend + Streaming + External Config
 ```
 
 # v2.2.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`b2c2211`) \| Tag Release Date: 2026-07-05*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`b2c2211`)  |  Tag Release Date: 2026-07-05*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `b2c2211` Implementation Details
@@ -620,7 +620,7 @@ Semantic Memory with chromaDB installed vector_retriver, hybrid_retriever with k
 ```
 
 # v2.3.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-06 (`c84d53b`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-06 (`c84d53b`)  |  Tag Release Date: 2026-07-14*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `c84d53b` Implementation Details
@@ -633,7 +633,7 @@ feat(agent): add DocumentationAgent, tool infrastructure, and execution framewor
 ```
 
 # v2.4.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-11 (`6ea9796`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-11 (`6ea9796`)  |  Tag Release Date: 2026-07-14*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `6ea9796` Implementation Details
@@ -646,7 +646,7 @@ feat(platform): expand model backends and configuration system
 ```
 
 # v2.4.1
-- **Timeline Metadata**: *Feature Author Date: 2026-07-13 (`1cab1b1`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-13 (`1cab1b1`)  |  Tag Release Date: 2026-07-14*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `1cab1b1` Implementation Details
@@ -659,7 +659,7 @@ mermaid added in docs/architecture and mermaid dependencies
 ```
 
 # v2.4.2
-- **Timeline Metadata**: *Feature Author Date: 2026-07-14 (`6034224`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-14 (`6034224`)  |  Tag Release Date: 2026-07-14*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `6034224` Implementation Details
@@ -672,7 +672,7 @@ chore: update configuration and add Ollama Modelfile
 ```
 
 # v2.5.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`) \| Tag Release Date: 2026-07-18*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`)  |  Tag Release Date: 2026-07-18*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `f9fa068` Implementation Details
@@ -685,7 +685,7 @@ feat: add web UI, FastAPI server, and fix batch of issues
 ```
 
 # v3.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`) \| Tag Release Date: 2026-07-26*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`)  |  Tag Release Date: 2026-07-26*
 ## Developer Code Shift & Architecture Synthesis
 ### Release Features & Technical Notes
 #### `e5875fa` Implementation Details

@@ -5,7 +5,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v3.0.0 Refactored]
-- **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`ec0dc4e`) \| Tag Release Date: 2026-07-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`ec0dc4e`)  |  Tag Release Date: 2026-07-28*
 - **Feature Author Date**: 2026-07-28 (`c5a97b4` - `ec0dc4e`)
 - **Tag Release Date**: 2026-07-28
 
@@ -31,7 +31,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v3.0.0]
-- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`) \| Tag Release Date: 2026-07-26*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`)  |  Tag Release Date: 2026-07-26*
 - **Feature Author Dates**: 2026-07-19 (RAG Subsystem `e35d468`-`ba2026f`) | 2026-07-26 (Catalog Expansion `81e45f0`)
 - **Tag Release Date**: 2026-07-26 (`81e45f0`, `2c855c7`, `d23f5a0`)
 
@@ -46,7 +46,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v2.5.0]
-- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`) \| Tag Release Date: 2026-07-18*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`)  |  Tag Release Date: 2026-07-18*
 - **Feature Author Date**: 2026-07-18 (`f9fa068`)
 - **Tag Release Date**: 2026-07-18
 
@@ -57,7 +57,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v2.4.2]
-- **Timeline Metadata**: *Feature Author Date: 2026-07-14 (`6034224`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-14 (`6034224`)  |  Tag Release Date: 2026-07-14*
 - **Feature Author Date**: 2026-07-14 (`6034224`)
 - **Tag Release Date**: 2026-07-14
 
@@ -68,7 +68,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v2.4.1]
-- **Timeline Metadata**: *Feature Author Date: 2026-07-13 (`1cab1b1`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-13 (`1cab1b1`)  |  Tag Release Date: 2026-07-14*
 - **Feature Author Date**: 2026-07-13 (`1cab1b1`)
 - **Tag Release Date**: 2026-07-14
 
@@ -78,7 +78,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v2.4.0]
-- **Timeline Metadata**: *Feature Author Date: 2026-07-11 (`6ea9796`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-11 (`6ea9796`)  |  Tag Release Date: 2026-07-14*
 - **Feature Author Date**: 2026-07-11 (`6ea9796`)
 - **Tag Release Date**: 2026-07-14
 
@@ -89,7 +89,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v2.3.0]
-- **Timeline Metadata**: *Feature Author Date: 2026-07-06 (`c84d53b`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-06 (`c84d53b`)  |  Tag Release Date: 2026-07-14*
 - **Feature Author Date**: 2026-07-06 (`c84d53b`)
 - **Tag Release Date**: 2026-07-14
 
@@ -100,7 +100,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v2.2.0] - 2026-07-05 (`b2c2211`)
-- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`b2c2211`) \| Tag Release Date: 2026-07-05*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`b2c2211`)  |  Tag Release Date: 2026-07-05*
 
 ### Added
 - **Semantic Vector Memory**: ChromaDB integration (`VectorRetriever`) using `OllamaEmbeddingFunction` with `nomic-embed-text`.
@@ -109,7 +109,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v2.1.0] - 2026-07-05 (`df45be2`)
-- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`df45be2`) \| Tag Release Date: 2026-07-05*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`df45be2`)  |  Tag Release Date: 2026-07-05*
 
 ### Added
 - Multi-backend architecture (`LlamaCppClient`, `OllamaClient`).
@@ -119,7 +119,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v2.0.0] - 2026-07-03 (`8519f65`, `5fccb37`)
-- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`) \| Tag Release Date: 2026-07-03*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`)  |  Tag Release Date: 2026-07-03*
 
 ### Added
 - Complete core architectural overhaul.
@@ -129,7 +129,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v1.0.0] - 2026-06-29 (`6316917`, `db51ccc`)
-- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`6316917`) \| Tag Release Date: 2026-06-29*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`6316917`)  |  Tag Release Date: 2026-06-29*
 
 ### Added
 - Behavior-driven memory engine supporting `append`, `replace`, `ignore`, and `delete` actions.
@@ -138,7 +138,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v0.8.0] - 2026-06-29 (`d43f6e9`, `2922129`, `4f71baf`)
-- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`d43f6e9`) \| Tag Release Date: 2026-06-29*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`d43f6e9`)  |  Tag Release Date: 2026-06-29*
 
 ### Added
 - Structured memory record schema (`Memory` dataclass with timestamps, importance scores, categories).
@@ -147,7 +147,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v0.7.0] - 2026-06-28 (`7803a93`, `9aa2fb2`, `b145614`, `7a840ee`)
-- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`7803a93`) \| Tag Release Date: 2026-06-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`7803a93`)  |  Tag Release Date: 2026-06-28*
 
 ### Added
 - `ContextBuilder` for assembling system prompts, retrieved long-term memories, and conversation history.
@@ -156,7 +156,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v0.5.0] - 2026-06-28 (`4034bf7`, `3cc9e4b`, `94e1956`)
-- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`4034bf7`) \| Tag Release Date: 2026-06-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`4034bf7`)  |  Tag Release Date: 2026-06-28*
 
 ### Added
 - Persistent Memory Core storing extracted user preferences to disk.
@@ -165,7 +165,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v0.4.0] - 2026-06-27 (`e5c6fd6`, `7491e9a`, `39b3d5b`)
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e5c6fd6`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e5c6fd6`)  |  Tag Release Date: 2026-06-27*
 
 ### Added
 - `SYSTEM_PROMPT` persona configuration injection.
@@ -173,7 +173,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v0.3.0] - 2026-06-27 (`8b1d0cb`)
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`8b1d0cb`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`8b1d0cb`)  |  Tag Release Date: 2026-06-27*
 
 ### Added
 - Initial project architecture and technical roadmap documents in `docs/`.
@@ -181,7 +181,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v0.2.0] - 2026-06-27 (`ded44b9`)
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`ded44b9`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`ded44b9`)  |  Tag Release Date: 2026-06-27*
 
 ### Added
 - Interactive CLI chat loop connecting user stdin/stdout to local LLM.
@@ -189,14 +189,14 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ---
 
 ## [v0.1.0] - 2026-06-27 (`e13ee67`, `1999e53`)
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`)  |  Tag Release Date: 2026-06-27*
 
 ### Added
 - Initial project repository structure (`1999e53`).
 - Initial Ollama API connection client (`e13ee67`).
 
 # v0.1.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`)  |  Tag Release Date: 2026-06-27*
 ## Release Summary
 ### Commit Window (3 commits)
 #### Commit `1999e53` - Initial project structure
@@ -207,7 +207,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 03:25:01 +0545
 
 # v0.2.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`ded44b9`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`ded44b9`)  |  Tag Release Date: 2026-06-27*
 ## Release Summary
 ### Commit Window (2 commits)
 #### Commit `ded44b9` - v0.2: working CLI chat loop with Ollama integration
@@ -216,7 +216,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 04:59:01 +0545
 
 # v0.3.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`8b1d0cb`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`8b1d0cb`)  |  Tag Release Date: 2026-06-27*
 ## Release Summary
 ### Commit Window (4 commits)
 #### Commit `163f8a1` - Add .gitignore for Python project
@@ -229,7 +229,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 13:05:30 +0545
 
 # v0.4.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e5c6fd6`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e5c6fd6`)  |  Tag Release Date: 2026-06-27*
 ## Release Summary
 ### Commit Window (6 commits)
 #### Commit `39b3d5b` - Making prompt
@@ -246,7 +246,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 14:10:19 +0545
 
 # v0.5.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`4034bf7`) \| Tag Release Date: 2026-06-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`4034bf7`)  |  Tag Release Date: 2026-06-28*
 ## Release Summary
 ### Commit Window (6 commits)
 #### Commit `94e1956` - Implement conversation history in OllamaClient
@@ -263,7 +263,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-28 04:52:42 +0545
 
 # v0.7.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`7803a93`) \| Tag Release Date: 2026-06-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`7803a93`)  |  Tag Release Date: 2026-06-28*
 ## Release Summary
 ### Commit Window (8 commits)
 #### Commit `7a840ee` - Save Fact based on preferences
@@ -284,7 +284,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-28 22:50:49 +0545
 
 # v0.8.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`d43f6e9`) \| Tag Release Date: 2026-06-29*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`d43f6e9`)  |  Tag Release Date: 2026-06-29*
 ## Release Summary
 ### Commit Window (2 commits)
 #### Commit `d43f6e9` - [200~feat(v0.8): implement structured memory pipeline~
@@ -293,7 +293,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-29 03:50:36 +0545
 
 # v1.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`6316917`) \| Tag Release Date: 2026-06-29*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`6316917`)  |  Tag Release Date: 2026-06-29*
 ## Release Summary
 ### Commit Window (6 commits)
 #### Commit `2922129` - feat(memory): implement multi-fact extraction pipeline
@@ -310,7 +310,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-29 12:13:20 +0545
 
 # v2.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`) \| Tag Release Date: 2026-07-03*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`)  |  Tag Release Date: 2026-07-03*
 ## Release Summary
 ### Commit Window (6 commits)
 #### Commit `db51ccc` - feat(memory): implement multi-trigger extraction and behavior-based memory actions,left over
@@ -327,7 +327,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-03 23:31:02 +0545
 
 # v2.1.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`df45be2`) \| Tag Release Date: 2026-07-05*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`df45be2`)  |  Tag Release Date: 2026-07-05*
 ## Release Summary
 ### Commit Window (4 commits)
 #### Commit `5fccb37` - Bug fixes and added archiecture, dev log and changelog for v2.0.0
@@ -340,7 +340,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-05 07:23:59 +0545
 
 # v2.2.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`b2c2211`) \| Tag Release Date: 2026-07-05*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`b2c2211`)  |  Tag Release Date: 2026-07-05*
 ## Release Summary
 ### Commit Window (2 commits)
 #### Commit `b2c2211` - Semantic Memory with chromaDB installed vector_retriver, hybrid_retriever with keyword retriever, conversation_store, past_exchange and ollama isnallation for ebmedding, Agent imtegration for git automation with auto make devlog and change reverted
@@ -349,7 +349,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-05 22:01:06 +0545
 
 # v2.3.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-06 (`c84d53b`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-06 (`c84d53b`)  |  Tag Release Date: 2026-07-14*
 ## Release Summary
 ### Commit Window (2 commits)
 #### Commit `c84d53b` - feat(agent): add DocumentationAgent, tool infrastructure, and execution framework
@@ -358,7 +358,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:47:08 +0545
 
 # v2.4.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-11 (`6ea9796`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-11 (`6ea9796`)  |  Tag Release Date: 2026-07-14*
 ## Release Summary
 ### Commit Window (2 commits)
 #### Commit `6ea9796` - feat(platform): expand model backends and configuration system
@@ -367,7 +367,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:47:54 +0545
 
 # v2.4.1
-- **Timeline Metadata**: *Feature Author Date: 2026-07-13 (`1cab1b1`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-13 (`1cab1b1`)  |  Tag Release Date: 2026-07-14*
 ## Release Summary
 ### Commit Window (2 commits)
 #### Commit `1cab1b1` - mermaid added in docs/architecture and mermaid dependencies
@@ -376,7 +376,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:48:42 +0545
 
 # v2.4.2
-- **Timeline Metadata**: *Feature Author Date: 2026-07-14 (`6034224`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-14 (`6034224`)  |  Tag Release Date: 2026-07-14*
 ## Release Summary
 ### Commit Window (2 commits)
 #### Commit `6034224` - chore: update configuration and add Ollama Modelfile
@@ -385,7 +385,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:48:42 +0545
 
 # v2.5.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`) \| Tag Release Date: 2026-07-18*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`)  |  Tag Release Date: 2026-07-18*
 ## Release Summary
 ### Commit Window (2 commits)
 #### Commit `f9fa068` - feat: add web UI, FastAPI server, and fix batch of issues
@@ -394,7 +394,7 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-18 18:10:01 +0545
 
 # v3.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`) \| Tag Release Date: 2026-07-26*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`)  |  Tag Release Date: 2026-07-26*
 ## Release Summary
 ### Commit Window (18 commits)
 #### Commit `e5875fa` - chore: remove stray debug artifacts (home/ duplicate, tmp/ scratch)

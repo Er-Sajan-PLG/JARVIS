@@ -5,7 +5,7 @@ This document tracks all verified runtime error symptoms, root causes, diagnosti
 ---
 
 # v3.0.0 Refactored
-- **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`ec0dc4e`) \| Tag Release Date: 2026-07-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`ec0dc4e`)  |  Tag Release Date: 2026-07-28*
 ## Diagnostic Matrix & Error Fixes
 ### Verified Bug Fixes & Refactors
 #### Release Diagnostic Logs
@@ -20,7 +20,7 @@ This document tracks all verified runtime error symptoms, root causes, diagnosti
 ---
 
 # v3.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`) \| Tag Release Date: 2026-07-26*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`)  |  Tag Release Date: 2026-07-26*
 ## Diagnostic Matrix & Error Fixes
 ### Verified Bug Fixes & Refactors
 #### Release Diagnostic Logs
@@ -33,7 +33,7 @@ This document tracks all verified runtime error symptoms, root causes, diagnosti
 ---
 
 # v2.5.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`) \| Tag Release Date: 2026-07-18*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`)  |  Tag Release Date: 2026-07-18*
 ## Diagnostic Matrix & Error Fixes
 ### Verified Bug Fixes & Refactors
 #### Release Diagnostic Logs
@@ -46,7 +46,7 @@ This document tracks all verified runtime error symptoms, root causes, diagnosti
 ---
 
 # v2.0.0 - v2.4.2
-- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`) \| Tag Release Date: 2026-07-03*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`)  |  Tag Release Date: 2026-07-03*
 ## Diagnostic Matrix & Error Fixes
 ### Verified Bug Fixes & Refactors
 #### Release Diagnostic Logs
@@ -59,7 +59,7 @@ This document tracks all verified runtime error symptoms, root causes, diagnosti
 ---
 
 # v0.1.0 - v1.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`)  |  Tag Release Date: 2026-06-27*
 ## Diagnostic Matrix & Error Fixes
 ### Verified Bug Fixes & Refactors
 #### Release Diagnostic Logs

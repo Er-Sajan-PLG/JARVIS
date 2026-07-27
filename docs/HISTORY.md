@@ -280,7 +280,7 @@
 
 
 # v0.1.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`)  |  Tag Release Date: 2026-06-27*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v0.1.0`
 #### [1] Commit `1999e53`
@@ -294,7 +294,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 03:25:01 +0545
 
 # v0.2.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`ded44b9`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`ded44b9`)  |  Tag Release Date: 2026-06-27*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v0.2.0`
 #### [3] Commit `ded44b9`
@@ -305,7 +305,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 04:59:01 +0545
 
 # v0.3.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`8b1d0cb`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`8b1d0cb`)  |  Tag Release Date: 2026-06-27*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v0.3.0`
 #### [4] Commit `163f8a1`
@@ -322,7 +322,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 13:05:30 +0545
 
 # v0.4.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e5c6fd6`) \| Tag Release Date: 2026-06-27*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e5c6fd6`)  |  Tag Release Date: 2026-06-27*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v0.4.0`
 #### [6] Commit `39b3d5b`
@@ -345,7 +345,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 14:10:19 +0545
 
 # v0.5.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`4034bf7`) \| Tag Release Date: 2026-06-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`4034bf7`)  |  Tag Release Date: 2026-06-28*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v0.5.0`
 #### [9] Commit `94e1956`
@@ -368,7 +368,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-06-28 04:52:42 +0545
 
 # v0.7.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`7803a93`) \| Tag Release Date: 2026-06-28*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-28 (`7803a93`)  |  Tag Release Date: 2026-06-28*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v0.7.0`
 #### [12] Commit `7a840ee`
@@ -397,7 +397,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-06-28 22:50:49 +0545
 
 # v0.8.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`d43f6e9`) \| Tag Release Date: 2026-06-29*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`d43f6e9`)  |  Tag Release Date: 2026-06-29*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v0.8.0`
 #### [16] Commit `d43f6e9`
@@ -408,7 +408,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-06-29 03:50:36 +0545
 
 # v1.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`6316917`) \| Tag Release Date: 2026-06-29*
+- **Timeline Metadata**: *Feature Author Date: 2026-06-29 (`6316917`)  |  Tag Release Date: 2026-06-29*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v1.0.0`
 #### [17] Commit `2922129`
@@ -431,7 +431,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-06-29 12:13:20 +0545
 
 # v2.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`) \| Tag Release Date: 2026-07-03*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-03 (`8519f65`)  |  Tag Release Date: 2026-07-03*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v2.0.0`
 #### [20] Commit `db51ccc`
@@ -454,7 +454,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-07-03 23:31:02 +0545
 
 # v2.1.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`df45be2`) \| Tag Release Date: 2026-07-05*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`df45be2`)  |  Tag Release Date: 2026-07-05*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v2.1.0`
 #### [23] Commit `5fccb37`
@@ -471,7 +471,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-07-05 07:23:59 +0545
 
 # v2.2.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`b2c2211`) \| Tag Release Date: 2026-07-05*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-05 (`b2c2211`)  |  Tag Release Date: 2026-07-05*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v2.2.0`
 #### [25] Commit `b2c2211`
@@ -482,7 +482,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-07-05 22:01:06 +0545
 
 # v2.3.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-06 (`c84d53b`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-06 (`c84d53b`)  |  Tag Release Date: 2026-07-14*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v2.3.0`
 #### [26] Commit `c84d53b`
@@ -493,7 +493,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:47:08 +0545
 
 # v2.4.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-11 (`6ea9796`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-11 (`6ea9796`)  |  Tag Release Date: 2026-07-14*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v2.4.0`
 #### [27] Commit `6ea9796`
@@ -504,7 +504,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:47:54 +0545
 
 # v2.4.1
-- **Timeline Metadata**: *Feature Author Date: 2026-07-13 (`1cab1b1`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-13 (`1cab1b1`)  |  Tag Release Date: 2026-07-14*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v2.4.1`
 #### [28] Commit `1cab1b1`
@@ -515,7 +515,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:48:42 +0545
 
 # v2.4.2
-- **Timeline Metadata**: *Feature Author Date: 2026-07-14 (`6034224`) \| Tag Release Date: 2026-07-14*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-14 (`6034224`)  |  Tag Release Date: 2026-07-14*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v2.4.2`
 #### [29] Commit `6034224`
@@ -526,7 +526,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:48:42 +0545
 
 # v2.5.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`) \| Tag Release Date: 2026-07-18*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-18 (`f9fa068`)  |  Tag Release Date: 2026-07-18*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v2.5.0`
 #### [30] Commit `f9fa068`
@@ -537,7 +537,7 @@
 - **Author**: Er Sajan PLG | **Date**: 2026-07-18 18:10:01 +0545
 
 # v3.0.0
-- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`) \| Tag Release Date: 2026-07-26*
+- **Timeline Metadata**: *Feature Author Date: 2026-07-19 / 2026-07-26 (`81e45f0`)  |  Tag Release Date: 2026-07-26*
 ## Release Milestone & Code Lineage
 ### Tag Boundary `v3.0.0`
 #### [31] Commit `e5875fa`
