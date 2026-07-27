@@ -491,3 +491,15 @@ Multi-Backend + Streaming + External Config
 ```text
 Multi-Backend + Streaming + External Config
 ```
+
+# v2.2.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `b2c2211` Implementation Details
+```text
+Semantic Memory with chromaDB installed vector_retriver, hybrid_retriever with keyword retriever, conversation_store, past_exchange and ollama isnallation for ebmedding, Agent imtegration for git automation with auto make devlog and change reverted
+```
+#### `b2c2211` Implementation Details
+```text
+Semantic Memory with chromaDB installed vector_retriver, hybrid_retriever with keyword retriever, conversation_store, past_exchange and ollama isnallation for ebmedding, Agent imtegration for git automation with auto make devlog and change reverted
+```

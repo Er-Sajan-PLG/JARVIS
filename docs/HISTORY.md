@@ -459,3 +459,13 @@
 #### [24] Commit `df45be2`
 - **Subject**: Multi-Backend + Streaming + External Config
 - **Author**: Er Sajan PLG | **Date**: 2026-07-05 07:23:59 +0545
+
+# v2.2.0
+## Release Milestone & Code Lineage
+### Tag Boundary `v2.2.0`
+#### [25] Commit `b2c2211`
+- **Subject**: Semantic Memory with chromaDB installed vector_retriver, hybrid_retriever with keyword retriever, conversation_store, past_exchange and ollama isnallation for ebmedding, Agent imtegration for git automation with auto make devlog and change reverted
+- **Author**: Er Sajan PLG | **Date**: 2026-07-05 22:01:06 +0545
+#### [25] Commit `b2c2211`
+- **Subject**: Semantic Memory with chromaDB installed vector_retriver, hybrid_retriever with keyword retriever, conversation_store, past_exchange and ollama isnallation for ebmedding, Agent imtegration for git automation with auto make devlog and change reverted
+- **Author**: Er Sajan PLG | **Date**: 2026-07-05 22:01:06 +0545
