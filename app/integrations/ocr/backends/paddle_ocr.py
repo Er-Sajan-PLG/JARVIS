@@ -2,7 +2,7 @@
 import structlog
 from typing import List, Optional, Any
 
-from app.services.ocr.backends.base import OCRBackend, OCRResult
+from app.integrations.ocr.backends.base import OCRBackend, OCRResult
 from app.config.settings import get_settings
 
 log = structlog.get_logger()

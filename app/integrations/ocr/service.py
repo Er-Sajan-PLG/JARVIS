@@ -9,9 +9,9 @@ from pathlib import Path
 import tempfile
 import shutil
 
-from app.services.ocr.config import get_ocr_settings
-from app.services.ocr.schemas import OCRRequest, OCRResult, OCRBackend, UnlimitedOCRMode
-from app.services.ocr.model_manager import get_model_manager
+from app.integrations.ocr.config import get_ocr_settings
+from app.integrations.ocr.schemas import OCRRequest, OCRResult, OCRBackend, UnlimitedOCRMode
+from app.integrations.ocr.model_manager import get_model_manager
 from app.utils.pdf import get_image_paths, is_pdf
 from app.utils.image import validate_image
 

@@ -5,9 +5,9 @@ from threading import Lock
 from typing import Optional, Dict
 from contextlib import asynccontextmanager
 
-from app.services.ocr.backends import OCRBackend, UnlimitedOCRBackend, PaddleOCRBackend
-from app.services.ocr.config import get_ocr_settings
-from app.services.ocr.schemas import OCRBackend as OCRBackendEnum
+from app.integrations.ocr.backends import OCRBackend, UnlimitedOCRBackend, PaddleOCRBackend
+from app.integrations.ocr.config import get_ocr_settings
+from app.integrations.ocr.schemas import OCRBackend as OCRBackendEnum
 
 log = structlog.get_logger()
 

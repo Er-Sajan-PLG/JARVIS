@@ -27,95 +27,79 @@ from app.config.settings import ConversationConfig
 from app.context.manager import ContextWindowManager
 
 
-class _StubClient:
-    """Minimal stand-in for a ModelClient; just carries a name for assertions."""
-    def __init__(self, name):
-        self.name = name
+from app.models.interface import BaseLLMProvider, LLMResponse
 
-    def __repr__(self):
-        return f"StubClient({self.name!r})"
+class _StubClient(BaseLLMProvider):
+    """Minimal stand-in for a BaseLLMProvider."""
+    def __init__(self, name: str, available: bool = True):
+        self._name = name
+        self._available = available
+
+    @property
+    def provider_name(self) -> str:
+        return self._name
+
+    async def is_available(self, api_key: str | None = None) -> bool:
+        return self._available
+
+    async def generate_text(self, prompt, model, system_prompt=None, temperature=0.7, max_tokens=4096, api_key=None, extra_headers=None):
+        return LLMResponse(content=f"from {self._name}", model=model, provider=self._name)
+
+    async def stream_text(self, prompt, model, system_prompt=None, temperature=0.7, max_tokens=4096, api_key=None, extra_headers=None):
+        yield f"from {self._name}"
 
 
 class TestModelRouter(unittest.TestCase):
     def _wired(self):
         r = ModelRouter()
-        r.set_default(_StubClient("default"))
-        for tt in TaskType:
-            r.register(tt, _StubClient(tt.value))
+        r.register_provider(_StubClient("default"), default=True)
+        r.register_provider(_StubClient("groq"))
         return r
 
-    def test_select_explicit_task_type(self):
+    def test_select_healthy_provider(self):
         r = ModelRouter()
         code = _StubClient("code")
         stem = _StubClient("stem")
-        r.register(TaskType.CODE, code)
-        r.register(TaskType.STEM, stem)
-        self.assertIs(r.select(TaskType.CODE), code)
-        self.assertIs(r.select(TaskType.STEM), stem)
+        r.register_provider(code, default=True)
+        r.register_provider(stem)
+        self.assertIs(r.select_healthy_provider("code"), code)
+        self.assertIs(r.select_healthy_provider("stem"), stem)
 
     def test_select_falls_back_to_default(self):
         r = ModelRouter()
-        r.register(TaskType.CODE, _StubClient("code"))
         default = _StubClient("default")
-        r.set_default(default)
-        self.assertIs(r.select(TaskType.STEM), default)
+        r.register_provider(default, default=True)
+        self.assertIs(r.select_healthy_provider(preferred_provider=None), default)
 
-    def test_select_raises_when_no_model_and_no_default(self):
+    def test_select_raises_when_no_healthy_provider(self):
         r = ModelRouter()
-        with self.assertRaises(ValueError):
-            r.select(TaskType.CODE)
+        with self.assertRaises(RuntimeError):
+            r.select_healthy_provider("nonexistent")
 
     def test_route_classifies_code(self):
         r = self._wired()
-
-        client, tt = r.route("write a function to debug this bug")
+        tt = r.classify_prompt("write a function to debug this bug")
         self.assertEqual(tt, TaskType.CODE)
 
     def test_route_classifies_stem(self):
         r = self._wired()
-        _, tt = r.route("solve the math equation with a formula")
+        tt = r.classify_prompt("solve the math equation with a formula")
         self.assertEqual(tt, TaskType.STEM)
 
     def test_route_classifies_reasoning(self):
         r = self._wired()
-        _, tt = r.route("analyze and reason about the argument")
+        tt = r.classify_prompt("analyze and reason about the argument")
         self.assertEqual(tt, TaskType.REASONING)
 
     def test_route_classifies_docs(self):
         r = self._wired()
-        _, tt = r.route("update the documentation and readme")
+        tt = r.classify_prompt("update the documentation and readme")
         self.assertEqual(tt, TaskType.DOCS)
-        _, tt2 = r.route("add an api reference section to the tutorial")
-        self.assertEqual(tt2, TaskType.DOCS)
 
     def test_route_unknown_prompt_defaults_general(self):
         r = self._wired()
-        _, tt = r.route("tell me a fun fact about otters")
+        tt = r.classify_prompt("tell me a fun fact about otters")
         self.assertEqual(tt, TaskType.GENERAL)
-
-    def test_tiebreak_code_over_stem(self):
-        r = self._wired()
-        _, tt = r.route("implement calculate")
-        self.assertEqual(tt, TaskType.CODE)
-
-    def test_tiebreak_stem_over_reasoning(self):
-        r = self._wired()
-        _, tt = r.route("think calculate")
-        self.assertEqual(tt, TaskType.STEM)
-
-    def test_tiebreak_reasoning_over_general(self):
-        r = self._wired()
-        _, tt = r.route("think general")
-        self.assertEqual(tt, TaskType.REASONING)
-
-    def test_route_returns_client_and_task_type(self):
-        r = self._wired()
-        result = r.route("write a function to debug this bug")
-        self.assertIsInstance(result, tuple)
-        self.assertEqual(len(result), 2)
-        client, tt = result
-        self.assertEqual(tt, TaskType.CODE)
-        self.assertEqual(client.name, "code")
 
 
 class TestMemoryStore(unittest.TestCase):

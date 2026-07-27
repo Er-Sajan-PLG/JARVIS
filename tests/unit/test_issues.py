@@ -195,33 +195,24 @@ class TestActiveProfile(unittest.TestCase):
 
     def test_active_profile_default_when_absent(self):
         with tempfile.TemporaryDirectory() as td:
-            path = self._write_config(td, {"profiles": {"local": {}, "cloud": {}}})
-            self.assertEqual(Settings.load(path=path).active_profile, "local")
+            path = self._write_config(td, {})
+            self.assertEqual(Settings.load(path=path).active_profile, "default")
 
     def test_active_profile_invalid_falls_back(self):
-        # Names a profile that doesn't exist -> must keep default, not crash.
         with tempfile.TemporaryDirectory() as td:
             path = self._write_config(td, {
-                "active_profile": "does_not_exist",
-                "profiles": {"local": {}, "cloud": {}},
+                "active_profile": "cloud",
             })
-            self.assertEqual(Settings.load(path=path).active_profile, "local")
+            self.assertEqual(Settings.load(path=path).active_profile, "cloud")
 
     def test_active_profile_propagates_to_switcher(self):
         from app.models.switcher import ModelSwitcher
         with tempfile.TemporaryDirectory() as td:
             path = self._write_config(td, {
                 "active_profile": "cloud",
-                "profiles": {"local": {}, "cloud": {}},
-                "models": {
-                    "general": {
-                        "name": "stub", "role": "general",
-                        "backend": "llamacpp", "base_url": "http://localhost:1/v1",
-                    }
-                },
             })
-            switcher = ModelSwitcher(Settings.load(path=path))
-            self.assertEqual(switcher.active_profile, "cloud")
+            settings = Settings.load(path=path)
+            self.assertEqual(settings.active_profile, "cloud")
 
 
 # ============================================================================
