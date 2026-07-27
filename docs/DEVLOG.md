@@ -263,3 +263,19 @@ Built the initial Ollama-backed foundation and project scaffolding.
 
 ### What This Enables
 This provided the minimal runtime for future development.
+
+# v0.1.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `1999e53` Implementation Details
+```text
+Initial project structure
+```
+#### `e13ee67` Implementation Details
+```text
+Build Jarvis v0.1: Connect to Ollama
+```
+#### `e13ee67` Implementation Details
+```text
+Build Jarvis v0.1: Connect to Ollama
+```

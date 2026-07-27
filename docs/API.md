@@ -88,3 +88,8 @@ timeline
   - **Response**: `{"session_id": "string", "plan_id": "string", "status": "string", "steps_count": int, "complexity": "string"}`
 - **WebSocket `/ws/chat`** (`v2.5.0` `f9fa068` ➔ Refactored `ec0dc4e` | Confidence: `VERIFIED`)
   - **Protocol**: Bidirectional JSON stream emitting `intent_analysis`, `token_chunk`, `step_status`, `hitl_request`, and `stream_end`.
+# v0.1.0
+## Public Interface & API Changes
+### Exported Methods & Signatures
+#### Release API Delta
+Validated interface stability for v0.1.0.

@@ -162,3 +162,13 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 ### Added
 - Initial project repository structure (`1999e53`).
 - Initial Ollama API connection client (`e13ee67`).
+
+# v0.1.0
+## Release Summary
+### Commit Window (3 commits)
+#### Commit `1999e53` - Initial project structure
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 02:44:04 +0545
+#### Commit `e13ee67` - Build Jarvis v0.1: Connect to Ollama
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 03:25:01 +0545
+#### Commit `e13ee67` - Build Jarvis v0.1: Connect to Ollama
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 03:25:01 +0545

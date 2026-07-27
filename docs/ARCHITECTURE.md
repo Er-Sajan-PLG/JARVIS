@@ -873,3 +873,9 @@ I would put this at the very top of your roadmap document:
 > JARVIS is not designed as a chatbot. It is being built as a modular, local-first AI operating platform where every capability—memory, reasoning, planning, tools, knowledge, and interaction—is an independent subsystem that can evolve without breaking the rest of the architecture.
 
 That single paragraph explains the entire roadmap and serves as a guiding principle for future development. Looking at how you've structured the versions, there's a consistent evolution from **conversation → memory → agency → planning → learning → cooperation → platform**, which is a strong architectural narrative rather than just a list of features.
+
+# v0.1.0
+## System Topology & Subsystem Boundaries
+### Architectural Invariants
+#### Release Layer Topology
+System architecture snapshot for v0.1.0.

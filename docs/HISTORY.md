@@ -45,7 +45,13 @@
 ### [5] Commit `8b1d0cb` `[v0.3.0]` - Added Architecture and Roadmap in docs for what to do seamless development
 **Author:** Er Sajan PLG | **Date:** 2026-06-27 13:05:30 +0545
 
-**Files Modified:** docs/ARCHITECTURE.md, docs/ROADMAP.md
+**Files Modified:** `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`
+**Architectural Insights:**
+- *Architectural Blueprint Scaffolding*: Authored foundational system architecture specification (`docs/ARCHITECTURE.md`) laying out sub-layer separation (Main ➔ Brain ➔ Memory/Router/Models/Tools ➔ Output).
+- *Engineering Roadmap Specification*: Defined 5-phase engineering roadmap (`docs/ROADMAP.md`) targeting Foundation, Intelligence, Tools, Interfaces, and Autonomous Execution.
+- *Tag Boundary*: `v0.3.0` Release Boundary.
+- *Confidence Level*: `VERIFIED`
+
 
 ### [6] Commit `39b3d5b` `[v0.3.0]` - Making prompt
 **Author:** Er Sajan PLG | **Date:** 2026-06-27 13:51:06 +0545
@@ -272,3 +278,16 @@
 
 **Files Modified:** app/adapters/__init__.py, app/adapters/http/router.py, app/adapters/websocket/stream.py, app/api/ocr/routes.py, app/integrations/__init__.py
 
+
+# v0.1.0
+## Release Milestone & Code Lineage
+### Tag Boundary `v0.1.0`
+#### [1] Commit `1999e53`
+- **Subject**: Initial project structure
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 02:44:04 +0545
+#### [2] Commit `e13ee67`
+- **Subject**: Build Jarvis v0.1: Connect to Ollama
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 03:25:01 +0545
+#### [2] Commit `e13ee67`
+- **Subject**: Build Jarvis v0.1: Connect to Ollama
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 03:25:01 +0545
