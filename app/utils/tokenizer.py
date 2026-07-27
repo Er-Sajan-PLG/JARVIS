@@ -145,6 +145,8 @@ def _word_counter(text: str) -> int:
     return math.ceil(max(word_estimate, char_estimate)) + 3
 
 
+count_tokens = lambda text, model="default": estimate_tokens(text, model=model)
+
 def estimate_tokens(text: str, method: str = "auto", model: str = "default") -> int:
     """
         text: Text to count
