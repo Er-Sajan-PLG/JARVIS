@@ -443,3 +443,31 @@ feat(memory): implement multi-trigger extraction and behavior-based memory actio
 ```text
 feat(memory): implement multi-trigger extraction and behavior-based memory actions
 ```
+
+# v2.0.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `db51ccc` Implementation Details
+```text
+feat(memory): implement multi-trigger extraction and behavior-based memory actions,left over
+```
+#### `db51ccc` Implementation Details
+```text
+feat(memory): implement multi-trigger extraction and behavior-based memory actions,left over
+```
+#### `63addf6` Implementation Details
+```text
+before big change in memory management
+```
+#### `63addf6` Implementation Details
+```text
+before big change in memory management
+```
+#### `8519f65` Implementation Details
+```text
+feat(core)!: JARVIS v2.0.0 - Complete architectural overhaul
+```
+#### `8519f65` Implementation Details
+```text
+feat(core)!: JARVIS v2.0.0 - Complete architectural overhaul
+```

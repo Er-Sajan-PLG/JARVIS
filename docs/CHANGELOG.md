@@ -268,3 +268,19 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-29 12:13:20 +0545
 #### Commit `6316917` - feat(memory): implement multi-trigger extraction and behavior-based memory actions
 - **Author**: Er Sajan PLG | **Date**: 2026-06-29 12:13:20 +0545
+
+# v2.0.0
+## Release Summary
+### Commit Window (6 commits)
+#### Commit `db51ccc` - feat(memory): implement multi-trigger extraction and behavior-based memory actions,left over
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 12:14:52 +0545
+#### Commit `db51ccc` - feat(memory): implement multi-trigger extraction and behavior-based memory actions,left over
+- **Author**: Er Sajan PLG | **Date**: 2026-06-29 12:14:52 +0545
+#### Commit `63addf6` - before big change in memory management
+- **Author**: Er Sajan PLG | **Date**: 2026-07-02 09:31:29 +0545
+#### Commit `63addf6` - before big change in memory management
+- **Author**: Er Sajan PLG | **Date**: 2026-07-02 09:31:29 +0545
+#### Commit `8519f65` - feat(core)!: JARVIS v2.0.0 - Complete architectural overhaul
+- **Author**: Er Sajan PLG | **Date**: 2026-07-03 23:31:02 +0545
+#### Commit `8519f65` - feat(core)!: JARVIS v2.0.0 - Complete architectural overhaul
+- **Author**: Er Sajan PLG | **Date**: 2026-07-03 23:31:02 +0545
