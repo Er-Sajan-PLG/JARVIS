@@ -1,66 +1,70 @@
-# JARVIS Complete Version-by-Version Documentation Index
+# JARVIS Documentation Master Index & LLM Navigation Map
 
-Welcome to the central master index and LLM navigation map for the **JARVIS** repository, covering version-by-version documentation from initial commit (`v0.1.0`) to `HEAD` (`v3.0.0 Refactored`).
+Welcome to the central master index and LLM navigation map for **JARVIS**, covering full architectural history, component guides, decision records, and API signatures from initial commit (`v0.1.0`) to `HEAD` (`v3.0.1`).
 
 ---
 
-## 1. Version Tag Map
+## 1. Master Documentation Deliverables
 
-| Version Tag | Release Commit | Major Milestone / Feature Added |
+| Category | File | Description |
 | :--- | :--- | :--- |
-| **`v0.1.0`** | `e13ee67` | Initial project structure & direct local Ollama client |
-| **`v0.2.0`** | `ded44b9` | Interactive CLI chat loop with streaming stdout |
-| **`v0.3.0`** | `8b1d0cb` | Initial in-tree architecture & development roadmap |
-| **`v0.4.0`** | `e5c6fd6` | System prompt persona injection in message context |
-| **`v0.5.0`** | `4034bf7` | Persistent Memory Core saving user preference facts |
-| **`v0.7.0`** | `7803a93` | ContextBuilder assembling prompt, memory & chat turns |
-| **`v0.8.0`** | `d43f6e9` | Structured Memory schema & multi-fact extraction |
-| **`v1.0.0`** | `6316917` | Behavior-driven memory engine (`append`/`replace`/`delete`) |
-| **`v2.0.0`** | `8519f65` | Complete architectural overhaul & prompt task classifier |
-| **`v2.1.0`** | `df45be2` | Multi-backend support (`LlamaCppClient`) & YAML settings |
-| **`v2.2.0`** | `b2c2211` | ChromaDB vector retriever & BM25 hybrid memory search |
-| **`v2.3.0`** | `c84d53b` | `DocumentationAgent`, tool infrastructure & execution framework |
-| **`v2.4.0`** | `6ea9796` | Platform expansion for commercial cloud LLM providers |
-| **`v2.4.1`** | `1cab1b1` | Mermaid.js architecture visualizer in docs |
-| **`v2.4.2`** | `6034224` | Custom Ollama `Modelfile` configuration |
-| **`v2.5.0`** | `f9fa068` | FastAPI Web API Server & modern dark-mode Web UI |
-| **`v3.0.0`** | `81e45f0` | Live catalog, security hardening & RAG knowledge subsystem |
-| **`v3.0.0 Refactored`** | `ec0dc4e` | Single-tenant pragmatic hybrid architecture refactor |
+| 📘 **Quickstart** | [README.md](file:///home/sajan/JARVIS/README.md) | Project Overview, Quickstart & Commands |
+| 📐 **Living Architecture** | [ARCHITECTURE.md](file:///home/sajan/JARVIS/docs/ARCHITECTURE.md) | Living System Topology & Core Invariants at HEAD |
+| 🔌 **API Signatures** | [API.md](file:///home/sajan/JARVIS/docs/API.md) | Public API Reference & Method Signatures History |
+| 📝 **Release Notes** | [CHANGELOG.md](file:///home/sajan/JARVIS/docs/CHANGELOG.md) | Version Release Notes (`v0.1.0` ➔ `v3.0.1`) |
+| 💻 **Developer Log** | [DEVLOG.md](file:///home/sajan/JARVIS/docs/DEVLOG.md) | Architectural Evolution & Feature Shift Log |
+| 📜 **Git Archaeology** | [HISTORY.md](file:///home/sajan/JARVIS/docs/HISTORY.md) | Git Database Code Archaeology & Milestone Timeline |
+| 🩺 **Diagnostic Matrix** | [DEBUGGING.md](file:///home/sajan/JARVIS/docs/DEBUGGING.md) | Verified Error Codes, Symptoms & Fixes Matrix |
+| 🛣️ **Engineering Roadmap** | [ROADMAP.md](file:///home/sajan/JARVIS/docs/ROADMAP.md) | Technical Debt Register (`DEBT-001` - `DEBT-007`) |
+| 🏥 **Repository Health** | [HEALTH_REPORT.md](file:///home/sajan/JARVIS/docs/HEALTH_REPORT.md) | Subsystem Code Quality Metrics across Releases |
 
 ---
 
-## 2. Core Documentation Deliverables
-- 📘 **[README.md](file:///home/sajan/JARVIS/README.md)**: Developer quickstart & package index.
-- 📐 **[ARCHITECTURE.md](file:///home/sajan/JARVIS/ARCHITECTURE.md)**: Living architecture at `HEAD`, topology & Mermaid diagrams.
-- 📜 **[HISTORY.md](file:///home/sajan/JARVIS/docs/HISTORY.md)**: Version-by-version milestone timeline (`v0.1.0` ➔ `v3.0.0 Refactored`).
-- 🔌 **[API.md](file:///home/sajan/JARVIS/docs/API.md)**: Exported API signature history across all versions.
-- 📝 **[CHANGELOG.md](file:///home/sajan/JARVIS/docs/CHANGELOG.md)**: Release notes for all version tags.
-- 🛣️ **[ROADMAP.md](file:///home/sajan/JARVIS/docs/ROADMAP.md)**: Technical Debt Register (`DEBT-001` through `DEBT-007`) across commits.
-- 💻 **[DEVLOG.md](file:///home/sajan/JARVIS/docs/DEVLOG.md)**: Developer code shift & architectural evolution log across releases.
-- 🩺 **[DEBUGGING.md](file:///home/sajan/JARVIS/docs/DEBUGGING.md)**: Diagnostic matrix, error symptoms, and verified fixes across versions.
-- 🏥 **[HEALTH_REPORT.md](file:///home/sajan/JARVIS/docs/HEALTH_REPORT.md)**: Repository health metrics across versions.
+## 2. High-Level Architecture Guides (`docs/architecture/`)
+
+- 🧩 **[Component Topology](file:///home/sajan/JARVIS/docs/architecture/components.md)**: High-Level Mermaid Component Flowcharts
+- 🧠 **[Cognitive Engine](file:///home/sajan/JARVIS/docs/architecture/cognitive_brain.md)**: Brain Request Cycle & Tiered Safety Gate Policy
+- ⚡ **[Model Routing Pool](file:///home/sajan/JARVIS/docs/architecture/model_routing.md)**: Multi-Provider Pool & Circuit Breakers
+- 🧠 **[Memory Subsystem](file:///home/sajan/JARVIS/docs/architecture/memory_subsystem.md)**: Hybrid BM25 & Chroma Vector Search Architecture
+- 🌊 **[Streaming Data Flow](file:///home/sajan/JARVIS/docs/architecture/data_flow.md)**: End-to-End Async Streaming Data Flow
+- 🚀 **[Composition Root Bootstrap](file:///home/sajan/JARVIS/docs/architecture/startup_flow.md)**: ApplicationContainer Bootstrap Sequence
 
 ---
 
-## 3. Subsystem Modules (`docs/modules/`)
-- [domain.md](file:///home/sajan/JARVIS/docs/modules/domain.md): Domain Entities (`v0.1.0` ➔ `v3.0.0 Refactored`)
-- [brain.md](file:///home/sajan/JARVIS/docs/modules/brain.md): Cognitive Brain Engine (`v0.1.0` ➔ `v3.0.0 Refactored`)
-- [models.md](file:///home/sajan/JARVIS/docs/modules/models.md): Multi-Provider LLM Pool (`v0.1.0` ➔ `v3.0.0 Refactored`)
-- [memory.md](file:///home/sajan/JARVIS/docs/modules/memory.md): Persistent Memory (`v0.5.0` ➔ `v3.0.0 Refactored`)
-- [guardrails.md](file:///home/sajan/JARVIS/docs/modules/guardrails.md): Safety Policy (`v0.1.0` ➔ `v3.0.0 Refactored`)
-- [adapters.md](file:///home/sajan/JARVIS/docs/modules/adapters.md): I/O Protocol Adapters (`v0.1.0` ➔ `v3.0.0 Refactored`)
-- [integrations.md](file:///home/sajan/JARVIS/docs/modules/integrations.md): OSS Integrations (`v0.1.0` ➔ `v3.0.0 Refactored`)
+## 3. Subsystem Architectural Modules (`docs/modules/`)
+
+- 📦 **[domain.md](file:///home/sajan/JARVIS/docs/modules/domain.md)**: Pure Python 3.11+ Dataclass Models (`app/domain/`)
+- 🧠 **[brain.md](file:///home/sajan/JARVIS/docs/modules/brain.md)**: Cognitive Brain Engine (`app/brain/`)
+- 🤖 **[models.md](file:///home/sajan/JARVIS/docs/modules/models.md)**: LLM Provider Pool & Model Router (`app/models/`)
+- 💾 **[memory.md](file:///home/sajan/JARVIS/docs/modules/memory.md)**: Persistent Memory Façade (`app/memory/`)
+- 🛡️ **[guardrails.md](file:///home/sajan/JARVIS/docs/modules/guardrails.md)**: Tiered Tool Safety Policy & Decorator (`app/guardrails/`)
+- 🔌 **[adapters.md](file:///home/sajan/JARVIS/docs/modules/adapters.md)**: REST & WebSocket Stream Adapters (`app/adapters/`)
+- 🧩 **[integrations.md](file:///home/sajan/JARVIS/docs/modules/integrations.md)**: Isolated ChromaDB Vector Store & OCR Backends (`app/integrations/`)
+- ⚙️ **[config.md](file:///home/sajan/JARVIS/docs/modules/config.md)**: Configuration Engine (`app/config/`)
+- 🎨 **[frontend.md](file:///home/sajan/JARVIS/docs/modules/frontend.md)**: Web Single-Page Application (`frontend/`)
+- 🛠️ **[scripts.md](file:///home/sajan/JARVIS/docs/modules/scripts.md)**: Automation & Version Bumper Scripts (`scripts/`)
+- 🧪 **[tests.md](file:///home/sajan/JARVIS/docs/modules/tests.md)**: Unit & Stress Performance Test Suite (`tests/`)
 
 ---
 
-## 4. Architectural Decision Records (`docs/ADR/`)
-- [ADR-001: Direct Ollama Integration & CLI](file:///home/sajan/JARVIS/docs/ADR/ADR-001-ollama-cli-integration.md) (`v0.1.0`)
-- [ADR-002: JSON File Persistent Memory Core](file:///home/sajan/JARVIS/docs/ADR/ADR-002-json-file-persistent-memory.md) (`v0.5.0`)
-- [ADR-003: Multi-Model Task Router & Overhaul](file:///home/sajan/JARVIS/docs/ADR/ADR-003-multi-model-task-router.md) (`v2.0.0`)
-- [ADR-004: ChromaDB Semantic Memory & Hybrid BM25](file:///home/sajan/JARVIS/docs/ADR/ADR-004-chromadb-semantic-memory.md) (`v2.2.0`)
-- [ADR-005: FastAPI Web Server & Single-Page App](file:///home/sajan/JARVIS/docs/ADR/ADR-005-fastapi-web-server-and-ui.md) (`v2.5.0`)
-- [ADR-006: Pragmatic Hybrid Architecture](file:///home/sajan/JARVIS/docs/ADR/ADR-006-pragmatic-hybrid-architecture.md) (`v3.0.0 Refactored`)
-- [ADR-007: Domain Purity & Standard Dataclasses](file:///home/sajan/JARVIS/docs/ADR/ADR-007-domain-purity-and-dataclasses.md) (`v3.0.0 Refactored`)
-- [ADR-008: Tiered Tool Safety Policy & HITL Approval Gates](file:///home/sajan/JARVIS/docs/ADR/ADR-008-tiered-tool-safety-policy.md) (`v3.0.0 Refactored`)
-- [ADR-009: Multi-Provider Failover & Circuit Breaker](file:///home/sajan/JARVIS/docs/ADR/ADR-009-multi-provider-circuit-breaker-failover.md) (`v3.0.0 Refactored`)
-- [ADR-010: Adapters & Integrations Boundary Isolation](file:///home/sajan/JARVIS/docs/ADR/ADR-010-adapters-and-integrations-isolation.md) (`v3.0.0 Refactored`)
+## 4. Architectural Decision Records (`docs/adr/`)
+
+- [ADR-001: Direct Ollama Integration & CLI](file:///home/sajan/JARVIS/docs/adr/ADR-001-ollama-cli-integration.md) (`v0.1.0`)
+- [ADR-002: JSON File Persistent Memory Core](file:///home/sajan/JARVIS/docs/adr/ADR-002-json-file-persistent-memory.md) (`v0.5.0`)
+- [ADR-003: Multi-Model Task Router & Overhaul](file:///home/sajan/JARVIS/docs/adr/ADR-003-multi-model-task-router.md) (`v2.0.0`)
+- [ADR-004: ChromaDB Semantic Memory & Hybrid BM25](file:///home/sajan/JARVIS/docs/adr/ADR-004-chromadb-semantic-memory.md) (`v2.2.0`)
+- [ADR-005: FastAPI Web Server & Single-Page App](file:///home/sajan/JARVIS/docs/adr/ADR-005-fastapi-web-server-and-ui.md) (`v2.5.0`)
+- [ADR-006: Pragmatic Hybrid Architecture](file:///home/sajan/JARVIS/docs/adr/ADR-006-pragmatic-hybrid-architecture.md) (`v3.0.0 Refactored`)
+- [ADR-007: Domain Purity & Dataclass Models](file:///home/sajan/JARVIS/docs/adr/ADR-007-domain-purity-and-dataclasses.md) (`v3.0.0 Refactored`)
+- [ADR-008: Tiered Tool Safety Policy & Decorator](file:///home/sajan/JARVIS/docs/adr/ADR-008-tiered-tool-safety-policy.md) (`v3.0.0 Refactored`)
+- [ADR-009: Multi-Provider Circuit Breaker Failover](file:///home/sajan/JARVIS/docs/adr/ADR-009-multi-provider-circuit-breaker-failover.md) (`v3.0.0 Refactored`)
+- [ADR-010: Isolation of Third-Party Adapters & Integrations](file:///home/sajan/JARVIS/docs/adr/ADR-010-adapters-and-integrations-isolation.md) (`v3.0.0 Refactored`)
+
+---
+
+## 5. System Metadata Graphs (`docs/metadata/`)
+
+- 📊 **`docs/metadata/api_graph.json`**: Extracted Public API Symbol Lineage
+- 📊 **`docs/metadata/module_graph.json`**: Subsystem Module Topology & Imports
+- 📊 **`docs/metadata/history_graph.json`**: Version Tag History & Commit Lineage
+- 📊 **`docs/metadata/knowledge_graph.json`**: System Concept Map
