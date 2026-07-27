@@ -24,8 +24,8 @@ VERSION_DATE_MAP = {
     "v2.4.1": "Feature Author Date: 2026-07-13 | Tag Release Date: 2026-07-14",
     "v2.4.2": "Feature Author Date: 2026-07-14 | Tag Release Date: 2026-07-14",
     "v2.5.0": "Feature Author Date: 2026-07-18 | Tag Release Date: 2026-07-18",
-    "v3.0.0": "Feature Author Date: 2026-07-19 / 2026-07-26 | Tag Release Date: 2026-07-26",
-    "v3.0.0 Refactored": "Feature Author Date: 2026-07-28 | Tag Release Date: 2026-07-28"
+    "v3.0.1": "Feature Author Date: 2026-07-19 / 2026-07-26 | Tag Release Date: 2026-07-26",
+    "v3.0.1 Refactored": "Feature Author Date: 2026-07-28 | Tag Release Date: 2026-07-28"
 }
 
 def process_modules():

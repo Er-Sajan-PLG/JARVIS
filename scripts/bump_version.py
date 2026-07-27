@@ -153,7 +153,8 @@ def fmt(t: tuple[int, int, int]) -> str:
 
 
 def tag_exists(tag: str) -> bool:
-    return _git("rev-parse", tag, check=False) != ""
+    res = subprocess.run(["git", "rev-parse", "--verify", tag], cwd=REPO_ROOT, capture_output=True, text=True)
+    return res.returncode == 0
 
 
 def create_tag(tag: str, ref: str, message: str) -> None:

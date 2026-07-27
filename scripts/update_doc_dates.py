@@ -25,8 +25,8 @@ COMMIT_DATES = {
     "v2.4.1": {"feature_date": "2026-07-13", "tag_date": "2026-07-14", "commit": "1cab1b1"},
     "v2.4.2": {"feature_date": "2026-07-14", "tag_date": "2026-07-14", "commit": "6034224"},
     "v2.5.0": {"feature_date": "2026-07-18", "tag_date": "2026-07-18", "commit": "f9fa068"},
-    "v3.0.0": {"feature_date": "2026-07-19 (RAG) / 2026-07-26 (Catalog)", "tag_date": "2026-07-26", "commit": "81e45f0"},
-    "v3.0.0 Refactored": {"feature_date": "2026-07-28", "tag_date": "2026-07-28", "commit": "ec0dc4e"}
+    "v3.0.1": {"feature_date": "2026-07-19 (RAG) / 2026-07-26 (Catalog)", "tag_date": "2026-07-26", "commit": "81e45f0"},
+    "v3.0.1 Refactored": {"feature_date": "2026-07-28", "tag_date": "2026-07-28", "commit": "ec0dc4e"}
 }
 
 def fix_devlog_dates():
@@ -38,8 +38,8 @@ def fix_devlog_dates():
 
     # Ensure header dates include feature author date and release tag date
     replacements = [
-        ("## v3.0.0 Refactored (2026-07-28)", "## v3.0.0 Refactored\n- **Feature Commit Date**: 2026-07-28 (`c5a97b4` - `ec0dc4e`)\n- **Tag Release Date**: 2026-07-28"),
-        ("## v3.0.0 (2026-07-26)", "## v3.0.0\n- **Feature Commit Dates**: 2026-07-19 (RAG Subsystem `e35d468`-`ba2026f`) | 2026-07-26 (Catalog Expansion `81e45f0`)\n- **Tag Release Date**: 2026-07-26"),
+        ("## v3.0.1 Refactored (2026-07-28)", "## v3.0.1 Refactored\n- **Feature Commit Date**: 2026-07-28 (`c5a97b4` - `ec0dc4e`)\n- **Tag Release Date**: 2026-07-28"),
+        ("## v3.0.1 (2026-07-26)", "## v3.0.1\n- **Feature Commit Dates**: 2026-07-19 (RAG Subsystem `e35d468`-`ba2026f`) | 2026-07-26 (Catalog Expansion `81e45f0`)\n- **Tag Release Date**: 2026-07-26"),
         ("## v2.5.0", "## v2.5.0\n- **Feature Commit Date**: 2026-07-18 (`f9fa068`)\n- **Tag Release Date**: 2026-07-18"),
         ("## v2.4.2", "## v2.4.2\n- **Feature Commit Date**: 2026-07-14 (`6034224`)\n- **Tag Release Date**: 2026-07-14"),
         ("## v2.4.1", "## v2.4.1\n- **Feature Commit Date**: 2026-07-13 (`1cab1b1`)\n- **Tag Release Date**: 2026-07-14"),
@@ -74,8 +74,8 @@ def fix_changelog_dates():
         content = f.read()
 
     replacements = [
-        ("## [v3.0.0 Refactored] - 2026-07-28", "## [v3.0.0 Refactored]\n- **Feature Author Date**: 2026-07-28 (`c5a97b4` - `ec0dc4e`)\n- **Tag Release Date**: 2026-07-28"),
-        ("## [v3.0.0] - 2026-07-26 (`81e45f0`, `2c855c7`, `d23f5a0`)", "## [v3.0.0]\n- **Feature Author Dates**: 2026-07-19 (RAG Subsystem `e35d468`-`ba2026f`) | 2026-07-26 (Catalog Expansion `81e45f0`)\n- **Tag Release Date**: 2026-07-26 (`81e45f0`, `2c855c7`, `d23f5a0`)"),
+        ("## [v3.0.1 Refactored] - 2026-07-28", "## [v3.0.1 Refactored]\n- **Feature Author Date**: 2026-07-28 (`c5a97b4` - `ec0dc4e`)\n- **Tag Release Date**: 2026-07-28"),
+        ("## [v3.0.1] - 2026-07-26 (`81e45f0`, `2c855c7`, `d23f5a0`)", "## [v3.0.1]\n- **Feature Author Dates**: 2026-07-19 (RAG Subsystem `e35d468`-`ba2026f`) | 2026-07-26 (Catalog Expansion `81e45f0`)\n- **Tag Release Date**: 2026-07-26 (`81e45f0`, `2c855c7`, `d23f5a0`)"),
         ("## [v2.5.0] - 2026-07-18 (`f9fa068`)", "## [v2.5.0]\n- **Feature Author Date**: 2026-07-18 (`f9fa068`)\n- **Tag Release Date**: 2026-07-18"),
         ("## [v2.4.2] - 2026-07-14 (`6034224`)", "## [v2.4.2]\n- **Feature Author Date**: 2026-07-14 (`6034224`)\n- **Tag Release Date**: 2026-07-14"),
         ("## [v2.4.1] - 2026-07-13 (`1cab1b1`)", "## [v2.4.1]\n- **Feature Author Date**: 2026-07-13 (`1cab1b1`)\n- **Tag Release Date**: 2026-07-14"),
