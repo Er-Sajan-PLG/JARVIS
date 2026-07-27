@@ -180,3 +180,15 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 04:59:01 +0545
 #### Commit `ded44b9` - v0.2: working CLI chat loop with Ollama integration
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 04:59:01 +0545
+
+# v0.3.0
+## Release Summary
+### Commit Window (4 commits)
+#### Commit `163f8a1` - Add .gitignore for Python project
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 12:58:53 +0545
+#### Commit `163f8a1` - Add .gitignore for Python project
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 12:58:53 +0545
+#### Commit `8b1d0cb` - Added Architecture and Roadmap in docs for what to do seamless development
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 13:05:30 +0545
+#### Commit `8b1d0cb` - Added Architecture and Roadmap in docs for what to do seamless development
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 13:05:30 +0545

@@ -291,3 +291,23 @@ v0.2: working CLI chat loop with Ollama integration
 ```text
 v0.2: working CLI chat loop with Ollama integration
 ```
+
+# v0.3.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `163f8a1` Implementation Details
+```text
+Add .gitignore for Python project
+```
+#### `163f8a1` Implementation Details
+```text
+Add .gitignore for Python project
+```
+#### `8b1d0cb` Implementation Details
+```text
+Added Architecture and Roadmap in docs for what to do seamless development
+```
+#### `8b1d0cb` Implementation Details
+```text
+Added Architecture and Roadmap in docs for what to do seamless development
+```

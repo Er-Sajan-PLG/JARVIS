@@ -301,3 +301,19 @@
 #### [3] Commit `ded44b9`
 - **Subject**: v0.2: working CLI chat loop with Ollama integration
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 04:59:01 +0545
+
+# v0.3.0
+## Release Milestone & Code Lineage
+### Tag Boundary `v0.3.0`
+#### [4] Commit `163f8a1`
+- **Subject**: Add .gitignore for Python project
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 12:58:53 +0545
+#### [4] Commit `163f8a1`
+- **Subject**: Add .gitignore for Python project
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 12:58:53 +0545
+#### [5] Commit `8b1d0cb`
+- **Subject**: Added Architecture and Roadmap in docs for what to do seamless development
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 13:05:30 +0545
+#### [5] Commit `8b1d0cb`
+- **Subject**: Added Architecture and Roadmap in docs for what to do seamless development
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 13:05:30 +0545
