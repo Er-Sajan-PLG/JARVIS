@@ -208,3 +208,19 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 14:10:19 +0545
 #### Commit `e5c6fd6` - added SYSTEM_PROMPT in messege
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 14:10:19 +0545
+
+# v0.5.0
+## Release Summary
+### Commit Window (6 commits)
+#### Commit `94e1956` - Implement conversation history in OllamaClient
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 02:04:26 +0545
+#### Commit `94e1956` - Implement conversation history in OllamaClient
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 02:04:26 +0545
+#### Commit `3cc9e4b` - change model from deepseek r1:32b to qwen3:8b for faster development
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 02:11:32 +0545
+#### Commit `3cc9e4b` - change model from deepseek r1:32b to qwen3:8b for faster development
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 02:11:32 +0545
+#### Commit `4034bf7` - Persistent Memory Core
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 04:52:42 +0545
+#### Commit `4034bf7` - Persistent Memory Core
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 04:52:42 +0545

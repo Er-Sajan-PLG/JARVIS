@@ -339,3 +339,25 @@
 #### [8] Commit `e5c6fd6`
 - **Subject**: added SYSTEM_PROMPT in messege
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 14:10:19 +0545
+
+# v0.5.0
+## Release Milestone & Code Lineage
+### Tag Boundary `v0.5.0`
+#### [9] Commit `94e1956`
+- **Subject**: Implement conversation history in OllamaClient
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 02:04:26 +0545
+#### [9] Commit `94e1956`
+- **Subject**: Implement conversation history in OllamaClient
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 02:04:26 +0545
+#### [10] Commit `3cc9e4b`
+- **Subject**: change model from deepseek r1:32b to qwen3:8b for faster development
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 02:11:32 +0545
+#### [10] Commit `3cc9e4b`
+- **Subject**: change model from deepseek r1:32b to qwen3:8b for faster development
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 02:11:32 +0545
+#### [11] Commit `4034bf7`
+- **Subject**: Persistent Memory Core
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 04:52:42 +0545
+#### [11] Commit `4034bf7`
+- **Subject**: Persistent Memory Core
+- **Author**: Er Sajan PLG | **Date**: 2026-06-28 04:52:42 +0545

@@ -339,3 +339,31 @@ added SYSTEM_PROMPT in messege
 ```text
 added SYSTEM_PROMPT in messege
 ```
+
+# v0.5.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `94e1956` Implementation Details
+```text
+Implement conversation history in OllamaClient
+```
+#### `94e1956` Implementation Details
+```text
+Implement conversation history in OllamaClient
+```
+#### `3cc9e4b` Implementation Details
+```text
+change model from deepseek r1:32b to qwen3:8b for faster development
+```
+#### `3cc9e4b` Implementation Details
+```text
+change model from deepseek r1:32b to qwen3:8b for faster development
+```
+#### `4034bf7` Implementation Details
+```text
+Persistent Memory Core
+```
+#### `4034bf7` Implementation Details
+```text
+Persistent Memory Core
+```
