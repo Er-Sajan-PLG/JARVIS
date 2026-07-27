@@ -24,12 +24,23 @@
 ### [3] Commit `ded44b9` `[v0.2.0]` - v0.2: working CLI chat loop with Ollama integration
 **Author:** Er Sajan PLG | **Date:** 2026-06-27 04:59:01 +0545
 
-**Files Modified:** app/__pycache__/main.cpython-314.pyc, app/main.py, docs/DEVLOG.md
+**Files Modified:** `app/main.py`, `docs/DEVLOG.md`
+**Architectural Insights:**
+- *Interactive REPL Loop*: Transformed single-turn prompt execution into a persistent `while True:` interactive CLI chat loop in `app/main.py`.
+- *Client Lifecycle*: Instantiated `OllamaClient` once outside loop to preserve memory state across interactive turns.
+- *Termination Condition*: Handled graceful session exit via `'quit'` keyword trigger.
+- *Tag Boundary*: `v0.2.0` Release Boundary.
+- *Confidence Level*: `VERIFIED`
+
 
 ### [4] Commit `163f8a1` `[v0.2.0]` - Add .gitignore for Python project
 **Author:** Er Sajan PLG | **Date:** 2026-06-27 12:58:53 +0545
 
-**Files Modified:** .gitignore
+**Files Modified:** `.gitignore`
+**Architectural Insights:**
+- *Repository Hygiene & Secret Protection*: Configured explicit `.gitignore` rules preventing Python bytecode (`__pycache__/`), virtual environment binaries (`.venv/`), environment variable files (`.env`), and build artifacts from leaking into git tracking database.
+- *Confidence Level*: `VERIFIED`
+
 
 ### [5] Commit `8b1d0cb` `[v0.3.0]` - Added Architecture and Roadmap in docs for what to do seamless development
 **Author:** Er Sajan PLG | **Date:** 2026-06-27 13:05:30 +0545
