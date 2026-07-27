@@ -879,3 +879,9 @@ That single paragraph explains the entire roadmap and serves as a guiding princi
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v0.1.0.
+
+# v0.2.0
+## System Topology & Subsystem Boundaries
+### Architectural Invariants
+#### Release Layer Topology
+System architecture snapshot for v0.2.0.

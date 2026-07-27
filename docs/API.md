@@ -93,3 +93,9 @@ timeline
 ### Exported Methods & Signatures
 #### Release API Delta
 Validated interface stability for v0.1.0.
+
+# v0.2.0
+## Public Interface & API Changes
+### Exported Methods & Signatures
+#### Release API Delta
+Validated interface stability for v0.2.0.

@@ -172,3 +172,11 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 03:25:01 +0545
 #### Commit `e13ee67` - Build Jarvis v0.1: Connect to Ollama
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 03:25:01 +0545
+
+# v0.2.0
+## Release Summary
+### Commit Window (2 commits)
+#### Commit `ded44b9` - v0.2: working CLI chat loop with Ollama integration
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 04:59:01 +0545
+#### Commit `ded44b9` - v0.2: working CLI chat loop with Ollama integration
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 04:59:01 +0545

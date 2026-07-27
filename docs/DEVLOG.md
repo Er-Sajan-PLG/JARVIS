@@ -279,3 +279,15 @@ Build Jarvis v0.1: Connect to Ollama
 ```text
 Build Jarvis v0.1: Connect to Ollama
 ```
+
+# v0.2.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `ded44b9` Implementation Details
+```text
+v0.2: working CLI chat loop with Ollama integration
+```
+#### `ded44b9` Implementation Details
+```text
+v0.2: working CLI chat loop with Ollama integration
+```

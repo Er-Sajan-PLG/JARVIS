@@ -291,3 +291,13 @@
 #### [2] Commit `e13ee67`
 - **Subject**: Build Jarvis v0.1: Connect to Ollama
 - **Author**: Er Sajan PLG | **Date**: 2026-06-27 03:25:01 +0545
+
+# v0.2.0
+## Release Milestone & Code Lineage
+### Tag Boundary `v0.2.0`
+#### [3] Commit `ded44b9`
+- **Subject**: v0.2: working CLI chat loop with Ollama integration
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 04:59:01 +0545
+#### [3] Commit `ded44b9`
+- **Subject**: v0.2: working CLI chat loop with Ollama integration
+- **Author**: Er Sajan PLG | **Date**: 2026-06-27 04:59:01 +0545
