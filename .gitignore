@@ -212,6 +212,7 @@ output/
 outputs/
 generated/
 artifacts/
+!app/artifacts/
 
 ###############################################################################
 # Build Artifacts
