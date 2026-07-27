@@ -119,6 +119,7 @@ credentials.*
 ###############################################################################
 
 models/
+!app/models/
 checkpoints/
 weights/
 
@@ -212,6 +213,7 @@ output/
 outputs/
 generated/
 artifacts/
+!app/artifacts/
 
 ###############################################################################
 # Build Artifacts

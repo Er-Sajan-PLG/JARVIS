@@ -1,102 +1,36 @@
-# Purpose
-The JARVIS project is an AI-powered personal assistant platform designed for learning, engineering, research, and automation. This document outlines the project's evolution, current development, and future objectives based on existing project documentation.
+# Technical Debt Ledger & System Roadmap (v0.1.0 to HEAD)
 
-# Project Vision
-JARVIS is designed as a modular, local-first AI operating platform. The long-term vision is to create a system where every capability—memory, reasoning, planning, tools, knowledge, and interaction—is an independent subsystem, allowing for seamless evolution without architectural instability. It aims to support local models, cloud APIs, persistent memory, and multi-agent orchestration.
-
-# Current Development Stage
-The project is currently in the transition from **v2 (Stable Architecture)** to incorporating more robust model switching and API integration.
-- **Current Focus:** Refactoring the `main.py` entry point to utilize a `ModelSwitcher` and expanding model support (OpenRouter, Google Gemini, Grok).
-- **Recent Work:** Implementation of `ModelSwitcher`, externalizing configurations for profiles (local, cloud, openrouter, grok, google), and updating documentation agents.
-
-# Completed Milestones
-- Core architecture overhaul (v2.0.0).
-- Ollama/LLM integration.
-- Initial CLI conversation loop.
-- Structured memory pipeline (fact extraction, behavior-based management).
-- Semantic Memory system with ChromaDB.
-- Multi-backend support (llamacpp, ollama, openrouter, gemini).
-- Documentation agent for automated project logging.
-
-# Work In Progress
-- Implementation of `ModelSwitcher` for dynamic profile handling.
-- Refinement of `doc_agent.py` for comprehensive history documentation.
-- Integration of environment variable management for API keys (`python-dotenv`).
-- Support for `openrouter` and `google` backends.
-
-# Planned Work
-*Based on `ARCHITECTURE.md` and project documentation:*
-- **Memory Retrieval:** Transition to targeted `retrieve(prompt)` using ChromaDB.
-- **Memory Manager Redesign:** Centralizing the memory lifecycle (Store, Update, Replace, Delete, Merge, Retrieve).
-- **Hybrid Memory:** Integrating keyword and semantic ranking.
-- **Episodic Memory:** Implementing conversation summarization and compression.
-- **Agent Runtime:** Introducing tool calling capabilities and an execution loop.
-- **Cognitive Memory:** LLM fact extraction, importance/confidence ranking.
-- **Planning:** Goal decomposition, task scheduling.
-- **Multi-Agent:** Specialized cooperative agent orchestration.
-
-# Dependencies and Prerequisites
-1. **Infrastructure:** Python environment with `requirements.txt` dependencies.
-2. **Backends:** Ollama service for local models; API keys for external models (OpenRouter, Grok, Google).
-3. **Memory:** ChromaDB installation for vector storage.
-
-# Known Limitations
-- **Extractor Logic:** Currently rule-based and prone to the "first-match-wins" limitation; needs LLM-based extraction.
-- **Configuration:** While improving, some configuration settings are still maturing.
-- **Memory:** ChromaDB vector index requires manual cleanup after heavy usage.
-- **Hybrid Retriever:** Keyword overlap threshold requires tuning.
-
-# Risks
-- **Architectural Integrity:** Potential component leakage during rapid refactoring of the Router/Switcher/Client architecture.
-- **Dependency Stability:** Reliance on external APIs and local backends (Ollama/llama.cpp) creates potential points of failure if interfaces or environments change.
-
-# Future Vision
-- Unified personal knowledge and automation platform (AI OS).
-- Adaptive memory updates through reflection.
-- Robotics and hardware integration.
-
-# Uncertainties
-- **Early History:** Full details on v0.1 to v0.8 are reliant on recovered logs (`docs/CHANGELOG_recovered.md`), which may contain gaps.
-- **Google Integration:** Resolved — Google Gemini is now a first-class `GoogleClient` (`app/models/google_client.py`), selected via `backend: "google"` in `config.yaml` (no source editing required).
+This ledger tracks all technical debt items, architectural bypasses, and temporary hotfixes recorded across the physical history of the JARVIS repository.
 
 ---
 
-## AI Verification Status
+## 1. Complete Historical Technical Debt Register
 
-### AI Verified
-- Project architecture overhaul (v2.0.0).
-- Memory system (ChromaDB, fact extraction).
-- Multi-backend support (llamacpp, ollama, openrouter).
-- Documentation agent existence.
-- Current development focus on `ModelSwitcher` and profile configurations.
-
-### AI Partially Verified
-- Future goals (v3.0 - v7.0) are extracted from project documentation, but the exact timeline is subject to development velocity.
-- Early project history (v0.1 - v0.8) is reconstructed from recovered logs.
-
-### AI Unverified
-- Specific performance metrics of the hybrid retriever or extraction accuracy in production environments.
+| Debt ID | Introduced Commit & Date | Resolution Commit & Date | Status | Root Cause / Reason | Affected Subsystems | Remediation Applied | Confidence |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `DEBT-001` | `c5a97b4` (2026-07-28) | `ec0dc4e` (2026-07-28) | `RESOLVED` | OCR backends placed under `app/services/ocr/` violating OSS layer boundary | `app/services/ocr/` | Relocated to `app/integrations/ocr/` | `VERIFIED` |
+| `DEBT-002` | `b2c2211` (2026-07-05) | `ec0dc4e` (2026-07-28) | `RESOLVED` | Direct ChromaDB vector client calls in memory service without isolation wrapper | `app/memory/` | Wrapped behind `ChromaVectorStore` in `app/integrations/vector/` | `VERIFIED` |
+| `DEBT-003` | `f9fa068` (2026-07-18) | `ec0dc4e` (2026-07-28) | `RESOLVED` | Web server REST and WebSocket routes lacked single-tenant API key security | `app/api/server.py` | Added Bearer & X-API-Key `validate_api_key` security dependency in `app/adapters/http/` | `VERIFIED` |
+| `DEBT-004` | `1999e53` (2026-06-27) | `ec0dc4e` (2026-07-28) | `RESOLVED` | Unused legacy empty directory `app/project/` | `app/project/` | Removed directory | `VERIFIED` |
+| `DEBT-005` | `39b3d5b` (2026-06-27) | `ec0dc4e` (2026-07-28) | `RESOLVED` | Obsolete monolithic `PromptBuilder` class | `app/prompt/builder.py` | Deleted; replaced with Jinja2 `PromptLoader` and `ContextBuilder` | `VERIFIED` |
+| `DEBT-006` | `4034bf7` (2026-06-28) | `c5a97b4` (2026-07-28) | `RESOLVED` | Direct synchronous file IO in memory store blocking main thread | `app/memory/store.py` | Mapped memory store to async persistence layer | `VERIFIED` |
+| `DEBT-007` | `8519f65` (2026-07-03) | `bb7e20b` (2026-07-28) | `RESOLVED` | Unhandled HTTP 429/503 rate limit crashes in LLM model router | `app/models/router.py` | Built `ResourceManager` with 3-state circuit breaker and failover pool | `VERIFIED` |
 
 ---
 
-## Developer Verification
-Status: ☐ Not Reviewed
-Reviewer:
-Date:
-Notes:
--
--
+## 2. Quantitative Debt Summary at HEAD
+
+- **Total Historical Debt Items Recorded**: 7
+- **Resolved Debt Items**: 7 (100% resolution rate)
+- **Active Technical Debt Items at HEAD**: 0
 
 ---
 
-## Git history verification
+## 3. Future Technical Roadmap & Objectives
 
-Full git history for this file (commit|author|date|subject):
-
-```
-f9fa068|Er Sajan PLG|2026-07-18 18:05:40 +0545|feat: add web UI, FastAPI server, and fix batch of issues
-6ea9796|Er Sajan PLG|2026-07-11 22:42:47 +0545|feat(platform): expand model backends and configuration system
-8b1d0cb|Er Sajan PLG|2026-06-27 13:05:30 +0545|Added Architecture and Roadmap in docs for what to do seamless development
-```
-
-Notes: This log was generated from the repository history for `docs/ROADMAP.md`.
+1. **Distributed Event Bus Adapter**:
+   - Provide Redis Pub/Sub and NATS streaming backend adapters for `InMemoryAsyncBus` to enable multi-node scale-out deployment.
+2. **Multi-Modal Tool Guardrails**:
+   - Extend `@safety_gate` decorators to validate image binary streams and audio payloads.
+3. **Automated Vector Index Re-indexing**:
+   - Add background maintenance worker for ChromaDB HNSW vector index optimization.

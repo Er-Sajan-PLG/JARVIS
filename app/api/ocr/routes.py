@@ -9,11 +9,11 @@ from fastapi import (
     Depends, BackgroundTasks, status
 )
 
-from app.services.ocr.config import get_ocr_settings
-from app.services.ocr.schemas import (
+from app.integrations.ocr.config import get_ocr_settings
+from app.integrations.ocr.schemas import (
     OCRRequest, OCRResult, OCRBackend, UnlimitedOCRMode, PaddleMode, HealthResponse
 )
-from app.services.ocr.service import get_ocr_service, OCRService, OCRServiceError
+from app.integrations.ocr.service import get_ocr_service, OCRService, OCRServiceError
 
 log = structlog.get_logger()
 

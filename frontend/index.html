@@ -7,8 +7,14 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- ======================================================================= -->
+  <!-- App Shell Workspace                                                    -->
+  <!-- ======================================================================= -->
   <div id="app">
-    <!-- Sidebar -->
+    
+    <!-- ------------------------------------------------------------------- -->
+    <!-- Sidebar Navigation                                                  -->
+    <!-- ------------------------------------------------------------------- -->
     <aside id="sidebar">
       <div class="sidebar-header">
         <div class="brand">
@@ -24,19 +30,20 @@
       </div>
 
       <div id="conversation-list" class="conversation-list">
-        <!-- conversation items injected here -->
+        <!-- conversation items injected dynamically -->
       </div>
 
       <div class="sidebar-footer">
-        <button id="attachments-btn" class="sidebar-btn">📁 Library</button>
-        <button id="papers-btn" class="sidebar-btn">📚 Papers</button>
         <button id="settings-btn" class="sidebar-btn">⚙ Settings</button>
         <button id="memories-btn" class="sidebar-btn">🧠 Memories</button>
       </div>
     </aside>
 
-    <!-- Main chat area -->
+    <!-- ------------------------------------------------------------------- -->
+    <!-- Main Chat Workspace                                                 -->
+    <!-- ------------------------------------------------------------------- -->
     <main id="main">
+      <!-- Chat Header -->
       <header id="chat-header">
         <button id="toggle-sidebar" class="icon-btn mobile-only" title="Menu">☰</button>
         <div class="chat-title" id="chat-title">New Chat</div>
@@ -46,6 +53,7 @@
         <button id="dev-unlock" class="icon-btn" title="Developer mode">DEV</button>
       </header>
 
+      <!-- Message History Container -->
       <div id="messages" class="messages">
         <button id="scroll-bottom-btn" class="scroll-bottom-btn hidden" title="Scroll to latest">↓</button>
         <div class="empty-state" id="empty-state">
@@ -55,6 +63,7 @@
         </div>
       </div>
 
+      <!-- Composer / Chat Input -->
       <div id="composer" class="composer">
         <div id="attachments" class="attachments"></div>
         <div class="composer-row">
@@ -68,7 +77,11 @@
     </main>
   </div>
 
-  <!-- Settings modal -->
+  <!-- ======================================================================= -->
+  <!-- Application Modals                                                     -->
+  <!-- ======================================================================= -->
+
+  <!-- Settings & Model Registry Modal -->
   <div id="settings-modal" class="modal hidden">
     <div class="modal-backdrop" data-close="settings"></div>
     <div class="modal-card">
@@ -84,6 +97,7 @@
           <button type="button" class="settings-tab" data-tab="capabilities">Capabilities</button>
         </div>
 
+        <!-- Models Panel -->
         <div id="settings-tab-models" class="settings-tab-panel">
           <h4>Provider</h4>
           <div id="model-provider-tabs" class="model-provider-tabs"></div>
@@ -93,6 +107,7 @@
           <div id="model-groups" class="model-groups"><!-- injected --></div>
         </div>
 
+        <!-- API Keys Panel -->
         <div id="settings-tab-keys" class="settings-tab-panel hidden">
           <h4>API Keys</h4>
           <p class="hint">Add keys here so provider tabs can use live catalog and dynamic models.</p>
@@ -140,6 +155,7 @@
           <div id="settings-status" class="settings-status"></div>
         </div>
 
+        <!-- Capabilities Matrix Panel -->
         <div id="settings-tab-capabilities" class="settings-tab-panel hidden">
           <h4>Provider Capabilities</h4>
           <p class="hint">Comparison of all configured providers and their capabilities.</p>
@@ -149,7 +165,7 @@
     </div>
   </div>
 
-  <!-- Memories modal -->
+  <!-- Memories Modal -->
   <div id="memories-modal" class="modal hidden">
     <div class="modal-backdrop" data-close="memories"></div>
     <div class="modal-card">
@@ -161,98 +177,7 @@
     </div>
   </div>
 
-  <!-- Attachments library modal -->
-  <div id="attachments-modal" class="modal hidden">
-    <div class="modal-backdrop" data-close="attachments"></div>
-    <div class="modal-card attachments-card">
-      <div class="modal-head">
-        <h3>📁 Attachment Library</h3>
-        <button class="icon-btn" data-close="attachments">✕</button>
-      </div>
-
-      <div class="attachments-toolbar">
-        <div id="folder-breadcrumb" class="folder-breadcrumb"></div>
-        <div class="attachments-actions">
-          <button id="new-folder-btn" class="secondary-btn" title="New folder here">+ Folder</button>
-          <button id="upload-lib-btn" class="primary-btn small" title="Upload into current folder">⬆ Upload</button>
-          <input type="file" id="lib-file-input" accept="*" multiple hidden />
-        </div>
-      </div>
-
-      <div id="new-folder-row" class="new-folder-row hidden">
-        <span class="nf-label">New folder in <b id="nf-parent">Library</b>:</span>
-        <input type="text" id="new-folder-input" class="model-search" placeholder="Folder name (e.g. Physics)" />
-        <button id="new-folder-confirm" class="primary-btn small">Create</button>
-        <button id="new-folder-cancel" class="secondary-btn">Cancel</button>
-      </div>
-
-      <div class="attachments-body">
-        <div id="folder-tree" class="folder-tree"><!-- injected --></div>
-        <div class="attachments-files-wrap">
-          <div id="attachments-files" class="attachments-files"><!-- injected --></div>
-          <div id="attachments-search-wrap" class="attachments-search-wrap">
-            <input type="search" id="attachments-search" placeholder="Search files…" class="model-search" />
-          </div>
-        </div>
-      </div>
-
-      <p class="attachments-hint">
-        Click <b>Attach</b> on a file to drop it into the current chat. Then ask
-        the assistant something like <i>“look at the X file in Physics/Quantum”</i>.
-      </p>
-    </div>
-  </div>
-
-  <!-- Research Papers modal -->
-  <div id="papers-modal" class="modal hidden">
-    <div class="modal-backdrop" data-close="papers"></div>
-    <div class="modal-card papers-card">
-      <div class="modal-head">
-        <h3>📚 Research Papers</h3>
-        <button class="icon-btn" data-close="papers">✕</button>
-      </div>
-
-      <div class="papers-toolbar">
-        <select id="papers-folder" class="model-search papers-folder-select" title="Scope to a folder">
-          <option value="">All folders</option>
-        </select>
-        <button id="papers-upload-btn" class="primary-btn small" title="Upload a PDF into the selected folder">⬆ Upload PDF</button>
-        <input type="file" id="papers-file-input" accept="application/pdf" hidden />
-      </div>
-
-      <div id="papers-upload-row" class="papers-upload-row hidden">
-        <input type="text" id="papers-title-input" class="model-search" placeholder="Optional title (defaults to file name)" />
-        <button id="papers-upload-confirm" class="primary-btn small">Ingest</button>
-        <button id="papers-upload-cancel" class="secondary-btn">Cancel</button>
-      </div>
-
-      <div id="papers-list" class="papers-list"><!-- ingested documents --></div>
-
-      <div class="papers-ask">
-        <div class="papers-ask-label">
-          Ask within <b id="papers-scope-label">all folders</b>:
-        </div>
-        <div class="papers-ask-row">
-          <textarea id="papers-query" class="input" rows="2" placeholder="e.g. What electrolyte do solid-state batteries use?"></textarea>
-          <button id="papers-ask-btn" class="send-btn" title="Ask">➤</button>
-        </div>
-      </div>
-
-      <div id="papers-answer" class="papers-answer hidden">
-        <div class="papers-answer-head">
-          <span>Answer</span>
-          <button id="papers-save-finding" class="mini-btn attach" title="Save as a finding in memory">💾 Save finding</button>
-        </div>
-        <div id="papers-answer-body" class="papers-answer-body"></div>
-        <div class="papers-sources">
-          <div class="papers-sources-head">Sources</div>
-          <div id="papers-sources" class="papers-sources-list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="app.js"></script>
+  <!-- Main ES Module Entry Point -->
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
-

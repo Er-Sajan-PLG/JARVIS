@@ -1,0 +1,36 @@
+{
+  "project": "JARVIS",
+  "version": "3.0.0",
+  "layers": [
+    {
+      "layer": "I/O Protocol Layer (Adapters)",
+      "modules": ["app/adapters/http/router.py", "app/adapters/websocket/stream.py"],
+      "allowed_dependencies": ["app/bootstrap.py", "app/brain/", "app/domain/"]
+    },
+    {
+      "layer": "Composition Root",
+      "modules": ["app/bootstrap.py", "app/main.py"],
+      "allowed_dependencies": ["app/brain/", "app/context/", "app/memory/", "app/models/", "app/resources/", "app/session/", "app/workspace/", "app/artifacts/", "app/telemetry/", "app/guardrails/"]
+    },
+    {
+      "layer": "Cognitive Brain Orchestration",
+      "modules": ["app/brain/analyzer.py", "app/brain/planner.py", "app/brain/runner.py", "app/brain/synthesizer.py"],
+      "allowed_dependencies": ["app/domain/", "app/events/", "app/guardrails/"]
+    },
+    {
+      "layer": "Services & Subsystems",
+      "modules": ["app/context/builder.py", "app/memory/service.py", "app/models/router.py", "app/resources/manager.py", "app/session/manager.py", "app/workspace/manager.py", "app/artifacts/manager.py", "app/telemetry/logger.py"],
+      "allowed_dependencies": ["app/domain/", "app/events/", "app/integrations/"]
+    },
+    {
+      "layer": "Pure Business Domain Layer",
+      "modules": ["app/domain/content.py", "app/domain/conversation.py", "app/domain/memory.py", "app/domain/plan.py", "app/domain/session.py"],
+      "allowed_dependencies": []
+    },
+    {
+      "layer": "Third-Party Integrations Layer",
+      "modules": ["app/integrations/ocr/", "app/integrations/vector/chroma.py"],
+      "allowed_dependencies": ["chromadb", "paddleocr", "fitz"]
+    }
+  ]
+}
