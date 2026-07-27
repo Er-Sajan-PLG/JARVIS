@@ -479,3 +479,13 @@
 #### [26] Commit `c84d53b`
 - **Subject**: feat(agent): add DocumentationAgent, tool infrastructure, and execution framework
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:47:08 +0545
+
+# v2.4.0
+## Release Milestone & Code Lineage
+### Tag Boundary `v2.4.0`
+#### [27] Commit `6ea9796`
+- **Subject**: feat(platform): expand model backends and configuration system
+- **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:47:54 +0545
+#### [27] Commit `6ea9796`
+- **Subject**: feat(platform): expand model backends and configuration system
+- **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:47:54 +0545

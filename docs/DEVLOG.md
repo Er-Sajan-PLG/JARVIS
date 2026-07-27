@@ -515,3 +515,15 @@ feat(agent): add DocumentationAgent, tool infrastructure, and execution framewor
 ```text
 feat(agent): add DocumentationAgent, tool infrastructure, and execution framework
 ```
+
+# v2.4.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `6ea9796` Implementation Details
+```text
+feat(platform): expand model backends and configuration system
+```
+#### `6ea9796` Implementation Details
+```text
+feat(platform): expand model backends and configuration system
+```
