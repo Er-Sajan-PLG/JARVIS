@@ -336,3 +336,11 @@ All notable changes to the JARVIS project from initial commit (`1999e53`) to `HE
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:48:42 +0545
 #### Commit `6034224` - chore: update configuration and add Ollama Modelfile
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:48:42 +0545
+
+# v2.5.0
+## Release Summary
+### Commit Window (2 commits)
+#### Commit `f9fa068` - feat: add web UI, FastAPI server, and fix batch of issues
+- **Author**: Er Sajan PLG | **Date**: 2026-07-18 18:10:01 +0545
+#### Commit `f9fa068` - feat: add web UI, FastAPI server, and fix batch of issues
+- **Author**: Er Sajan PLG | **Date**: 2026-07-18 18:10:01 +0545

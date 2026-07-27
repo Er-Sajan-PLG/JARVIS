@@ -551,3 +551,15 @@ chore: update configuration and add Ollama Modelfile
 ```text
 chore: update configuration and add Ollama Modelfile
 ```
+
+# v2.5.0
+## Developer Code Shift & Architecture Synthesis
+### Release Features & Technical Notes
+#### `f9fa068` Implementation Details
+```text
+feat: add web UI, FastAPI server, and fix batch of issues
+```
+#### `f9fa068` Implementation Details
+```text
+feat: add web UI, FastAPI server, and fix batch of issues
+```

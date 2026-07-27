@@ -963,3 +963,9 @@ System architecture snapshot for v2.4.1.
 ### Architectural Invariants
 #### Release Layer Topology
 System architecture snapshot for v2.4.2.
+
+# v2.5.0
+## System Topology & Subsystem Boundaries
+### Architectural Invariants
+#### Release Layer Topology
+System architecture snapshot for v2.5.0.

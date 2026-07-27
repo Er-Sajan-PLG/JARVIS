@@ -509,3 +509,13 @@
 #### [29] Commit `6034224`
 - **Subject**: chore: update configuration and add Ollama Modelfile
 - **Author**: Er Sajan PLG | **Date**: 2026-07-14 12:48:42 +0545
+
+# v2.5.0
+## Release Milestone & Code Lineage
+### Tag Boundary `v2.5.0`
+#### [30] Commit `f9fa068`
+- **Subject**: feat: add web UI, FastAPI server, and fix batch of issues
+- **Author**: Er Sajan PLG | **Date**: 2026-07-18 18:10:01 +0545
+#### [30] Commit `f9fa068`
+- **Subject**: feat: add web UI, FastAPI server, and fix batch of issues
+- **Author**: Er Sajan PLG | **Date**: 2026-07-18 18:10:01 +0545
