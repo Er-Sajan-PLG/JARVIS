@@ -9,7 +9,7 @@ JARVIS is a modular, hosted-ready personal AI platform for single-tenant deploym
 ## Coding Standards & Conventions
 
 1. **Python 3.11+ Modern Syntax**:
-   - Use native generic types: `list[str]`, `dict[str, Any]`, `str | None`.
+   - Native generic types: `list[str]`, `dict[str, Any]`, `str | None`.
    - Tooling stack: **Ruff** for linting/formatting, **Pyright** for static type checking (`strict` on `app/domain/`), and **pytest** for testing.
 
 2. **Naming & Type Annotations**:
@@ -19,7 +19,7 @@ JARVIS is a modular, hosted-ready personal AI platform for single-tenant deploym
    - Type annotations: 100% explicit typing on all public APIs, arguments, and return values.
 
 3. **Domain Purity**:
-   - `app/domain/` contains pure business entities only (dataclasses/Pydantic models). Zero infrastructure, database, or web framework imports.
+   - `app/domain/` contains pure business entities only (`dataclass` / Pydantic models). Zero infrastructure, database, or web framework imports.
 
 4. **Documentation Philosophy**:
    - Document intent and non-obvious contracts using Google-style docstrings (`Args:`, `Returns:`, `Raises:`).
@@ -28,19 +28,22 @@ JARVIS is a modular, hosted-ready personal AI platform for single-tenant deploym
 
 ## Subsystem & Module Index
 
-| Subsystem Package | Path | Description & Primary Exports |
+| Subsystem Package | Path | Primary Exports & Responsibilities |
 | :--- | :--- | :--- |
-| **Domain Entities** | `app/domain/` | Pure business entities (`ContentSource`, `ArtifactHandle`, `Message`, `ConversationState`, `MemoryRecord`, `ExecutionPlan`, `ExecutionStep`, `SessionState`). |
-| **Event System** | `app/events/` | Passive event bus (`InMemoryAsyncBus`) and event contracts (`TelemetryEvent`, `StepExecutionEvent`, `HITLRequestEvent`, `TokenUsageEvent`). |
-| **Guardrails & Safety** | `app/guardrails/` | Tiered tool safety policy (`ToolSafetyPolicy`, `@safety_gate`, `HITLRequiredError`). |
+| **Domain Layer** | `app/domain/` | Pure business domain entities (`ContentSource`, `ArtifactHandle`, `DocumentReference`, `Role`, `MessageAttachment`, `Message`, `ConversationState`, `MemoryType`, `MemoryRecord`, `FactExtractionResult`, `SafetyTier`, `StepStatus`, `ToolCall`, `ExecutionStep`, `ExecutionPlan`, `UserPreferences`, `SessionState`). |
+| **Event System** | `app/events/` | Passive event bus & contracts (`InMemoryAsyncBus`, `Event`, `TelemetryEvent`, `StepExecutionEvent`, `HITLRequestEvent`, `TokenUsageEvent`, `NotificationEvent`). |
+| **Guardrails & Safety** | `app/guardrails/` | Tiered tool safety policy engine & decorator (`ToolSafetyPolicy`, `@safety_gate`, `HITLRequiredError`, `PolicyViolationError`). |
 | **Artifact Manager** | `app/artifacts/` | Disk spillover storage & binary artifact handles (`ArtifactManager`). |
-| **Session Persistence** | `app/session/` | PostgreSQL (`asyncpg`) & fallback file persistence (`SessionManager`, `SessionPersistence`). |
-| **Cognitive Brain** | `app/brain/` | Intent analyzer (`IntentAnalyzer`), dynamic planner (`TaskPlanner`), step runner (`ExecutionRunner`), synthesizer (`ResponseSynthesizer`). |
-| **Prompts Engine** | `prompts/` | Externalized Jinja2 markdown prompt templates & mtime-cached `PromptLoader`. |
-| **Workspace Manager** | `app/workspace/` | Project workspace management & filesystem watcher (`WorkspaceManager`). |
-| **Multi-Provider LLM** | `app/models/` | Unified provider interface (`BaseLLMProvider`), router & failover pool (`ModelRouter`). |
+| **Session Persistence** | `app/session/` | PostgreSQL (`asyncpg`) & fallback persistence (`SessionManager`, `SessionPersistence`). |
+| **Workspace Manager** | `app/workspace/` | Project workspace management & file watcher (`Project`, `FileWatcher`, `WorkspaceManager`). |
+| **Multi-Provider LLM** | `app/models/` | Unified provider interface (`BaseLLMProvider`, `LLMResponse`), router & failover pool (`ModelRouter`, `TaskType`). |
+| **Resource Manager** | `app/resources/` | Token budget tracking, provider rate limits, circuit breaker (`ResourceManager`, `TokenBudgetManager`, `RateLimitTracker`, `ProviderHealthMonitor`, `CircuitState`). |
 | **Memory Façade** | `app/memory/` | Persistent memory façade (`MemoryService`), pgvector hybrid search & BM25 retrieval. |
-| **Resource Manager** | `app/resources/` | Token budget tracking, provider rate limits (`ResourceManager`). |
+| **Context Assembly** | `app/context/` | Dynamic prompt context assembly (`ContextBuilder`). |
+| **Cognitive Brain** | `app/brain/` | Fast intent classifier (`IntentAnalyzer`), slow-path planner (`TaskPlanner`), step runner (`ExecutionRunner`), synthesizer (`ResponseSynthesizer`). |
+| **Prompts Engine** | `prompts/` | Externalized Jinja2 markdown templates (`system_base.md`, `planner.md`, `synthesizer.md`) & mtime-cached `PromptLoader`. |
+| **Telemetry & Audit** | `app/telemetry/` | Observability, event logging, tracing, metrics (`EventLogger`, `Tracer`, `MetricsCollector`, `AggregatedMetrics`). |
+| **Composition Root** | `app/bootstrap.py` | Single-tenant dependency injection container (`bootstrap_system`, `ApplicationContainer`). |
 
 ---
 
@@ -60,4 +63,9 @@ JARVIS is a modular, hosted-ready personal AI platform for single-tenant deploym
 3. Run FastAPI web server:
    ```bash
    .venv/bin/python -m app.api.server
+   ```
+
+4. Run automated test suite:
+   ```bash
+   .venv/bin/python -m pytest tests/unit/
    ```
