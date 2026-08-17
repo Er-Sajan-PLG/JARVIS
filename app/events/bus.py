@@ -1,3 +1,4 @@
+from typing import Any
 """In-Memory Async Event Bus.
 
 Reserved for passive telemetry, logging, metrics, background jobs, streaming events, and scheduler notifications.
