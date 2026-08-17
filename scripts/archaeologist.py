@@ -8,6 +8,7 @@ Tree-Aware Repository Archaeology Engine.
 """
 
 import subprocess
+import shlex
 import json
 import re
 import os
@@ -29,6 +30,7 @@ DEL_FUNC_REGEX = re.compile(
 def run_git(cmd):
     cmd_list = shlex.split(f"git {cmd}")
     res = subprocess.run(cmd_list, capture_output=True, text=True)
+    res = subprocess.run(["git"] + shlex.split(cmd), capture_output=True, text=True)
     if res.returncode != 0:
         raise Exception(f"Git execution failed: git {cmd}\n{res.stderr}")
     return res.stdout.strip()

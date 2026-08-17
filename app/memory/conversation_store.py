@@ -60,7 +60,7 @@ class ConversationVectorStore:
     ) -> None:
         """Add a single new exchange after it completes."""
         ts = timestamp or time.time()
-        pair_id = hashlib.md5(
+        pair_id = hashlib.sha256(
             f"{ts}{user_msg[:20]}".encode()
         ).hexdigest()[:8]
         self._upsert(pair_id, user_msg, assistant_msg, ts)
@@ -130,7 +130,7 @@ class ConversationVectorStore:
 
                 if next_role == "assistant":
                     ts = getattr(msg, "timestamp", time.time())
-                    pair_id = hashlib.md5(
+                    pair_id = hashlib.sha256(
                         f"{ts}{content[:20]}".encode()
                     ).hexdigest()[:8]
                     pairs.append((pair_id, content, next_content, ts))

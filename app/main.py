@@ -18,10 +18,17 @@ app = FastAPI(
     description="Single-tenant personal AI assistant platform with hybrid cognitive execution engine.",
 )
 
+import os
+
 # 1. CORS Middleware
+allowed_origins = os.environ.get(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:8000,http://localhost:3000,http://127.0.0.1:8000,http://127.0.0.1:3000"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[origin.strip() for origin in allowed_origins if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

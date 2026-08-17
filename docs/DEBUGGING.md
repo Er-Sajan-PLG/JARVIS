@@ -40,7 +40,7 @@ This document tracks all verified runtime error symptoms, root causes, diagnosti
 
 | Diagnostic Code | Error Symptom | Root Cause | Verifying Test / Commit Fix | Resolution & Remediation |
 | :--- | :--- | :--- | :--- | :--- |
-| `ERR-2500` | `FastAPI CORS error` | Web UI cross-origin request rejected | `app/web_api_server.py` (`f9fa068`) | Configured `CORSMiddleware` with configurable allowed origins |
+| `ERR-2500` | `FastAPI CORS error` | Web UI cross-origin request rejected | `app/main.py` (`f9fa068`) | Configured `CORSMiddleware` with configurable allowed origins |
 | `ERR-2501` | `WebSocket connection drop` | Idle ping/pong timeout on streaming connection | `app/adapters/websocket/stream.py` (`f9fa068`) | Client re-connect loop with exponential backoff |
 
 ---

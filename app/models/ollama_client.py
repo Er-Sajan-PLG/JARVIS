@@ -13,14 +13,30 @@ from app.models.exceptions import (
 
 
 class OllamaClient(ModelClient):
-    def __init__(self, model: str, base_url: str = "http://localhost:11434", role: str = "general"):
+    def __init__(
+        self,
+        model: str,
+        base_url: str = "http://localhost:11434",
+        api_key: str = "not-needed",
+        role: str = "general"
+    ):
         self._model = model
         self._role = role
+
+        if api_key and api_key.startswith("env:"):
+            import os
+            api_key = os.environ.get(api_key[4:].strip(), "not-needed")
+
+        if not api_key:
+            api_key = "not-needed"
+
+        self._api_key = api_key
+
         # Ollama exposes an OpenAI-compatible API at <host>/v1; reuse the OpenAI
         # SDK (same pattern as LlamaCppClient) so generate()'s chat.completions
         # calls work against Ollama too.
         from openai import OpenAI
-        self._client = OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key="not-needed")
+        self._client = OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
 
     def generate(
         self, 
@@ -45,47 +61,45 @@ class OllamaClient(ModelClient):
                     finish_reason=choice.finish_reason,
                 )
             
-            else:
-                # BUG 2 FIX: Restructured so this isn't dead code after a return statement
-                # --- STREAMING PATH ---
-                full_content = ""
-                finish_reason = None
-                stream_response = self._client.chat.completions.create(
-                    model=self._model, 
-                    messages=messages, 
-                    stream=True, 
-                    **kwargs
+            # --- STREAMING PATH ---
+            full_content = ""
+            finish_reason = None
+            stream_response = self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                stream=True,
+                **kwargs
+            )
+
+            for chunk in stream_response:
+                # Servers may emit a trailing usage-only chunk with an
+                # empty choices list; skip it rather than risking an
+                # IndexError on choices[0].
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta.content or ""
+                full_content += delta
+                if on_token:
+                    on_token(delta)
+                if chunk.choices[0].finish_reason:
+                    finish_reason = chunk.choices[0].finish_reason
+
+            # The stream ended without a terminating chunk (no
+            # finish_reason), which means it was cut off before
+            # completion (e.g. a network drop). Refuse to return the
+            # partial content so it can't be persisted as a valid
+            # assistant turn.
+            if finish_reason is None:
+                raise ModelConnectionError(
+                    f"Stream from Ollama model '{self._model}' ended "
+                    f"before completion (received {len(full_content)} "
+                    f"chars, no finish reason)."
                 )
-                
-                for chunk in stream_response:
-                    # Servers may emit a trailing usage-only chunk with an
-                    # empty choices list; skip it rather than risking an
-                    # IndexError on choices[0].
-                    if not chunk.choices:
-                        continue
-                    delta = chunk.choices[0].delta.content or ""
-                    full_content += delta
-                    if on_token:
-                        on_token(delta)
-                    if chunk.choices[0].finish_reason:
-                        finish_reason = chunk.choices[0].finish_reason
-                        
-                # The stream ended without a terminating chunk (no
-                # finish_reason), which means it was cut off before
-                # completion (e.g. a network drop). Refuse to return the
-                # partial content so it can't be persisted as a valid
-                # assistant turn.
-                if finish_reason is None:
-                    raise ModelConnectionError(
-                        f"Stream from Ollama model '{self._model}' ended "
-                        f"before completion (received {len(full_content)} "
-                        f"chars, no finish reason)."
-                    )
-                return ModelResponse(
-                    content=full_content,
-                    model=self._model,
-                    finish_reason=finish_reason,
-                )
+            return ModelResponse(
+                content=full_content,
+                model=self._model,
+                finish_reason=finish_reason,
+            )
 
         except (ollama.ResponseError, *ollama_transport_errors()) as exc:
             # Network errors, timeouts, and Ollama HTTP errors → typed ModelError.
