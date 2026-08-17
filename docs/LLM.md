@@ -131,7 +131,7 @@ def create_client(config: ModelConfig) -> ModelClient:
     api_key = _resolve_key(config.api_key)        # resolve once up-front
     if config.backend == "ollama":
         ...
-        return OllamaClient(model=config.name, base_url=config.base_url, role=config.role)
+        return OllamaClient(model=config.name, base_url=config.base_url, api_key=api_key, role=config.role)
     if config.backend == "openrouter":
         ...
         return OpenRouterClient(model=config.name, api_key=_resolve_key(config.api_key), role=config.role)
