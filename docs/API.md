@@ -80,6 +80,16 @@ timeline
 
 ---
 
+---
+
+### Subsystem 7: Tokenizer Utility (`app/utils/tokenizer.py`)
+- **`estimate_tokens`** (`v3.0.0 Refactored` | `8519f65` | Confidence: `VERIFIED`)
+  - **Signature**: `estimate_tokens(text: str, method: str = "auto", model: str = "default") -> int`
+  - **Behavior**: Accurately estimates token count by prioritizing `tiktoken` (for OpenAI compatible models), then `transformers` (for HuggingFace/Llama models in offline mode), and safely falls back to a conservative word/character-based heuristic.
+- **`count_tokens`** (`v3.0.0 Refactored` | `8519f65` | Confidence: `VERIFIED`)
+  - **Signature**: `count_tokens(text: str, model: str = "default") -> int`
+  - **Behavior**: Lambda alias for `estimate_tokens(text, method="auto", model=model)`.
+
 ### Subsystem 6: I/O Protocol Adapters (`app/adapters/`)
 - **`validate_api_key`** (`v3.0.0 Refactored` | `ec0dc4e` | Confidence: `VERIFIED`)
   - **Signature**: `async validate_api_key(request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(security), x_api_key: str | None = Header(None)) -> str`
