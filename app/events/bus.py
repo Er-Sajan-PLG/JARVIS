@@ -1,4 +1,5 @@
 import typing
+from typing import Any
 """In-Memory Async Event Bus.
 
 Reserved for passive telemetry, logging, metrics, background jobs, streaming events, and scheduler notifications.
@@ -7,7 +8,7 @@ Core execution loops MUST use direct async interface calls instead of the bus.
 
 import asyncio
 import logging
-from typing import Awaitable, Callable, TypeVar
+from typing import Any, Awaitable, Callable, TypeVar
 
 from app.events.models import Event
 
