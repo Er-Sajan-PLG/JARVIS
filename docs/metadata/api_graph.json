@@ -4085,7 +4085,10 @@
     "file": "app/utils/corruption.py",
     "birth_commit": "f9fa0689bd3ee09a7daa01deef6cdfe2947d1230",
     "death_commit": null,
-    "status": "ACTIVE"
+    "status": "ACTIVE",
+    "tests": [
+      "tests/unit/test_corruption.py"
+    ]
   },
   "report_corruption@app/utils/corruption.py": {
     "name": "report_corruption",

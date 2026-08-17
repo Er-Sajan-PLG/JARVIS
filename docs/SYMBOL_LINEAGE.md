@@ -1375,3 +1375,9 @@
 | `stream_text` | function | `tests/unit/test_issue9.py` | `ec0dc4e` | N/A | ACTIVE |
 | `test_select_healthy_provider` | function | `tests/unit/test_issue9.py` | `ec0dc4e` | N/A | ACTIVE |
 | `test_select_raises_when_no_healthy_provider` | function | `tests/unit/test_issue9.py` | `ec0dc4e` | N/A | ACTIVE |
+| `test_extract_keywords_empty` | function | `tests/unit/test_text.py` | `HEAD` | N/A | ACTIVE |
+| `test_extract_keywords_basic` | function | `tests/unit/test_text.py` | `HEAD` | N/A | ACTIVE |
+| `test_extract_keywords_punctuation` | function | `tests/unit/test_text.py` | `HEAD` | N/A | ACTIVE |
+| `test_extract_keywords_single_chars` | function | `tests/unit/test_text.py` | `HEAD` | N/A | ACTIVE |
+| `test_extract_keywords_custom_stop_words` | function | `tests/unit/test_text.py` | `HEAD` | N/A | ACTIVE |
+| `test_extract_keywords_case_insensitive` | function | `tests/unit/test_text.py` | `HEAD` | N/A | ACTIVE |
