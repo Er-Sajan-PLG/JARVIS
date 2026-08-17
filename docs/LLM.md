@@ -151,12 +151,11 @@ Key behaviors, all verified in source:
   `try/except ImportError`; `OLLAMA_AVAILABLE` / `OPENROUTER_AVAILABLE` flags
   gate the branches. If the package is missing, the factory raises
   `ImportError` with an install hint rather than failing at import time.
-- **Env-var key resolution.** `_resolve_key()` turns `"env:VAR"` into the real
+- **Env-var key resolution.** `resolve_env_key()` (in `app/models/utils.py`) turns `"env:VAR"` into the real
   value; if the env var is unset it raises `ValueError` with a clear message.
   - For `llamacpp`, the *raw* `config.api_key` is passed to the client, which
-    re-resolves `"env:"` itself in its `__init__` (so a literal `"not-needed"`
-    or an `"env:..."` both work).
-  - For `openrouter`, `_resolve_key` is called **twice** (once at the top of the
+    re-resolves it using `resolve_env_key` in its `__init__` and catches `ValueError` to preserve backward compatibility if a fallback is needed (so a literal `"not-needed"` or an `"env:..."` both work).
+  - For `openrouter`, `resolve_env_key` is called **twice** (once at the top of the
     function, once inline). This is redundant but harmless: the second call sees
     an already-resolved literal key and returns it unchanged.
 
