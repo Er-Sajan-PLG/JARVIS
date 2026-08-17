@@ -8,6 +8,7 @@ Tree-Aware Repository Archaeology Engine.
 """
 
 import subprocess
+import shlex
 import json
 import re
 import os
@@ -22,7 +23,7 @@ DEL_CLASS_REGEX = re.compile(r'^\-\s*(?:class|interface|type|struct)\s+([A-Za-z0
 DEL_FUNC_REGEX = re.compile(r'^\-\s*(?:async\s+)?(?:def|function|const|let|var)\s+([A-Za-z0-9_]+)\s*=?\s*(?:\(|\=\>)')
 
 def run_git(cmd):
-    res = subprocess.run(f"git {cmd}", shell=True, capture_output=True, text=True)
+    res = subprocess.run(["git"] + shlex.split(cmd), capture_output=True, text=True)
     if res.returncode != 0:
         raise Exception(f"Git execution failed: git {cmd}\n{res.stderr}")
     return res.stdout.strip()

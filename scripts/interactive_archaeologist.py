@@ -7,6 +7,7 @@ Version-Window Archaeology Driver for Antigravity IDE.
 """
 
 import subprocess
+import shlex
 import json
 import os
 import sys
@@ -16,10 +17,12 @@ PAYLOAD_FILE = ".archaeology/current_commit.json"
 BUFFER_FILE = ".archaeology/version_buffer.json"
 
 def run_git(cmd):
-    full_cmd = cmd if cmd.strip().startswith("git ") else f"git {cmd}"
-    res = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
+    args = shlex.split(cmd)
+    if not args or args[0] != "git":
+        args = ["git"] + args
+    res = subprocess.run(args, capture_output=True, text=True)
     if res.returncode != 0:
-        raise Exception(f"Git failed: {full_cmd}\n{res.stderr}")
+        raise Exception(f"Git failed: {' '.join(args)}\n{res.stderr}")
     return res.stdout.strip()
 
 def get_commits():
