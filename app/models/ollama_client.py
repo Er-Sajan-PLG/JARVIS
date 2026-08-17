@@ -13,14 +13,30 @@ from app.models.exceptions import (
 
 
 class OllamaClient(ModelClient):
-    def __init__(self, model: str, base_url: str = "http://localhost:11434", role: str = "general"):
+    def __init__(
+        self,
+        model: str,
+        base_url: str = "http://localhost:11434",
+        api_key: str = "not-needed",
+        role: str = "general"
+    ):
         self._model = model
         self._role = role
+
+        if api_key and api_key.startswith("env:"):
+            import os
+            api_key = os.environ.get(api_key[4:].strip(), "not-needed")
+
+        if not api_key:
+            api_key = "not-needed"
+
+        self._api_key = api_key
+
         # Ollama exposes an OpenAI-compatible API at <host>/v1; reuse the OpenAI
         # SDK (same pattern as LlamaCppClient) so generate()'s chat.completions
         # calls work against Ollama too.
         from openai import OpenAI
-        self._client = OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key="not-needed")
+        self._client = OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
 
     def generate(
         self, 

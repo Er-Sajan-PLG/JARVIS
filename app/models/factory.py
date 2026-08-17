@@ -138,6 +138,7 @@ def create_client(config: ModelConfig, user_keys: dict[str, str] = None) -> Mode
         return OllamaClient(
             model=config.name,
             base_url=config.base_url,
+            api_key=api_key,
             role=config.role
         )
 
