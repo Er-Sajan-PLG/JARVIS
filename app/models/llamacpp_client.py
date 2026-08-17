@@ -13,6 +13,7 @@ from app.models.exceptions import (
     RESPONSE_SHAPE_ERRORS,
     map_openai_error,
 )
+from app.models.utils import resolve_env_key
 
 
 
@@ -31,12 +32,13 @@ class LlamaCppClient(ModelClient):
         self._model = model or get_default_model()
         self._role = role
         
-        # --- FIX: Resolve "env:..." to actual key ---
-        if api_key.startswith("env:"):
-            import os
-            api_key = os.environ.get(api_key[4:].strip(), api_key)
-        # ---------------------------------------------
-        
+        try:
+            api_key = resolve_env_key(api_key)
+        except ValueError:
+            # If the environment variable is not set, we keep the original string
+            # to match the old behavior where os.environ.get returned the default.
+            pass
+
         self._api_key = api_key  
         self._client = OpenAI(base_url=base_url, api_key=api_key)
     

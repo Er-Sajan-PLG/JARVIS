@@ -1,0 +1,65 @@
+name: Auto-Resolve Jules PR Conflicts (CLI Version)
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  pull-requests: read
+  contents: read
+
+jobs:
+  detect-and-resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Jules CLI
+        run: npm install -g @google/jules
+
+      - name: Find Conflicting Jules PRs
+        id: find_prs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fetch all open PRs created by a Bot
+          JULES_PRS=$(gh api repos/${{ github.repository }}/pulls \
+            --jq 'map(select(.user.type == "Bot")) | .[].number')
+          
+          # Check the 'mergeable_state' for conflicts
+          for PR in $JULES_PRS; do
+            STATE=$(gh api repos/${{ github.repository }}/pulls/$PR --jq '.mergeable_state')
+            if [ "$STATE" == "dirty" ]; then
+              echo "Merge conflict detected in PR #$PR"
+              echo "$PR" >> conflicting_prs.txt
+            fi
+          done
+
+      - name: Trigger Jules CLI
+        env:
+          # The CLI will automatically look for this environment variable
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          REPO_FULL_NAME: ${{ github.repository }}
+        run: |
+          if [ ! -f conflicting_prs.txt ]; then
+            echo "No conflicting PRs found. Exiting smoothly."
+            exit 0
+          fi
+
+          cat conflicting_prs.txt | while read PR_NUMBER; do
+            echo "Triggering Jules CLI to resolve PR #$PR_NUMBER..."
+            
+            # Using the CLI to create a new task
+            jules task create \
+              --repo "$REPO_FULL_NAME" \
+              --prompt "Your PR #$PR_NUMBER has merge conflicts with the base branch. Please fetch the latest target branch, resolve the merge conflicts manually, ensure all tests pass locally, and force push the resolved branch."
+            
+            echo "Resolution requested for PR #$PR_NUMBER"
+          done

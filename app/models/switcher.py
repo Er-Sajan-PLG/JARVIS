@@ -12,6 +12,7 @@ from app.models.factory import create_client
 from app.models.router import ModelRouter, TaskType
 from app.utils.logging_setup import get_logger
 from app.models.omni_client import OmniModelClient
+from app.models.utils import resolve_env_key
 
 logger = get_logger(__name__)
 
@@ -211,16 +212,14 @@ class ModelSwitcher:
           - direct API key string (user-provided via headers)
         Returns False if the client can't be built (e.g. missing key).
         """
-        import os
         from app.config.settings import ModelConfig
         
         # If it's an env reference, resolve it
-        if api_key.startswith("env:"):
-            env_var = api_key[4:]
-            api_key = os.environ.get(env_var, "")
-            if not api_key:
-                logger.warning("Dynamic model %s: %s not set", backend, env_var)
-                return False
+        try:
+            api_key = resolve_env_key(api_key)
+        except ValueError as e:
+            logger.warning("Dynamic model %s: %s", backend, e)
+            return False
         
         cfg = ModelConfig(name=model_id, role="general", backend=backend, api_key=api_key)
         try:
