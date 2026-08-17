@@ -6,7 +6,7 @@ Core execution loops MUST use direct async interface calls instead of the bus.
 
 import asyncio
 import logging
-from typing import Awaitable, Callable, TypeVar
+from typing import Any, Awaitable, Callable, TypeVar
 
 from app.events.models import Event
 
