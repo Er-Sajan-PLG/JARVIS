@@ -131,7 +131,7 @@ def create_client(config: ModelConfig) -> ModelClient:
     api_key = _resolve_key(config.api_key)        # resolve once up-front
     if config.backend == "ollama":
         ...
-        return OllamaClient(model=config.name, base_url=config.base_url, role=config.role)
+        return OllamaClient(model=config.name, base_url=config.base_url, api_key=api_key, role=config.role)
     if config.backend == "openrouter":
         ...
         return OpenRouterClient(model=config.name, api_key=_resolve_key(config.api_key), role=config.role)
@@ -151,12 +151,11 @@ Key behaviors, all verified in source:
   `try/except ImportError`; `OLLAMA_AVAILABLE` / `OPENROUTER_AVAILABLE` flags
   gate the branches. If the package is missing, the factory raises
   `ImportError` with an install hint rather than failing at import time.
-- **Env-var key resolution.** `_resolve_key()` turns `"env:VAR"` into the real
+- **Env-var key resolution.** `resolve_env_key()` (in `app/models/utils.py`) turns `"env:VAR"` into the real
   value; if the env var is unset it raises `ValueError` with a clear message.
   - For `llamacpp`, the *raw* `config.api_key` is passed to the client, which
-    re-resolves `"env:"` itself in its `__init__` (so a literal `"not-needed"`
-    or an `"env:..."` both work).
-  - For `openrouter`, `_resolve_key` is called **twice** (once at the top of the
+    re-resolves it using `resolve_env_key` in its `__init__` and catches `ValueError` to preserve backward compatibility if a fallback is needed (so a literal `"not-needed"` or an `"env:..."` both work).
+  - For `openrouter`, `resolve_env_key` is called **twice** (once at the top of the
     function, once inline). This is redundant but harmless: the second call sees
     an already-resolved literal key and returns it unchanged.
 

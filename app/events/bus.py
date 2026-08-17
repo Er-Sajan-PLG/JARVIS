@@ -1,3 +1,5 @@
+import typing
+from typing import Any
 """In-Memory Async Event Bus.
 
 Reserved for passive telemetry, logging, metrics, background jobs, streaming events, and scheduler notifications.
@@ -6,6 +8,7 @@ Core execution loops MUST use direct async interface calls instead of the bus.
 
 import asyncio
 import logging
+from typing import Awaitable, Callable, TypeVar, Any
 from typing import Any, Awaitable, Callable, TypeVar
 
 from app.events.models import Event
@@ -20,9 +23,9 @@ class InMemoryAsyncBus:
     """Decoupled in-memory asynchronous event bus."""
 
     def __init__(self) -> None:
-        self._handlers: dict[str, list[EventHandler[Any]]] = {}
+        self._handlers: dict[str, list[EventHandler[typing.Any]]] = {}
 
-    def subscribe(self, event_type: str, handler: EventHandler[Any]) -> None:
+    def subscribe(self, event_type: str, handler: EventHandler[typing.Any]) -> None:
         """Register an async event handler for a specific event_type string."""
         if event_type not in self._handlers:
             self._handlers[event_type] = []
@@ -30,7 +33,7 @@ class InMemoryAsyncBus:
             self._handlers[event_type].append(handler)
             logger.debug("Subscribed %s to event %s", handler.__name__, event_type)
 
-    def unsubscribe(self, event_type: str, handler: EventHandler[Any]) -> None:
+    def unsubscribe(self, event_type: str, handler: EventHandler[typing.Any]) -> None:
         """Remove a handler registration."""
         if event_type in self._handlers and handler in self._handlers[event_type]:
             self._handlers[event_type].remove(handler)
@@ -53,7 +56,7 @@ class InMemoryAsyncBus:
             # Fallback if no loop running (e.g. sync context or startup)
             logger.warning("No running asyncio event loop available for event %s", event.event_type)
 
-    async def _safe_execute(self, handler: EventHandler[Any], event: Event) -> None:
+    async def _safe_execute(self, handler: EventHandler[typing.Any], event: Event) -> None:
         """Execute a single handler catching and logging exceptions so failure never propagates."""
         try:
             await handler(event)

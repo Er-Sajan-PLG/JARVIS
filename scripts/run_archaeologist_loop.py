@@ -6,11 +6,13 @@ Autonomous runner enforcing the draft-and-merge versioning strategy for reposito
 
 import json
 import subprocess
+import shlex
 import os
 import sys
 
 def run_cmd(cmd):
-    res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    args = shlex.split(cmd)
+    res = subprocess.run(args, capture_output=True, text=True)
     return res.stdout.strip(), res.returncode
 
 def parse_commit_diff(patch, numstat):

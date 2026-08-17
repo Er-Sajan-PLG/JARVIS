@@ -3,6 +3,7 @@
 from app.config.settings import ModelConfig
 from app.models.client import ModelClient
 from app.models.llamacpp_client import LlamaCppClient
+from app.models.utils import resolve_env_key
 
 # Local backends
 try:
@@ -98,25 +99,6 @@ except ImportError:
     ANTHROPIC_AVAILABLE = False
 
 
-def _resolve_key(api_key: str) -> str:
-    """
-    Resolve API key from value or environment variable reference.
-    "env:XAI_API_KEY" → reads from os.environ
-    "literal-key"           → returned as-is
-    """
-    import os
-    if api_key.startswith("env:"):
-        var_name = api_key[4:].strip()
-        value = os.environ.get(var_name, "")
-        if not value:
-            raise ValueError(
-                f"Environment variable '{var_name}' is not set.\n"
-                f"Add it to your .env file or export it in your shell."
-            )
-        return value
-    return api_key
-
-
 def create_client(config: ModelConfig, user_keys: dict[str, str] = None) -> ModelClient:
     """Instantiate the correct client based on backend type."""
 
@@ -127,7 +109,7 @@ def create_client(config: ModelConfig, user_keys: dict[str, str] = None) -> Mode
         api_key = user_keys.get(var_name)
     
     if api_key is None:
-        api_key = _resolve_key(config.api_key)
+        api_key = resolve_env_key(config.api_key)
 
     if config.backend == "ollama":
         if not OLLAMA_AVAILABLE:
@@ -138,6 +120,7 @@ def create_client(config: ModelConfig, user_keys: dict[str, str] = None) -> Mode
         return OllamaClient(
             model=config.name,
             base_url=config.base_url,
+            api_key=api_key,
             role=config.role
         )
 
