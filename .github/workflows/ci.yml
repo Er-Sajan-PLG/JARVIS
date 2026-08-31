@@ -1,0 +1,94 @@
+name: CI — JARVIS
+
+on:
+  push:
+    branches: [main, master, webapp]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ci-jarvis-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install deps
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt 2>/dev/null || pip install -r requirements.txt
+
+      - name: Run pytest
+        run: .venv/bin/python -m pytest tests/ -v --tb=short
+
+  lint-and-typecheck:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check governance docs
+        run: |
+          for f in AGENTS.md docs/GOVERNANCE.md ARCHITECTURE.md; do
+            if [[ ! -f "$f" ]]; then echo "Missing $f"; exit 1; fi
+          done
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  check-branching:
+    name: Branching Strategy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Check branch naming
+        run: |
+          branch="${{ github.head_ref }}"
+          if [[ ! $branch =~ ^(feat|fix|docs|chore|ci|task|phase|exp|dependabot)/ ]]; then
+            echo "Branch '$branch' must start with feat/|fix/|docs/|chore/|ci/|task/|phase/|exp/|dependabot/"
+            exit 1
+          fi
+
+  check-conventional-commits:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit messages
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: commitlint.config.cjs
+          failOnErrors: true
