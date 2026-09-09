@@ -1,0 +1,579 @@
+{
+  "name": "JARVIS-Cleanup",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyWeek",
+              "dayOfWeek": 1,
+              "hour": 4,
+              "minute": 0
+            }
+          ]
+        }
+      },
+      "id": "schedule-weekly",
+      "name": "Weekly Schedule (Mon 04:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{\n  json: {\n    owner: 'Er-Sajan-PLG',\n    repo: 'JARVIS',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "init-params",
+      "name": "Init Repo Params",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/{{ $json.owner }}/{{ $json.repo }}/branches",
+        "method": "GET",
+        "jsonParameters": true,
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.githubToken }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "per_page",
+              "value": "100"
+            }
+          ]
+        }
+      },
+      "id": "list-branches",
+      "name": "List All Branches",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        750,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": "github-api-auth"
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const branches = items[0].json;\nconst mainBranch = branches.find(b => b.name === 'main');\nif (!mainBranch) throw new Error('main branch not found');\n\nconst mergedBranches = branches.filter(b => {\n  if (b.name === 'main') return false;\n  // Check if branch is merged via GitHub API\n  // We'll check via commit comparison in next step\n  return true; // Filter in next node\n});\n\nreturn mergedBranches.map(b => ({\n  json: {\n    branchName: b.name,\n    commitSha: b.commit.sha,\n    owner: 'Er-Sajan-PLG',\n    repo: 'JARVIS'\n  }\n}));"
+      },
+      "id": "filter-branches",
+      "name": "Filter Candidate Branches",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/{{ $json.owner }}/{{ $json.repo }}/compare/main...{{ $json.branchName }}",
+        "method": "GET",
+        "jsonParameters": true,
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.githubToken }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        }
+      },
+      "id": "check-merged",
+      "name": "Check If Merged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1250,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": "github-api-auth"
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const results = items;\nconst merged = [];\nconst notMerged = [];\n\nfor (const item of results) {\n  const comparison = item.json;\n  if (comparison.status === 'identical' || comparison.ahead_by === 0) {\n    merged.push(item.json);\n  } else {\n    notMerged.push(item.json);\n  }\n}\n\nreturn [\n  { json: { merged, notMerged, timestamp: new Date().toISOString() } }\n];"
+      },
+      "id": "classify-branches",
+      "name": "Classify Merged vs Not",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/{{ $json.owner }}/{{ $json.repo }}/git/refs/heads/{{ $json.branchName }}",
+        "method": "DELETE",
+        "jsonParameters": true,
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.githubToken }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        }
+      },
+      "id": "delete-branch",
+      "name": "Delete Merged Branch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1750,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": "github-api-auth"
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/{{ $json.owner }}/{{ $json.repo }}/pulls",
+        "method": "GET",
+        "jsonParameters": true,
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.githubToken }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "state",
+              "value": "open"
+            },
+            {
+              "name": "head",
+              "value": "dependabot"
+            },
+            {
+              "name": "per_page",
+              "value": "100"
+            }
+          ]
+        }
+      },
+      "id": "list-dependabot-prs",
+      "name": "List Dependabot PRs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        750,
+        500
+      ],
+      "credentials": {
+        "httpHeaderAuth": "github-api-auth"
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const prs = items[0].json;\nconst stalePRs = prs.filter(pr => {\n  const updated = new Date(pr.updated_at);\n  const now = new Date();\n  const daysDiff = (now - updated) / (1000 * 60 * 60 * 24);\n  return daysDiff > 14; // Older than 14 days\n});\n\nreturn stalePRs.map(pr => ({\n  json: {\n    prNumber: pr.number,\n    title: pr.title,\n    owner: 'Er-Sajan-PLG',\n    repo: 'JARVIS',\n    daysOld: Math.floor((new Date() - new Date(pr.updated_at)) / (1000 * 60 * 60 * 24))\n  }\n}));"
+      },
+      "id": "filter-stale-prs",
+      "name": "Filter Stale Dependabot PRs",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/{{ $json.owner }}/{{ $json.repo }}/pulls/{{ $json.prNumber }}",
+        "method": "PATCH",
+        "jsonParameters": true,
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.githubToken }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "bodyParametersJson": "{\n  \"state\": \"closed\"\n}"
+      },
+      "id": "close-stale-pr",
+      "name": "Close Stale PR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1250,
+        500
+      ],
+      "credentials": {
+        "httpHeaderAuth": "github-api-auth"
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/{{ $json.owner }}/{{ $json.repo }}/actions/runs",
+        "method": "GET",
+        "jsonParameters": true,
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.githubToken }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "per_page",
+              "value": "100"
+            },
+            {
+              "name": "created",
+              "value": "<{{ new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0] }}"
+            }
+          ]
+        }
+      },
+      "id": "list-old-runs",
+      "name": "List Old Workflow Runs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        750,
+        800
+      ],
+      "credentials": {
+        "httpHeaderAuth": "github-api-auth"
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const runs = items[0].json.workflow_runs || [];\nconst oldRuns = runs.filter(run => {\n  const created = new Date(run.created_at);\n  const now = new Date();\n  return (now - created) > 30 * 24 * 60 * 60 * 1000; // Older than 30 days\n});\n\nreturn oldRuns.map(run => ({\n  json: {\n    runId: run.id,\n    workflowName: run.name,\n    owner: 'Er-Sajan-PLG',\n    repo: 'JARVIS'\n  }\n}));"
+      },
+      "id": "filter-old-runs",
+      "name": "Filter Old Runs",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/{{ $json.owner }}/{{ $json.repo }}/actions/runs/{{ $json.runId }}",
+        "method": "DELETE",
+        "jsonParameters": true,
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.githubToken }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        }
+      },
+      "id": "delete-old-run",
+      "name": "Delete Old Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1250,
+        800
+      ],
+      "credentials": {
+        "httpHeaderAuth": "github-api-auth"
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{\n  json: {\n    message: 'Cleanup completed',\n    deletedBranches: $('Classify Merged vs Not').item.json.merged.length,\n    closedPRs: $('Filter Stale Dependabot PRs').item.json.length,\n    deletedRuns: $('Filter Old Runs').item.json.length,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "summary",
+      "name": "Cleanup Summary",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "channel": "={{ $credentials.slackChannelId }}",
+        "text": "🧹 *JARVIS Weekly Cleanup Complete*\n\n*Deleted merged branches:* {{ $('Classify Merged vs Not').item.json.merged.length }}\n*Closed stale Dependabot PRs:* {{ $('Filter Stale Dependabot PRs').item.json.length }}\n*Deleted old workflow runs:* {{ $('Filter Old Runs').item.json.length }}\n\n*Time:* {{ $now }}",
+        "options": {}
+      },
+      "id": "slack-summary",
+      "name": "Slack Summary",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        1750,
+        500
+      ],
+      "credentials": {
+        "slackApi": "slack-credentials"
+      }
+    }
+  ],
+  "connections": {
+    "Weekly Schedule (Mon 04:00)": {
+      "main": [
+        [
+          {
+            "node": "Init Repo Params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Repo Params": {
+      "main": [
+        [
+          {
+            "node": "List All Branches",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "List Dependabot PRs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "List Old Workflow Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List All Branches": {
+      "main": [
+        [
+          {
+            "node": "Filter Candidate Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Candidate Branches": {
+      "main": [
+        [
+          {
+            "node": "Check If Merged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Merged": {
+      "main": [
+        [
+          {
+            "node": "Classify Merged vs Not",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Merged vs Not": {
+      "main": [
+        [
+          {
+            "node": "Delete Merged Branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Dependabot PRs": {
+      "main": [
+        [
+          {
+            "node": "Filter Stale Dependabot PRs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Stale Dependabot PRs": {
+      "main": [
+        [
+          {
+            "node": "Close Stale PR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Old Workflow Runs": {
+      "main": [
+        [
+          {
+            "node": "Filter Old Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Old Runs": {
+      "main": [
+        [
+          {
+            "node": "Delete Old Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Merged Branch": {
+      "main": [
+        [
+          {
+            "node": "Cleanup Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Close Stale PR": {
+      "main": [
+        [
+          {
+            "node": "Cleanup Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Old Run": {
+      "main": [
+        [
+          {
+            "node": "Cleanup Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleanup Summary": {
+      "main": [
+        [
+          {
+            "node": "Slack Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionTimeout": 3600,
+    "errorWorkflow": "JARVIS-Error-Handler"
+  },
+  "id": "1"
+}

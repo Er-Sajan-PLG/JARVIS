@@ -1,0 +1,452 @@
+{
+  "name": "JARVIS-HITL",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hitl",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-hitl",
+      "name": "HITL Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "jarvis-hitl"
+    },
+    {
+      "parameters": {
+        "functionCode": "const payload = items[0].json;\n\nconst approvalId = payload.approval_id;\nconst tool = payload.tool;\nconst params = payload.params;\nconst sessionId = payload.session_id;\nconst reason = payload.reason || 'No reason provided';\n\nconst message = `JARVIS HITL Request\n\nApproval ID: ${approvalId}\nTool: ${tool}\nSession: ${sessionId}\nReason: ${reason}\n\nParameters:\n${JSON.stringify(params, null, 2)}\n\nAction required: Approve or Deny within 30 minutes.`;\n\nreturn [{\n  json: {\n    approvalId,\n    tool,\n    params,\n    sessionId,\n    reason,\n    message,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "format-notification",
+      "name": "Format Notification",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "channel": "={{ $credentials.slackChannelId }}",
+        "text": "={{ $json.message }}",
+        "blocksUi": {
+          "blocks": [
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "={{ $json.message }}"
+              }
+            },
+            {
+              "type": "actions",
+              "elements": [
+                {
+                  "type": "button",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Approve",
+                    "emoji": true
+                  },
+                  "style": "primary",
+                  "value": "approve",
+                  "action_id": "hitl_approve"
+                },
+                {
+                  "type": "button",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Deny",
+                    "emoji": true
+                  },
+                  "style": "danger",
+                  "value": "deny",
+                  "action_id": "hitl_deny"
+                }
+              ]
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "slack-notify",
+      "name": "Send to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        750,
+        200
+      ],
+      "credentials": {
+        "slackApi": "slack-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "chatId": "={{ $credentials.telegramChatId }}",
+        "text": "={{ $json.message }}",
+        "replyMarkup": {
+          "inlineKeyboard": [
+            [
+              {
+                "text": "Approve",
+                "callbackData": "hitl_approve_{{ $json.approvalId }}"
+              },
+              {
+                "text": "Deny",
+                "callbackData": "hitl_deny_{{ $json.approvalId }}"
+              }
+            ]
+          ]
+        },
+        "options": {
+          "parseMode": "Markdown"
+        }
+      },
+      "id": "telegram-notify",
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        750,
+        400
+      ],
+      "credentials": {
+        "telegramApi": "telegram-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "return items;"
+      },
+      "id": "wait-approval",
+      "name": "Wait for Approval",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hitl/callback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-callback",
+      "name": "Approval Callback",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ],
+      "webhookId": "jarvis-hitl-callback"
+    },
+    {
+      "parameters": {
+        "functionCode": "const callback = items[0].json;\nconst approvalId = callback.approval_id;\nconst approved = callback.approved === true;\n\nif (!approvalId || approved === undefined) {\n  throw new Error('Invalid callback: missing approval_id or approved');\n}\n\nreturn [{\n  json: {\n    approvalId,\n    approved,\n    decidedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "parse-callback",
+      "name": "Parse Callback",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $credentials.jarvisApiUrl }}/api/v1/hitl/approve",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.jarvisApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "bodyParametersJson": "{\n  \"approval_id\": \"={{ $json.approvalId }}\",\n  \"approved\": {{ $json.approved }}\n}"
+      },
+      "id": "jarvis-callback",
+      "name": "Callback to JARVIS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1750,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": "jarvis-api-auth"
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const result = items[0].json;\n\nreturn [{\n  json: {\n    approval_id: result.approvalId,\n    approved: result.approved,\n    message: result.approved ? 'Approved - execution resumed' : 'Denied - execution halted',\n    decided_at: result.decidedAt\n  }\n}];"
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Callback",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{\n  json: {\n    approval_id: \"{{ $('Format Notification').item.json.approvalId }}\",\n    approved: false,\n    reason: 'Timeout - auto-denied after 30 minutes',\n    decided_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "auto-deny",
+      "name": "Auto-Deny (Timeout)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $credentials.jarvisApiUrl }}/api/v1/hitl/approve",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.jarvisApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "bodyParametersJson": "{\n  \"approval_id\": \"={{ $('Format Notification').item.json.approvalId }}\",\n  \"approved\": false\n}"
+      },
+      "id": "timeout-callback",
+      "name": "Timeout Callback to JARVIS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1250,
+        500
+      ],
+      "credentials": {
+        "httpHeaderAuth": "jarvis-api-auth"
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{\n  json: {\n    approval_id: \"={{ $('Format Notification').item.json.approvalId }}\",\n    approved: false,\n    message: 'Auto-denied after 30 minutes timeout',\n    decided_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "timeout-response",
+      "name": "Timeout Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "options": {}
+      },
+      "id": "timeout-webhook-response",
+      "name": "Timeout Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1750,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "HITL Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Notification": {
+      "main": [
+        [
+          {
+            "node": "Send to Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait for Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Slack": {
+      "main": [
+        [
+          {
+            "node": "Wait for Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Telegram": {
+      "main": [
+        [
+          {
+            "node": "Wait for Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Approval": {
+      "main": [
+        [
+          {
+            "node": "Approval Callback",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Auto-Deny (Timeout)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Callback": {
+      "main": [
+        [
+          {
+            "node": "Parse Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Callback": {
+      "main": [
+        [
+          {
+            "node": "Callback to JARVIS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback to JARVIS": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auto-Deny (Timeout)": {
+      "main": [
+        [
+          {
+            "node": "Timeout Callback to JARVIS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Timeout Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Timeout Callback to JARVIS": {
+      "main": [
+        [
+          {
+            "node": "Timeout Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionTimeout": 1800,
+    "errorWorkflow": "JARVIS-Error-Handler"
+  },
+  "id": "1"
+}

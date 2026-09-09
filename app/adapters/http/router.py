@@ -59,8 +59,8 @@ async def chat_completions(payload: dict[str, Any]) -> dict[str, Any]:
     session_id = payload.get("session_id", "default_session")
 
     # 1. Active Session & Conversation
-    session = await container.session_manager.get_session(session_id)
-    conversation = await container.session_manager.get_active_conversation(session_id)
+    session = await container.session_manager.get_or_create_session(session_id)
+    conversation = await container.session_manager.get_or_create_conversation(session_id=session_id)
 
     # 2. Intent Analysis & Plan
     analysis = container.intent_analyzer.analyze(prompt)
@@ -72,7 +72,7 @@ async def chat_completions(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "session_id": session_id,
         "plan_id": executed_plan.plan_id,
-        "status": executed_plan.status.value,
+        "status": "completed" if executed_plan.is_complete else ("failed" if executed_plan.has_failed else "running"),
         "steps_count": len(executed_plan.steps),
         "complexity": analysis.complexity.value,
     }

@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 from typing import Set, List, Tuple
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = REPO_ROOT / "app"
 
 # Allowed package dependencies (enforced by import_layering)
