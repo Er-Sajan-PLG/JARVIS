@@ -1,70 +1,150 @@
-# JARVIS Documentation Master Index & LLM Navigation Map
+# JARVIS Documentation Index — Living Document v3.0.0
 
-Welcome to the central master index and LLM navigation map for **JARVIS**, covering full architectural history, component guides, decision records, and API signatures from initial commit (`v0.1.0`) to `HEAD` (`v3.0.1`).
-
----
-
-## 1. Master Documentation Deliverables
-
-| Category | File | Description |
-| :--- | :--- | :--- |
-| 📘 **Quickstart** | [README.md](file:///home/sajan/JARVIS/README.md) | Project Overview, Quickstart & Commands |
-| 📐 **Living Architecture** | [ARCHITECTURE.md](file:///home/sajan/JARVIS/docs/ARCHITECTURE.md) | Living System Topology & Core Invariants at HEAD |
-| 🔌 **API Signatures** | [API.md](file:///home/sajan/JARVIS/docs/API.md) | Public API Reference & Method Signatures History |
-| 📝 **Release Notes** | [CHANGELOG.md](file:///home/sajan/JARVIS/docs/CHANGELOG.md) | Version Release Notes (`v0.1.0` ➔ `v3.0.1`) |
-| 💻 **Developer Log** | [DEVLOG.md](file:///home/sajan/JARVIS/docs/DEVLOG.md) | Architectural Evolution & Feature Shift Log |
-| 📜 **Git Archaeology** | [HISTORY.md](file:///home/sajan/JARVIS/docs/HISTORY.md) | Git Database Code Archaeology & Milestone Timeline |
-| 🩺 **Diagnostic Matrix** | [DEBUGGING.md](file:///home/sajan/JARVIS/docs/DEBUGGING.md) | Verified Error Codes, Symptoms & Fixes Matrix |
-| 🛣️ **Engineering Roadmap** | [ROADMAP.md](file:///home/sajan/JARVIS/docs/ROADMAP.md) | Technical Debt Register (`DEBT-001` - `DEBT-007`) |
-| 🏥 **Repository Health** | [HEALTH_REPORT.md](file:///home/sajan/JARVIS/docs/HEALTH_REPORT.md) | Subsystem Code Quality Metrics across Releases |
+**Status**: COMPLETE — All fundamental documents created  
+**Last Updated**: 2026-09-10  
+**Source**: Forensic Architecture Audit + USAT Audit + Capability Contract v1.0
 
 ---
 
-## 2. High-Level Architecture Guides (`docs/architecture/`)
+## 📚 Fundamental Documents (Read in Order)
 
-- 🧩 **[Component Topology](file:///home/sajan/JARVIS/docs/architecture/components.md)**: High-Level Mermaid Component Flowcharts
-- 🧠 **[Cognitive Engine](file:///home/sajan/JARVIS/docs/architecture/cognitive_brain.md)**: Brain Request Cycle & Tiered Safety Gate Policy
-- ⚡ **[Model Routing Pool](file:///home/sajan/JARVIS/docs/architecture/model_routing.md)**: Multi-Provider Pool & Circuit Breakers
-- 🧠 **[Memory Subsystem](file:///home/sajan/JARVIS/docs/architecture/memory_subsystem.md)**: Hybrid BM25 & Chroma Vector Search Architecture
-- 🌊 **[Streaming Data Flow](file:///home/sajan/JARVIS/docs/architecture/data_flow.md)**: End-to-End Async Streaming Data Flow
-- 🚀 **[Composition Root Bootstrap](file:///home/sajan/JARVIS/docs/architecture/startup_flow.md)**: ApplicationContainer Bootstrap Sequence
-
----
-
-## 3. Subsystem Architectural Modules (`docs/modules/`)
-
-- 📦 **[domain.md](file:///home/sajan/JARVIS/docs/modules/domain.md)**: Pure Python 3.11+ Dataclass Models (`app/domain/`)
-- 🧠 **[brain.md](file:///home/sajan/JARVIS/docs/modules/brain.md)**: Cognitive Brain Engine (`app/brain/`)
-- 🤖 **[models.md](file:///home/sajan/JARVIS/docs/modules/models.md)**: LLM Provider Pool & Model Router (`app/models/`)
-- 💾 **[memory.md](file:///home/sajan/JARVIS/docs/modules/memory.md)**: Persistent Memory Façade (`app/memory/`)
-- 🛡️ **[guardrails.md](file:///home/sajan/JARVIS/docs/modules/guardrails.md)**: Tiered Tool Safety Policy & Decorator (`app/guardrails/`)
-- 🔌 **[adapters.md](file:///home/sajan/JARVIS/docs/modules/adapters.md)**: REST & WebSocket Stream Adapters (`app/adapters/`)
-- 🧩 **[integrations.md](file:///home/sajan/JARVIS/docs/modules/integrations.md)**: Isolated ChromaDB Vector Store & OCR Backends (`app/integrations/`)
-- ⚙️ **[config.md](file:///home/sajan/JARVIS/docs/modules/config.md)**: Configuration Engine (`app/config/`)
-- 🎨 **[frontend.md](file:///home/sajan/JARVIS/docs/modules/frontend.md)**: Web Single-Page Application (`frontend/`)
-- 🛠️ **[scripts.md](file:///home/sajan/JARVIS/docs/modules/scripts.md)**: Automation & Version Bumper Scripts (`scripts/`)
-- 🧪 **[tests.md](file:///home/sajan/JARVIS/docs/modules/tests.md)**: Unit & Stress Performance Test Suite (`tests/`)
+| # | Document | Purpose | Start Here? |
+|---|----------|---------|-------------|
+| 1 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | Living system topology, cognitive engine loop, package boundaries, n8n integration | ✅ **YES** |
+| 2 | **[GOVERNANCE.md](GOVERNANCE.md)** | Decision authority, branching model, n8n workflow governance, quality gates, security, release process | ✅ **YES** |
+| 3 | **[ROADMAP.md](ROADMAP.md)** | Prioritized sprint plan (Sprint 0-4), technical debt register, milestones, success metrics | ✅ **YES** |
+| 4 | **[DEVELOPMENT.md](DEVELOPMENT.md)** | Daily workflow, local setup, testing standards, code standards, git workflow, debugging | 🔄 Reference |
+| 5 | **[API_CONTRACT.md](API_CONTRACT.md)** | REST/WS endpoints, auth, data models, error codes, n8n integration patterns | 🔄 Reference |
+| 6 | **[CAPABILITY_TRACKER.md](CAPABILITY_TRACKER.md)** | Capability Contract v1.0 compliance tracking (JARVIS ↔ PROFESSOR-J) | 📊 Tracking |
 
 ---
 
-## 4. Architectural Decision Records (`docs/adr/`)
+## 🚀 Quick Start (Sprint 0)
 
-- [ADR-001: Direct Ollama Integration & CLI](file:///home/sajan/JARVIS/docs/adr/ADR-001-ollama-cli-integration.md) (`v0.1.0`)
-- [ADR-002: JSON File Persistent Memory Core](file:///home/sajan/JARVIS/docs/adr/ADR-002-json-file-persistent-memory.md) (`v0.5.0`)
-- [ADR-003: Multi-Model Task Router & Overhaul](file:///home/sajan/JARVIS/docs/adr/ADR-003-multi-model-task-router.md) (`v2.0.0`)
-- [ADR-004: ChromaDB Semantic Memory & Hybrid BM25](file:///home/sajan/JARVIS/docs/adr/ADR-004-chromadb-semantic-memory.md) (`v2.2.0`)
-- [ADR-005: FastAPI Web Server & Single-Page App](file:///home/sajan/JARVIS/docs/adr/ADR-005-fastapi-web-server-and-ui.md) (`v2.5.0`)
-- [ADR-006: Pragmatic Hybrid Architecture](file:///home/sajan/JARVIS/docs/adr/ADR-006-pragmatic-hybrid-architecture.md) (`v3.0.0 Refactored`)
-- [ADR-007: Domain Purity & Dataclass Models](file:///home/sajan/JARVIS/docs/adr/ADR-007-domain-purity-and-dataclasses.md) (`v3.0.0 Refactored`)
-- [ADR-008: Tiered Tool Safety Policy & Decorator](file:///home/sajan/JARVIS/docs/adr/ADR-008-tiered-tool-safety-policy.md) (`v3.0.0 Refactored`)
-- [ADR-009: Multi-Provider Circuit Breaker Failover](file:///home/sajan/JARVIS/docs/adr/ADR-009-multi-provider-circuit-breaker-failover.md) (`v3.0.0 Refactored`)
-- [ADR-010: Isolation of Third-Party Adapters & Integrations](file:///home/sajan/JARVIS/docs/adr/ADR-010-adapters-and-integrations-isolation.md) (`v3.0.0 Refactored`)
+```bash
+cd /home/sajan/Projects/JARVIS
+
+# 1. Recreate venv with Python 3.11/3.12
+python3.11 -m venv .venv
+source .venv/bin/activate
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Add missing API key
+grep -q JARVIS_API_KEY .env || echo "JARVIS_API_KEY=$(openssl rand -hex 32)" >> .env
+
+# 4. Archive legacy servers (dead code)
+mkdir -p app/legacy
+mv app/api/server.py app/web_api_server.py app/legacy/
+
+# 5. Fix WebSocket auth (add validate_api_key to ws_router)
+# Edit: app/adapters/websocket/stream.py
+
+# 6. Verify v3.0 works
+python -m app.main
+
+# 7. Health check
+curl -H "Authorization: Bearer $JARVIS_API_KEY" http://localhost:8000/api/v1/health
+```
+
+**Expected**: Server starts, health returns 200, chat completion works via REST + WS
 
 ---
 
-## 5. System Metadata Graphs (`docs/metadata/`)
+## 🎯 Current State Summary (Forensic Audit)
 
-- 📊 **`docs/metadata/api_graph.json`**: Extracted Public API Symbol Lineage
-- 📊 **`docs/metadata/module_graph.json`**: Subsystem Module Topology & Imports
-- 📊 **`docs/metadata/history_graph.json`**: Version Tag History & Commit Lineage
-- 📊 **`docs/metadata/knowledge_graph.json`**: System Concept Map
+| Aspect | Status | Evidence |
+|--------|--------|----------|
+| **v3.0 Architecture** | ✅ Implemented | `app/main.py`, `app/bootstrap.py` import cleanly |
+| **Legacy v2.x** | 🗑️ Dead code | `app/api/server.py`, `app/web_api_server.py` crash on import |
+| **Venv** | ❌ Empty | 0 packages installed |
+| **JARVIS_API_KEY** | ❌ Missing | Not in `.env` |
+| **CI/CD** | ❌ None | Only Jules conflict resolver workflow |
+| **Python Version** | ⚠️ 3.14 (broken) | Must use 3.11/3.12 |
+| **Capability Contract** | ~48% | 5/10 capabilities at ≥60% |
+
+---
+
+## 🔑 Key Architectural Decisions (Frozen)
+
+1. **v3.0 is canonical** — Archive legacy servers, don't migrate
+2. **n8n owns ALL automation** — No GitHub Actions for business logic
+3. **Python 3.11/3.12 only** — 3.14 breaks ML deps (chromadb, sentence-transformers, pydantic)
+4. **Capability Contract drives features** — JARVIS must match PROFESSOR-J interface
+5. **Direct async cognitive loop** — No event bus in data path (telemetry only)
+6. **Single-tenant Bearer auth** — `JARVIS_API_KEY` required for all endpoints
+
+---
+
+## 📋 Document Relationships
+
+```
+ARCHITECTURE.md (System Topology)
+    │
+    ├─→ GOVERNANCE.md (How we decide/enforce)
+    │       │
+    │       └─→ ROADMAP.md (What we build when)
+    │               │
+    │               ├─→ DEVELOPMENT.md (How we build daily)
+    │               │
+    │               ├─→ API_CONTRACT.md (What we expose)
+    │               │
+    │               └─→ CAPABILITY_TRACKER.md (Contract compliance)
+    │
+    └─→ docs/adr/ (Architectural Decision Records)
+```
+
+---
+
+## 🔄 Document Maintenance Rules
+
+| Rule | Enforcement |
+|------|-------------|
+| **Updated in same PR as code** | PR template requires docs checkbox |
+| **Living documents** | Version in header; no separate version file |
+| **Source of truth = repo state** | Forensic audit > documentation |
+| **n8n workflow changes** | Exported JSON committed to `n8n/workflows/` |
+| **Capability Contract changes** | Requires coordinated rollout with PROFESSOR-J |
+
+---
+
+## 📅 Review Cadence
+
+| Document | Review Frequency | Trigger |
+|----------|------------------|---------|
+| ARCHITECTURE.md | Quarterly | Architectural change |
+| GOVERNANCE.md | Quarterly | Process change |
+| ROADMAP.md | Sprint planning | Sprint boundary |
+| DEVELOPMENT.md | As needed | Tooling change |
+| API_CONTRACT.md | Per release | API change |
+| CAPABILITY_TRACKER.md | Quarterly | n8n `JARVIS-Capability-Sync` |
+
+---
+
+## 🔗 Cross-References
+
+| From | To | Link Type |
+|------|-----|-----------|
+| ARCHITECTURE.md | GOVERNANCE.md | Authority |
+| GOVERNANCE.md | ROADMAP.md | Execution |
+| ROADMAP.md | DEVELOPMENT.md | Workflow |
+| DEVELOPMENT.md | API_CONTRACT.md | Implementation |
+| CAPABILITY_TRACKER.md | CAPABILITY-CONTRACT.md | Compliance |
+| All | docs/adr/ | Decisions |
+
+---
+
+## 📝 Next Actions (Immediate)
+
+1. **Execute Sprint 0** (above) — unblocks everything
+2. **Commit these 6 documents** — freeze current governance
+3. **Create n8n workflows** — `JARVIS-Setup-Env`, `JARVIS-CI`, `JARVIS-Deploy`
+4. **Run first USAT audit post-fix** — verify hygiene improvement
+5. **Sync with PROFESSOR-J** — Capability Contract alignment kickoff
+
+---
+
+**Document Owner**: Architecture Review Board  
+**Next Full Review**: 2026-12-10  
+**Emergency Override**: P0 incident → immediate update required

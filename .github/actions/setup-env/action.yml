@@ -1,0 +1,23 @@
+name: "Set up Python env (venv + deps)"
+
+inputs:
+  python-version:
+    description: "Python version"
+    default: "3.11"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: pip
+
+    - shell: bash
+      run: |
+        python -m venv .venv
+        .venv/bin/python -m pip install --upgrade pip
+        .venv/bin/pip install -r requirements.txt
+        .venv/bin/pip install pre-commit==4.1.0 ruff==0.8.0 mypy==1.11.2
+        .venv/bin/pre-commit install --install-hooks
