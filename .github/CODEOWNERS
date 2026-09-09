@@ -1,0 +1,36 @@
+# CODEOWNERS
+# These owners will be automatically requested for review when code in their paths is modified
+
+# Core architecture - all changes require review
+/app/bootstrap.py @Er-Sajan-PLG
+/app/main.py @Er-Sajan-PLG
+
+# Cognitive brain - core logic
+/app/brain/ @Er-Sajan-PLG
+
+# Security & guardrails - all changes require review
+/app/guardrails/ @Er-Sajan-PLG
+/app/adapters/http/router.py @Er-Sajan-PLG
+/app/adapters/websocket/stream.py @Er-Sajan-PLG
+
+# Models & providers - routing, circuit breakers
+/app/models/ @Er-Sajan-PLG
+/app/resources/ @Er-Sajan-PLG
+
+# Memory subsystem
+/app/memory/ @Er-Sajan-PLG
+
+# Configuration
+/app/config/ @Er-Sajan-PLG
+
+# CI/CD and governance
+/.github/workflows/ @Er-Sajan-PLG
+/.github/actions/ @Er-Sajan-PLG
+/.github/dependabot.yml @Er-Sajan-PLG
+/scripts/board/ @Er-Sajan-PLG
+/commitlint.config.cjs @Er-Sajan-PLG
+/pyproject.toml @Er-Sajan-PLG
+/requirements.txt @Er-Sajan-PLG
+
+# Documentation
+/docs/ @Er-Sajan-PLG

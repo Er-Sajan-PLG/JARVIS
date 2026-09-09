@@ -1,0 +1,33 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "04:00"
+    open-pull-requests-limit: 10
+    labels: ["deps", "automerge"]
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      testing:
+        patterns: ["pytest*", "pytest-*", "hypothesis", "faker"]
+      linting:
+        patterns: ["ruff", "mypy", "pre-commit"]
+      security:
+        patterns: ["bandit", "gitleaks", "pip-audit", "trivy"]
+      fastapi:
+        patterns: ["fastapi", "uvicorn", "starlette", "pydantic*"]
+      ml:
+        patterns: ["chromadb", "sentence-transformers", "llama-index", "ollama", "openai", "google-generativeai"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    open-pull-requests-limit: 5
+    labels: ["ci", "automerge"]
+    commit-message:
+      prefix: "chore(ci)"

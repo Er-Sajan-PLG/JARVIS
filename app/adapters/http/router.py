@@ -69,6 +69,9 @@ async def chat_completions(payload: dict[str, Any]) -> dict[str, Any]:
     # 3. Execution
     executed_plan = await container.execution_runner.execute_plan(plan)
 
+    # 4. Record metrics
+    container.metrics.record_request()
+
     return {
         "session_id": session_id,
         "plan_id": executed_plan.plan_id,

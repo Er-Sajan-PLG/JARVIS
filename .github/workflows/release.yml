@@ -1,0 +1,157 @@
+name: "JARVIS-Release"
+
+on:
+  push:
+    branches: [main]
+    tags: [v*]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+  id-token: write
+
+jobs:
+  prepare:
+    name: "Prepare Release"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      release_version: ${{ steps.version.outputs.version }}
+      release_notes: ${{ steps.changelog.outputs.notes }}
+      should_release: ${{ steps.version.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-env
+
+      - name: Determine next version
+        id: version
+        run: |
+          # Get latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v3.0.0")
+          echo "Latest tag: $LATEST_TAG"
+
+          # Get commits since last tag
+          COMMITS=$(git log $LATEST_TAG..HEAD --oneline --pretty=format:"%s" 2>/dev/null || git log --oneline --pretty=format:"%s")
+          echo "Commits since last tag:"
+          echo "$COMMITS"
+
+          # Determine version bump
+          if echo "$COMMITS" | grep -q "^breaking"; then
+            BUMP="major"
+          elif echo "$COMMITS" | grep -q "^feat"; then
+            BUMP="minor"
+          elif echo "$COMMITS" | grep -q "^fix"; then
+            BUMP="patch"
+          elif echo "$COMMITS" | grep -q "^chore\|^docs\|^refactor\|^test\|^build\|^ci"; then
+            BUMP="patch"
+          else
+            BUMP="patch"
+          fi
+
+          # Calculate new version
+          CURRENT_VERSION=$(echo $LATEST_TAG | sed 's/^v//')
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          case $BUMP in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "Bump: $BUMP"
+          echo "New version: $NEW_VERSION"
+
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "bump=$BUMP" >> $GITHUB_OUTPUT
+          echo "should_release=true" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v3.0.0")
+          CHANGELOG=$(git log $LATEST_TAG..HEAD --pretty=format:"- %s (%h)" --reverse)
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "## Changes since $LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  release:
+    name: "Create Release"
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-env
+
+      - name: Run full CI gate
+        run: |
+          .venv/bin/ruff check app/ tests/
+          .venv/bin/ruff format --check app/ tests/
+          .venv/bin/mypy --strict app/
+          .venv/bin/pytest tests/ -v --cov=app --cov-fail-under=80
+          .venv/bin/python -m compileall app/
+          docker build -t jarvis:${{ needs.prepare.outputs.release_version }} .
+
+      - name: Create signed tag
+        run: |
+          git tag -s ${{ needs.prepare.outputs.release_version }} -m "Release ${{ needs.prepare.outputs.release_version }}"
+          git push origin ${{ needs.prepare.outputs.release_version }}
+
+      - name: Generate SBOM
+        run: |
+          .venv/bin/pip install cyclonedx-bom
+          .venv/bin/cyclonedx-py -o sbom.json
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.release_version }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      - name: Sign image with cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.4.1'
+      - run: |
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.release_version }})
+          cosign sign --yes "$DIGEST"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.release_version }}
+          name: "JARVIS ${{ needs.prepare.outputs.release_version }}"
+          body: ${{ needs.prepare.outputs.release_notes }}
+          draft: false
+          prerelease: false
+          files: |
+            sbom.json
+          generate_release_notes: false
+
+      - name: Notify
+        if: always()
+        run: |
+          echo "Release ${{ needs.prepare.outputs.release_version }} created successfully"
+          echo "Docker: ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.release_version }}"

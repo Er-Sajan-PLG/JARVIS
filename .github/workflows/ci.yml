@@ -57,11 +57,9 @@ jobs:
             detect --source=/src --no-git --verbose --redact
       - name: Run bandit SAST
         run: |
-          .venv/bin/pip install bandit==1.8.3
           .venv/bin/bandit -r app/ -c pyproject.toml -f json -o bandit-results.json || true
       - name: Run pip-audit
         run: |
-          .venv/bin/pip install pip-audit
           .venv/bin/pip-audit -r requirements.txt -f json -o pip-audit-results.json || true
       - name: Upload SARIF
         if: always()

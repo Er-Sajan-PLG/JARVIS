@@ -1,0 +1,101 @@
+# .dockerignore
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+.Python
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+.tox
+.nox
+
+# Virtual environments
+.venv
+venv
+env
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Data
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# Build artifacts
+build/
+dist/
+*.egg
+*.egg-info/
+.eggs/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+!.github/workflows/
+
+# n8n
+n8n/
+
+# Documentation (keep for reference but not needed in image)
+docs/
+README.md
+CHANGELOG.md
+DEVLOG.md
+
+# Tests
+tests/
+
+# Scripts (except board review which runs in CI)
+scripts/
+!scripts/board/review.py
+
+# Node modules
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/_next/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Secrets
+*.pem
+*.key
+*.crt
+*.secret
+credentials.*
+
+# Misc
+*.bak
+*.tmp
+*.old
+*.orig
+.cache/
+.cache-loader/
