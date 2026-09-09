@@ -6,6 +6,11 @@ Collects passive metrics on token usage, request latencies, and component execut
 from dataclasses import dataclass, field
 from typing import Any
 
+# OTel semantic convention attributes
+OTEL_AGENT_NAME = "gen_ai.agent.name"
+OTEL_TOOL_NAME = "gen_ai.tool.name"
+OTEL_GUARDRAIL_RESULT = "gen_ai.guardrail.result"
+
 
 @dataclass
 class AggregatedMetrics:

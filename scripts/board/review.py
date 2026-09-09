@@ -24,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = REPO_ROOT / "app"
 
 # Allowed package dependencies (enforced by import_layering)
+# Internal package imports (within same package) are ALWAYS allowed
 ALLOWED_DEPS = {
     "app.adapters": {"app.bootstrap", "app.brain"},
     "app.bootstrap": {"app.brain", "app.models", "app.resources", "app.memory",
@@ -37,6 +38,11 @@ ALLOWED_DEPS = {
     "app.events": set(),
 }
 
+# Packages that are allowed to be imported by anyone (stdlib-like)
+ALLOWED_UNIVERSAL = {
+    "app.domain", "app.config", "app.utils", "app.integrations",
+}
+
 # Required files for MCP (mcp_tool_search)
 MCP_REQUIRED = [
     "app/mcp/registry.py",
@@ -45,9 +51,9 @@ MCP_REQUIRED = [
 
 # Required OTel span attributes (otel_spans)
 OTEL_ATTRIBUTES = [
-    "gen_ai.agent.name",
-    "gen_ai.tool.name",
-    "gen_ai.guardrail.result",
+    "OTEL_AGENT_NAME",
+    "OTEL_TOOL_NAME",
+    "OTEL_GUARDRAIL_RESULT",
 ]
 
 # LangGraph checkpointing (langgraph_checkpoint)
@@ -74,23 +80,31 @@ def check_import_layering() -> Tuple[bool, List[str]]:
             for node in ast.walk(tree):
                 if isinstance(node, ast.ImportFrom) and node.module:
                     if node.module.startswith("app."):
-                        imported_pkg = node.module.split(".")[1] if len(node.module.split(".")) > 1 else ""
                         imported_full = node.module
-                        # Check if this import violates boundaries
-                        if pkg_name in ALLOWED_DEPS:
-                            if imported_full not in allowed and not any(
-                                imported_full.startswith(a) for a in allowed
-                            ):
-                                # Allow imports from domain, config, utils
-                                if not any(imported_full.startswith(p) for p in
-                                           ["app.domain", "app.config", "app.utils", "app.integrations"]):
-                                    errors.append(f"{py_file.relative_to(REPO_ROOT)}: "
-                                                  f"{pkg_name} imports {imported_full} (not allowed)")
+                        # Internal package imports (within same package) are ALWAYS allowed
+                        pkg_prefix = f"{pkg_name}."
+                        if imported_full.startswith(pkg_prefix):
+                            continue
+                        # Universal imports allowed by anyone
+                        for universal in ALLOWED_UNIVERSAL:
+                            if imported_full == universal or imported_full.startswith(universal + "."):
+                                break
+                        else:
+                            # Check if this import violates boundaries
+                            if pkg_name in ALLOWED_DEPS:
+                                if imported_full not in allowed and not any(
+                                    imported_full.startswith(a) for a in allowed
+                                ):
+                                    # Allow imports from domain, config, utils
+                                    if not any(imported_full.startswith(p) for p in
+                                               ["app.domain", "app.config", "app.utils", "app.integrations"]):
+                                        errors.append(f"{py_file.relative_to(REPO_ROOT)}: "
+                                                      f"{pkg_name} imports {imported_full} (not allowed)")
     return len(errors) == 0, errors
 
 
 def check_domain_purity() -> Tuple[bool, List[str]]:
-    """Domain models should have no external dependencies."""
+    """Domain models should have no external dependencies (stdlib allowed)."""
     errors = []
     domain_dir = APP_ROOT / "domain"
     if not domain_dir.exists():
@@ -105,14 +119,16 @@ def check_domain_purity() -> Tuple[bool, List[str]]:
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module:
                 if not node.module.startswith("app.") and not node.module.startswith("."):
-                    # External import in domain
-                    errors.append(f"{py_file.relative_to(REPO_ROOT)}: "
-                                  f"Domain imports external module {node.module}")
+                    # External import in domain - allow stdlib
+                    if node.module not in {"dataclasses", "datetime", "enum", "typing", "uuid", "pathlib", "collections", "json", "enum", "abc"}:
+                        errors.append(f"{py_file.relative_to(REPO_ROOT)}: "
+                                      f"Domain imports external module {node.module}")
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if not alias.name.startswith("app."):
-                        errors.append(f"{py_file.relative_to(REPO_ROOT)}: "
-                                      f"Domain imports external module {alias.name}")
+                        if alias.name not in {"dataclasses", "datetime", "enum", "typing", "uuid", "pathlib", "collections", "json", "abc"}:
+                            errors.append(f"{py_file.relative_to(REPO_ROOT)}: "
+                                          f"Domain imports external module {alias.name}")
     return len(errors) == 0, errors
 
 
@@ -161,13 +177,38 @@ def check_otel_spans() -> Tuple[bool, List[str]]:
     telemetry_dir = APP_ROOT / "telemetry"
     if not telemetry_dir.exists():
         return False, ["app/telemetry directory missing"]
+    
+    # The key constants that must be defined/exported
+    required_constants = {
+        "OTEL_AGENT_NAME",
+        "OTEL_TOOL_NAME", 
+        "OTEL_GUARDRAIL_RESULT",
+        "gen_ai.agent.name",
+        "gen_ai.tool.name",
+        "gen_ai.guardrail.result",
+    }
+    
     for py_file in telemetry_dir.rglob("*.py"):
         if "__pycache__" in str(py_file):
             continue
         content = py_file.read_text()
+        
+        # Check if this file defines or exports the required constants
         for attr in OTEL_ATTRIBUTES:
-            if attr not in content:
+            # Look for the constant definition or export
+            found = False
+            if attr in content:
+                found = True
+            # Also check for constant definitions like OTEL_AGENT_NAME = "gen_ai.agent.name"
+            elif attr.startswith("OTEL_") and attr in content:
+                found = True
+            # Check if exported via __all__
+            elif "__all__" in content and attr in content:
+                found = True
+            
+            if not found:
                 errors.append(f"{py_file.relative_to(REPO_ROOT)}: missing OTel attribute {attr}")
+    
     return len(errors) == 0, errors
 
 

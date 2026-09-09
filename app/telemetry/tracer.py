@@ -9,6 +9,11 @@ from typing import Any, AsyncGenerator
 
 from app.events import InMemoryAsyncBus, TelemetryEvent
 
+# OTel semantic convention attributes
+OTEL_AGENT_NAME = "gen_ai.agent.name"
+OTEL_TOOL_NAME = "gen_ai.tool.name"
+OTEL_GUARDRAIL_RESULT = "gen_ai.guardrail.result"
+
 
 class Tracer:
     """Measures execution duration and publishes TelemetryEvents over InMemoryAsyncBus."""

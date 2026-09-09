@@ -10,6 +10,8 @@ import subprocess
 from pathlib import Path
 
 from app.tools.base import ToolDefinition, ToolResult
+from app.guardrails.decorator import safety_gate
+from app.domain import SafetyTier
 
 # Cap diff output so it doesn't blow the context window
 DIFF_MAX_CHARS = 8000
@@ -95,7 +97,7 @@ GIT_TOOLS: list[ToolDefinition] = [
                 }
             },
         },
-        handler=git_log,
+        handler=safety_gate(tier=SafetyTier.SAFE)(git_log),
         risk_level="none",
         requires_confirmation=False,
     ),
@@ -109,7 +111,7 @@ GIT_TOOLS: list[ToolDefinition] = [
                 "to_ref":   {"type": "string", "default": "HEAD"},
             },
         },
-        handler=git_diff_stat,
+        handler=safety_gate(tier=SafetyTier.SAFE)(git_diff_stat),
         risk_level="none",
         requires_confirmation=False,
     ),
@@ -123,7 +125,7 @@ GIT_TOOLS: list[ToolDefinition] = [
                 "to_ref":   {"type": "string", "default": "HEAD"},
             },
         },
-        handler=git_diff_full,
+        handler=safety_gate(tier=SafetyTier.SAFE)(git_diff_full),
         risk_level="none",
         requires_confirmation=False,
     ),
@@ -136,7 +138,7 @@ GIT_TOOLS: list[ToolDefinition] = [
                 "ref": {"type": "string", "default": "HEAD"},
             },
         },
-        handler=git_show,
+        handler=safety_gate(tier=SafetyTier.SAFE)(git_show),
         risk_level="none",
         requires_confirmation=False,
     ),
@@ -144,7 +146,7 @@ GIT_TOOLS: list[ToolDefinition] = [
         name="git_tags",
         description="List all version tags in the repo",
         parameters={"type": "object", "properties": {}},
-        handler=git_tags,
+        handler=safety_gate(tier=SafetyTier.SAFE)(git_tags),
         risk_level="none",
         requires_confirmation=False,
     ),

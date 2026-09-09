@@ -10,6 +10,11 @@ from app.events import Event, InMemoryAsyncBus, StepExecutionEvent, TelemetryEve
 
 logger = logging.getLogger("jarvis.telemetry")
 
+# OTel semantic convention attributes
+OTEL_AGENT_NAME = "gen_ai.agent.name"
+OTEL_TOOL_NAME = "gen_ai.tool.name"
+OTEL_GUARDRAIL_RESULT = "gen_ai.guardrail.result"
+
 
 class EventLogger:
     """Subscriber logging passive bus events to standard telemetry output."""
@@ -28,10 +33,23 @@ class EventLogger:
         logger.info("EventLogger attached to InMemoryAsyncBus")
 
     async def _on_telemetry(self, event: TelemetryEvent) -> None:
-        logger.info("[TELEMETRY] [%s:%s] duration=%.2fms metadata=%s", event.component, event.category, event.duration_ms or 0.0, event.data)
+        logger.info(
+            f"[TELEMETRY] [{OTEL_AGENT_NAME}={event.component}] "
+            f"[{OTEL_TOOL_NAME}={event.category}] "
+            f"duration={event.duration_ms or 0.0}ms metadata={event.data}"
+        )
 
     async def _on_step_execution(self, event: StepExecutionEvent) -> None:
-        logger.info("[STEP] plan=%s step=%s title='%s' status=%s error=%s", event.plan_id, event.step_id, event.title, event.status.value, event.error or "none")
+        logger.info(
+            f"[STEP] [{OTEL_AGENT_NAME}=jarvis] "
+            f"[{OTEL_TOOL_NAME}={event.step_id}] "
+            f"plan={event.plan_id} step={event.step_id} title='{event.title}' "
+            f"status={event.status.value} error={event.error or 'none'}"
+        )
 
     async def _on_token_usage(self, event: TokenUsageEvent) -> None:
-        logger.info("[COST AUDIT] provider=%s model=%s tokens=%d (prompt=%d, completion=%d) cost=$%.6f", event.provider, event.model, event.total_tokens, event.prompt_tokens, event.completion_tokens, event.estimated_cost_usd)
+        logger.info(
+            f"[COST AUDIT] provider={event.provider} model={event.model} "
+            f"tokens={event.total_tokens} (prompt={event.prompt_tokens}, completion={event.completion_tokens}) "
+            f"cost=${event.estimated_cost_usd:.6f}"
+        )

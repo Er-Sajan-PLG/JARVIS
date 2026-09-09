@@ -18,6 +18,8 @@ import re
 from typing import Iterator
 
 from app.tools.base import ToolRegistry, ToolResult
+from app.guardrails.decorator import safety_gate
+from app.domain import SafetyTier
 
 # Matches: <tool_call>{"name": "...", "args": {...}}</tool_call>
 # Tolerates whitespace, newlines inside the tag
@@ -115,7 +117,7 @@ class ToolExecutor:
         return calls
 
     # ─── Execution ────────────────────────────────────────────────────────────
-
+    @safety_gate(tier=SafetyTier.SAFE)
     def run(self, call: ParsedCall) -> ToolResult:
         """
         Execute a single parsed tool call.
