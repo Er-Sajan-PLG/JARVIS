@@ -15,7 +15,7 @@ click==8.4.2
 cuda-pathfinder==1.5.5
 cuda-toolkit==13.0.2
 durationpy==0.10
-fastapi==0.115.0
+fastapi==0.141.1
 filelock==3.29.4
 flatbuffers==25.12.19
 frozenlist==1.8.0
@@ -80,9 +80,9 @@ propcache==0.5.2
 protobuf==7.35.1
 pybase64==1.4.3
 pymupdf==1.26.0
-pydantic==2.13.4
-pydantic-settings==2.14.2
-pydantic_core==2.46.4
+pydantic==2.13.5
+pydantic-settings==2.15.0
+pydantic_core==2.48.0
 Pygments==2.20.0
 PyPika==0.51.1
 pyproject_hooks==1.2.0
@@ -102,7 +102,7 @@ sentence-transformers==5.6.0
 setuptools==81.0.0
 shellingham==1.5.4
 six==1.17.0
-starlette==0.38.6
+starlette==1.6.0
 sympy==1.14.0
 tenacity==9.1.4
 tiktoken==0.13.0
@@ -116,7 +116,7 @@ typer==0.25.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.3.0
-uvicorn==0.32.0
+uvicorn==0.52.4
 uvloop==0.22.1
 watchfiles==1.2.0
 websocket-client==1.9.0
