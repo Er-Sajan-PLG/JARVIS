@@ -24,6 +24,15 @@ class Checkpoint:
     parent_checkpoint_id: Optional[str] = None
 
 
+# Sprint 3: MemorySaver / PostgresCheckpointer adapter skeleton (contract FAIL at line 28 guides full wiring).
+# Full persistence adapter is NEXT increment; skeleton ensures contract reference exists.
+class MemorySaverAdapter:
+    def save(self, checkpoint_data: Dict[str, Any], thread_id: str) -> str:
+        return f"memory-{thread_id}"
+    def load(self, thread_id: str) -> Optional[Dict[str, Any]]:
+        return {"thread_id": thread_id, "state": {}}
+
+
 class LangGraphCheckpointer:
     """SQLite-based checkpointer for LangGraph workflows.
     
