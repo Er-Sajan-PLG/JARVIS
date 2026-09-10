@@ -1,0 +1,29 @@
+# Gitleaks configuration for JARVIS.
+# Uses gitleaks' built-in rules (default) plus a small allowlist for
+# documentation and template files that legitimately contain placeholder
+# tokens. Do NOT add custom rules without a regex+path — an empty rule
+# makes gitleaks fail to load the config.
+
+title = "JARVIS gitleaks config"
+
+[extend]
+# Inherit all default gitleaks rules.
+useDefault = true
+
+[allowlist]
+description = "Repo-wide allowlist for docs, examples, and test fixtures"
+paths = [
+    '''\.env\.example$''',
+    '''\.gitleaks\.toml$''',
+    '''docs/ARCHITECTURE\.md$''',
+    '''docs/API_CONTRACT\.md$''',
+    '''tests/contract/.*\.py$''',
+]
+regexes = [
+    '''(?i)your[_-]?api[_-]?key''',
+    '''(?i)replace[_-]?me''',
+    '''(?i)example''',
+    '''(?i)dummy''',
+    '''(?i)dev-test-key''',
+    '''(?i)correct-key''',
+]
