@@ -104,7 +104,7 @@ You will see three workflows:
 |---|---|---|
 | **JARVIS-CI-Local** | Schedules the local CI gate (replaces GitHub Actions) | ✅ **Yes** |
 | **JARVIS-Cleanup** | Housekeeping via GitHub API | ⚠️ GitHub cred wired; review before use |
-| **JARVIS-HITL** | Human-in-the-loop approvals (Telegram/Slack) | ⚠️ Telegram wired; Slack + JARVIS callback pending |
+| **JARVIS-HITL** | Human-in-the-loop approvals (Telegram/Slack) | ❌ Not yet runnable — see §7.1 |
 
 ---
 
@@ -151,12 +151,41 @@ Manage them at **http://localhost:5678 → Credentials**.
 | `github-api-auth` | Header Auth (`Authorization: Bearer …`) | ✅ created from your n8n PAT |
 | `ci-bridge-auth` | Header Auth (`X-Bridge-Token: …`) | ✅ created (bridge secret) |
 | `telegram-credentials` | Telegram | ✅ created from your bot token (`naya_jarvis_bot`) |
-| `slack-credentials` | Slack | ❌ missing — add a Slack bot token to enable Slack HITL |
+| `slack-credentials` | Slack | ✅ created from your bot token (team `STEM`, bot `learninghub`) |
 | `jarvis-api-auth` | Header Auth | ❌ missing — add `JARVIS_API_KEY` for HITL callbacks |
 
 To add a missing one: **Credentials → Add credential → pick the type → paste the
 token → Save.** The workflow will pick it up automatically (the names must match
 exactly).
+
+### 7.1 Why JARVIS-HITL does not run yet (honest gap list)
+
+`JARVIS-HITL` was a Sprint-4 **contract artifact**: it describes the intended
+approval flow but was never executable. The tokens are now wired, but four concrete
+blockers remain — all outside n8n:
+
+1. **No callback endpoint.** The two `… Callback to JARVIS` nodes POST to
+   `/api/v1/hitl/approve`, which **does not exist**. `app/adapters/http/router.py`
+   only exposes `/api/v1/health` and `/api/v1/chat/completions`. Something must
+   implement that route before the loop can close.
+2. **No `JARVIS_API_KEY`.** `validate_api_key()` returns `"development"` and skips
+   auth when the var is unset, so there is no key to put in `jarvis-api-auth` yet.
+3. **Slack channel ID unknown.** The `Send to Slack` node needs a real channel ID
+   (e.g. `C0XXXXXXXXX`), and the `learninghub` bot must be **invited** to that
+   channel. Its token lacks `channels:read`, so it cannot list channels itself.
+   Set the node's `channel` field (currently `REPLACE_WITH_SLACK_CHANNEL_ID`).
+4. **Telegram chat ID unknown.** The `Send to Telegram` node needs a chat ID
+   (`REPLACE_WITH_TELEGRAM_CHAT_ID`). `getUpdates` currently returns HTTP 409
+   (another consumer / webhook is polling this bot), so the ID cannot be discovered
+   from the terminal.
+
+We also fixed an inherited bug: the notification nodes referenced
+`{{ $credentials.slackChannelId }}` / `{{ $credentials.telegramChatId }}` /
+`{{ $credentials.jarvisApiUrl }}` — fields that **do not exist** on those n8n
+credential types, so they resolved to empty strings and failed silently. They now
+read from explicit node fields / a literal URL.
+
+**Bottom line:** the CI path is real and verified; HITL is a labelled scaffold.
 
 ---
 

@@ -27,7 +27,7 @@ n8n (orchestration, :5678)  →  CI bridge (execution, :8770)  →  scripts/ci_b
 |---|---|---|---|
 | `workflows/JARVIS-Local-CI.json` | JARVIS-CI-Local | Manual/Schedule → Config → HTTP POST to bridge → Summarize | ✅ yes |
 | `workflows/JARVIS-Cleanup.json` | JARVIS-Cleanup | Schedule → git branches → PR list → branch-list → per-branch loop (HTTP GitHub API) | ⚠️ GitHub cred wired; not yet executed |
-| `workflows/JARVIS-HITL.json` | JARVIS-HITL | Webhook → normalize → decision → Slack/Telegram → callback | ⚠️ Telegram wired; Slack + JARVIS callback creds pending |
+| `workflows/JARVIS-HITL.json` | JARVIS-HITL | Webhook → normalize → decision → Slack/Telegram → callback | ❌ not yet runnable (see Honest gaps) |
 
 Each workflow JSON **must have a unique top-level `id`** — collisions cause silent
 overwrites on import. Ids in use:
@@ -43,7 +43,7 @@ overwrites on import. Ids in use:
 | `github-api-auth` | httpHeaderAuth | `n8n_github_token` (`JARVIS/.env`) | ✅ |
 | `ci-bridge-auth` | httpHeaderAuth | `CI_BRIDGE_TOKEN` (`.ci-bridge.env`) | ✅ |
 | `telegram-credentials` | telegramApi | `TELEGRAM_API_KEYS` (`JARVIS/.env`) → `naya_jarvis_bot` | ✅ |
-| `slack-credentials` | slackApi | — | ❌ missing |
+| `slack-credentials` | slackApi | `SLACK_BOT_TOKEN` (`JARVIS/.env`) → team `STEM`, bot `learninghub` | ✅ |
 | `jarvis-api-auth` | httpHeaderAuth | `JARVIS_API_KEY` | ❌ missing |
 
 ## Commands
@@ -79,9 +79,21 @@ n8n import:credentials --input=/path/to/cred.json
 
 ## Honest gaps
 
-- `JARVIS-Cleanup` and `JARVIS-HITL` have **not** been executed end-to-end. Their
-  credential references are wired, but `slack-credentials` and `jarvis-api-auth` do not
-  exist yet, so HITL cannot complete.
+- `JARVIS-Cleanup` and `JARVIS-HITL` have **not** been executed end-to-end.
+  `JARVIS-HITL` in particular is a **labelled scaffold**, not a working automation.
+  All three tokens are now wired (`github-api-auth`, `telegram-credentials`,
+  `slack-credentials`), but four blockers remain outside n8n:
+  1. `/api/v1/hitl/approve` **does not exist** in JARVIS (`app/adapters/http/router.py`
+     exposes only `/api/v1/health` and `/api/v1/chat/completions`).
+  2. No `JARVIS_API_KEY` is set, so `jarvis-api-auth` cannot be created.
+  3. The Slack node needs a real channel **ID** (and the bot invited to it); the
+     token lacks `channels:read`, so it cannot list channels itself.
+  4. The Telegram node needs a chat **ID**; `getUpdates` returns HTTP 409 (another
+     consumer is polling the bot).
+  The nodes' channel/chat fields are marked `REPLACE_WITH_…`. We also fixed an
+  inherited bug: the nodes referenced `$credentials.slackChannelId` /
+  `$credentials.telegramChatId` / `$credentials.jarvisApiUrl` — fields that do not
+  exist on those n8n credential types (they resolved empty and failed silently).
 - `JARVIS-Release` / `JARVIS-Incident` (Sprint-4 contract targets) do not exist.
 - The original three workflow JSONs were **contract artifacts**, not runnable
   automations (they used the removed `executeCommand` node and a stale `--poll-once`

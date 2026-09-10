@@ -35,7 +35,7 @@
       "parameters": {
         "resource": "message",
         "operation": "send",
-        "channel": "={{ $credentials.slackChannelId }}",
+        "channel": "REPLACE_WITH_SLACK_CHANNEL_ID",
         "text": "={{ $json.message }}",
         "blocksUi": {
           "blocks": [
@@ -86,14 +86,17 @@
         200
       ],
       "credentials": {
-        "slackApi": "slack-credentials"
+        "slackApi": {
+          "id": "lMrhAP6nzQjAyQVF",
+          "name": "slack-credentials"
+        }
       }
     },
     {
       "parameters": {
         "resource": "message",
         "operation": "send",
-        "chatId": "={{ $credentials.telegramChatId }}",
+        "chatId": "REPLACE_WITH_TELEGRAM_CHAT_ID",
         "text": "={{ $json.message }}",
         "replyMarkup": {
           "inlineKeyboard": [
@@ -173,16 +176,12 @@
     },
     {
       "parameters": {
-        "url": "={{ $credentials.jarvisApiUrl }}/api/v1/hitl/approve",
+        "url": "http://127.0.0.1:8000/api/v1/hitl/approve",
         "method": "POST",
         "jsonParameters": true,
         "options": {},
         "headerParametersUi": {
           "parameter": [
-            {
-              "name": "Authorization",
-              "value": "Bearer {{ $credentials.jarvisApiKey }}"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -245,16 +244,12 @@
     },
     {
       "parameters": {
-        "url": "={{ $credentials.jarvisApiUrl }}/api/v1/hitl/approve",
+        "url": "http://127.0.0.1:8000/api/v1/hitl/approve",
         "method": "POST",
         "jsonParameters": true,
         "options": {},
         "headerParametersUi": {
           "parameter": [
-            {
-              "name": "Authorization",
-              "value": "Bearer {{ $credentials.jarvisApiKey }}"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
