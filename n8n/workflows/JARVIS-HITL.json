@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "functionCode": "const payload = items[0].json;\n\nconst approvalId = payload.approval_id;\nconst tool = payload.tool;\nconst params = payload.params;\nconst sessionId = payload.session_id;\nconst reason = payload.reason || 'No reason provided';\n\nconst message = `JARVIS HITL Request\n\nApproval ID: ${approvalId}\nTool: ${tool}\nSession: ${sessionId}\nReason: ${reason}\n\nParameters:\n${JSON.stringify(params, null, 2)}\n\nAction required: Approve or Deny within 30 minutes.`;\n\nreturn [{\n  json: {\n    approvalId,\n    tool,\n    params,\n    sessionId,\n    reason,\n    message,\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "functionCode": "const payload = items[0].json;\n\nconst planId = payload.plan_id || payload.planId;\nconst stepId = payload.step_id || payload.stepId;\nconst tool = payload.tool_name || payload.tool || 'unknown';\nconst tier = payload.safety_tier || 'destructive';\nconst reason = payload.description || payload.reason || 'No reason provided';\n\nif (!planId || !stepId) {\n  throw new Error('HITL payload must include plan_id and step_id');\n}\n\nconst message = `JARVIS HITL Request\n\nPlan: ${planId}\nStep: ${stepId}\nTool: ${tool}\nTier: ${tier}\nReason: ${reason}\n\nAction required: Approve or Deny within 30 minutes.`;\n\nreturn [{\n  json: { planId, stepId, tool, tier, reason, message, timestamp: new Date().toISOString() }\n}];"
       },
       "id": "format-notification",
       "name": "Format Notification",
@@ -168,7 +168,7 @@
     },
     {
       "parameters": {
-        "functionCode": "const callback = items[0].json;\nconst approvalId = callback.approval_id;\nconst approved = callback.approved === true;\n\nif (!approvalId || approved === undefined) {\n  throw new Error('Invalid callback: missing approval_id or approved');\n}\n\nreturn [{\n  json: {\n    approvalId,\n    approved,\n    decidedAt: new Date().toISOString()\n  }\n}];"
+        "functionCode": "const callback = items[0].json;\n\nconst planId = callback.plan_id || callback.planId;\nconst stepId = callback.step_id || callback.stepId;\nconst raw = callback.decision !== undefined\n  ? callback.decision\n  : (callback.approved === true ? 'approve' : 'deny');\nconst decision = String(raw).toLowerCase();\n\nif (!planId || !stepId) {\n  throw new Error('Invalid callback: missing plan_id or step_id');\n}\nif (decision !== 'approve' && decision !== 'deny') {\n  throw new Error(\"Invalid callback: decision must be 'approve' or 'deny'\");\n}\n\nreturn [{\n  json: {\n    planId,\n    stepId,\n    decision,\n    approver: callback.approver || 'n8n:callback',\n    decidedAt: new Date().toISOString()\n  }\n}];"
       },
       "id": "parse-callback",
       "name": "Parse Callback",
@@ -193,7 +193,9 @@
             }
           ]
         },
-        "bodyParametersJson": "{\n  \"approval_id\": \"={{ $json.approvalId }}\",\n  \"approved\": {{ $json.approved }}\n}"
+        "bodyParametersJson": "{\n  \"plan_id\": \"={{ $json.planId }}\",\n  \"step_id\": \"={{ $json.stepId }}\",\n  \"decision\": \"={{ $json.decision }}\",\n  \"approver\": \"={{ $json.approver }}\"\n}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "id": "jarvis-callback",
       "name": "Callback to JARVIS",
@@ -204,12 +206,15 @@
         300
       ],
       "credentials": {
-        "httpHeaderAuth": "jarvis-api-auth"
+        "httpHeaderAuth": {
+          "id": "Kc1CtJNNwhWnTeP0",
+          "name": "jarvis-api-auth"
+        }
       }
     },
     {
       "parameters": {
-        "functionCode": "const result = items[0].json;\n\nreturn [{\n  json: {\n    approval_id: result.approvalId,\n    approved: result.approved,\n    message: result.approved ? 'Approved - execution resumed' : 'Denied - execution halted',\n    decided_at: result.decidedAt\n  }\n}];"
+        "functionCode": "const result = items[0].json;\n\nreturn [{\n  json: {\n    plan_id: result.planId,\n    step_id: result.stepId,\n    decision: result.decision,\n    message: result.decision === 'approve'\n      ? 'Approved - execution resumed'\n      : 'Denied - execution halted',\n    decided_at: result.decidedAt\n  }\n}];"
       },
       "id": "format-response",
       "name": "Format Response",
@@ -236,7 +241,7 @@
     },
     {
       "parameters": {
-        "functionCode": "return [{\n  json: {\n    approval_id: \"{{ $('Format Notification').item.json.approvalId }}\",\n    approved: false,\n    reason: 'Timeout - auto-denied after 30 minutes',\n    decided_at: new Date().toISOString()\n  }\n}];"
+        "functionCode": "const formatted = $('Format Notification').item.json;\n\nreturn [{\n  json: {\n    planId: formatted.planId,\n    stepId: formatted.stepId,\n    decision: 'deny',\n    approver: 'n8n:timeout',\n    reason: 'Timeout - auto-denied after 30 minutes',\n    decidedAt: new Date().toISOString()\n  }\n}];"
       },
       "id": "auto-deny",
       "name": "Auto-Deny (Timeout)",
@@ -261,7 +266,9 @@
             }
           ]
         },
-        "bodyParametersJson": "{\n  \"approval_id\": \"={{ $('Format Notification').item.json.approvalId }}\",\n  \"approved\": false\n}"
+        "bodyParametersJson": "{\n  \"plan_id\": \"={{ $json.planId }}\",\n  \"step_id\": \"={{ $json.stepId }}\",\n  \"decision\": \"deny\",\n  \"approver\": \"n8n:timeout\",\n  \"reason\": \"Timeout - auto-denied after 30 minutes\"\n}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "id": "timeout-callback",
       "name": "Timeout Callback to JARVIS",
@@ -272,7 +279,10 @@
         500
       ],
       "credentials": {
-        "httpHeaderAuth": "jarvis-api-auth"
+        "httpHeaderAuth": {
+          "id": "Kc1CtJNNwhWnTeP0",
+          "name": "jarvis-api-auth"
+        }
       }
     },
     {
