@@ -2,6 +2,12 @@
 
 All notable changes to the JARVIS project from initial commit (`1999e53`) to `HEAD` (`ec0dc4e`) are documented in this file.
 
+## [v1.2.0.dirty] — setup + Sprint 3 base
+- Setup: governance (8/8), CI gate (ratchet + worktree shadow), hooks, docs, USAT audit (76.2/100 production)
+- Sprint 3: typed-state contract (`IntentState`); adapter reads wrapper; contract FAIL assertions present (3 targets)
+- ARCH-003 (archive verified) + ARCH-007 (`HF_API_URL` externalised); SEC-002 masked
+- Version: derived `v1.2.0.dirty` (from `pyproject.toml`); bump script implemented
+
 ---
 
 ## [v3.0.0 Refactored]
