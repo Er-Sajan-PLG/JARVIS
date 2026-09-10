@@ -259,4 +259,9 @@ docker-compose.override.yml
 ###############################################################################
 
 scripts/verify.py
-scripts/verify_git_safety.pygovernance-report.json
+scripts/verify_git_safety.py
+
+# Governance scanner output (generated per run — never commit)
+.governance/
+governance-report.json
+sbom.json
