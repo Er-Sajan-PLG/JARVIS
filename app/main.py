@@ -4,11 +4,12 @@ Wires HTTP REST adapters, WebSockets / SSE streaming adapters, CORS middleware,
 frontend static asset mounts, and ApplicationContainer bootstrap initialization.
 """
 
+import logging
+import os
+import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-import uuid
-import time
-import logging
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,12 +17,14 @@ from fastapi.staticfiles import StaticFiles
 
 from app.adapters import http_router, ws_router
 from app.bootstrap import bootstrap_system
-from app.telemetry import MetricsCollector, Tracer
 
 # Structured logging setup
 logging.basicConfig(
     level=logging.INFO,
-    format='{"timestamp": "%(asctime)s", "level": "%(levelname)s", "logger": "%(name)s", "message": "%(message)s"}',
+    format=(
+        '{"timestamp": "%(asctime)s", "level": "%(levelname)s", '
+        '"logger": "%(name)s", "message": "%(message)s"}'
+    ),
 )
 logger = logging.getLogger(__name__)
 
@@ -38,16 +41,16 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="JARVIS Personal AI Platform",
     version="3.0.0",
-    description="Single-tenant personal AI assistant platform with hybrid cognitive execution engine.",
+    description=(
+        "Single-tenant personal AI assistant platform with hybrid cognitive execution engine."
+    ),
     lifespan=lifespan,
 )
-
-import os
 
 # 1. CORS Middleware
 allowed_origins = os.environ.get(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:8000,http://localhost:3000,http://127.0.0.1:8000,http://127.0.0.1:3000"
+    "http://localhost:8000,http://localhost:3000,http://127.0.0.1:8000,http://127.0.0.1:3000",
 ).split(",")
 
 app.add_middleware(
@@ -57,6 +60,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # 2. Request/Response logging middleware with correlation IDs
 @app.middleware("http")
@@ -64,12 +68,18 @@ async def logging_middleware(request: Request, call_next):
     correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
     start_time = time.time()
 
-    logger.info(f'{{"event": "request_start", "correlation_id": "{correlation_id}", "method": "{request.method}", "path": "{request.url.path}"}}')
+    logger.info(
+        f'{{"event": "request_start", "correlation_id": "{correlation_id}", '
+        f'"method": "{request.method}", "path": "{request.url.path}"}}'
+    )
 
     response = await call_next(request)
 
     process_time = time.time() - start_time
-    logger.info(f'{{"event": "request_end", "correlation_id": "{correlation_id}", "status_code": {response.status_code}, "duration_ms": {process_time * 1000:.2f}}}')
+    logger.info(
+        f'{{"event": "request_end", "correlation_id": "{correlation_id}", '
+        f'"status_code": {response.status_code}, "duration_ms": {process_time * 1000:.2f}}}'
+    )
 
     response.headers["X-Correlation-ID"] = correlation_id
     response.headers["X-Process-Time"] = str(process_time)
@@ -77,25 +87,11 @@ async def logging_middleware(request: Request, call_next):
     return response
 
 
-# 1. CORS Middleware
-allowed_origins = os.environ.get(
-    "CORS_ALLOWED_ORIGINS",
-    "http://localhost:8000,http://localhost:3000,http://127.0.0.1:8000,http://127.0.0.1:3000"
-).split(",")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[origin.strip() for origin in allowed_origins if origin.strip()],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 2. Register Adapter Routers
+# 3. Register Adapter Routers
 app.include_router(http_router)
 app.include_router(ws_router)
 
-# 3. Mount Frontend Static Files if directory exists
+# 4. Mount Frontend Static Files if directory exists
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
@@ -112,6 +108,7 @@ async def health_check():
 async def readiness_check():
     """Readiness probe - checks if all subsystems are initialized."""
     import json as _json
+
     try:
         container = bootstrap_system()
         checks = {
@@ -140,25 +137,20 @@ async def readiness_check():
 async def metrics_endpoint():
     """Prometheus metrics endpoint."""
     container = bootstrap_system()
-    metrics = container.metrics if hasattr(container, 'metrics') else None
+    metrics = container.metrics if hasattr(container, "metrics") else None
 
     if metrics:
         # Return Prometheus-format metrics
-        metrics_text = metrics.export_prometheus() if hasattr(metrics, 'export_prometheus') else "# No metrics available"
+        metrics_text = (
+            metrics.export_prometheus()
+            if hasattr(metrics, "export_prometheus")
+            else "# No metrics available"
+        )
         return Response(content=metrics_text, media_type="text/plain")
     return Response(content="# Metrics not available", media_type="text/plain")
 
 
-# 2. Register Adapter Routers
-app.include_router(http_router)
-app.include_router(ws_router)
-
-# 3. Mount Frontend Static Files if directory exists
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
-if FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
-
-
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

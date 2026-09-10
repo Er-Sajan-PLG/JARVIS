@@ -6,23 +6,23 @@ and required tools without incurring unnecessary LLM latency for simple requests
 
 from dataclasses import dataclass, field
 from enum import Enum
-import re
 
 # LangGraph typed-state (Sprint 3 capability contract, ADR-006, AGENTS.md §5)
-from app.domain import IntentState, PlanState
 
 
 class IntentComplexity(str, Enum):
     """Complexity classification of user intent."""
-    DIRECT_CHAT = "direct_chat"      # Fast path: direct LLM response, no tools needed
-    FILE_QUERY = "file_query"        # Reading/analyzing uploaded files or workspace
-    TOOL_SEARCH = "tool_search"      # Web search, OCR, or information retrieval
-    MULTI_STEP = "multi_step"        # Slow path: requires dynamic ExecutionPlan with steps
+
+    DIRECT_CHAT = "direct_chat"  # Fast path: direct LLM response, no tools needed
+    FILE_QUERY = "file_query"  # Reading/analyzing uploaded files or workspace
+    TOOL_SEARCH = "tool_search"  # Web search, OCR, or information retrieval
+    MULTI_STEP = "multi_step"  # Slow path: requires dynamic ExecutionPlan with steps
 
 
 @dataclass
 class IntentAnalysis:
     """Result of intent analysis."""
+
     complexity: IntentComplexity
     requires_tools: bool = False
     suggested_tools: list[str] = field(default_factory=list)
@@ -30,11 +30,9 @@ class IntentAnalysis:
     reasoning: str = ""
 
 
-# Sprint 3: LangGraph typed-state graph definition (minimal — node skeleton only; full wiring in next increment)
-from langgraph.graph import StateGraph, START, END
-
-# Sprint 3 capability (ADR-006, docs/ROADMAP.md Sprint 3): define node skeleton.
-# Full execution (intent_analyzer -> planner -> executor -> synthesizer) is the NEXT increment.
+# Sprint 3 (ADR-006): node names for the typed-state graph skeleton. These are consumed
+# by app/brain/graph.py. NB: the langgraph package is NOT a runtime dependency of the
+# cognitive loop — the loop uses the heuristic IntentAnalyzer below. See graph.py.
 NODE_NODES = {"intent_analyzer", "task_planner", "tool_executor", "response_synthesizer"}
 
 
@@ -63,8 +61,16 @@ class IntentAnalyzer:
 
         # Multi-step complex task indicators
         multi_step_keywords = (
-            "refactor", "build", "create project", "setup", "search and analyze",
-            "audit", "deploy", "run tests", "git commit", "fix bug across"
+            "refactor",
+            "build",
+            "create project",
+            "setup",
+            "search and analyze",
+            "audit",
+            "deploy",
+            "run tests",
+            "git commit",
+            "fix bug across",
         )
         if any(kw in text for kw in multi_step_keywords):
             return IntentAnalysis(
@@ -84,15 +90,11 @@ class IntentAnalyzer:
                 reasoning="Information retrieval or tool keyword detected",
             )
 
-        # Sprint 3 (Capability Contract, ADR-006): return typed-state contract
-        # (IntentState TypedDict) rather than bare IntentAnalysis, so the
-        # LangGraph graph nodes have a typed interface.
-        return IntentState(
-            analysis=IntentAnalysis(
-                complexity=IntentComplexity.DIRECT_CHAT,
-                requires_tools=False,
-                reasoning="Simple conversation query (fast path)",
-            ),
-            session_id="default",
-            prompt=query,
-        )  # type: ignore[arg-type]  # IntentState is TypedDict; runtime compatible
+        # Fast path: plain conversation. NB: this must return IntentAnalysis, like every
+        # other branch — the typed-state (IntentState) wrapping belongs in the graph node
+        # (app/brain/graph.py intent_analyzer_node), not in the analyzer itself.
+        return IntentAnalysis(
+            complexity=IntentComplexity.DIRECT_CHAT,
+            requires_tools=False,
+            reasoning="Simple conversation query (fast path)",
+        )

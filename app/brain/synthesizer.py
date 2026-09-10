@@ -1,14 +1,13 @@
 """Final Response Synthesizer.
 
-Assembles the final streaming LLM response chunks, injecting provenance citations, tool outputs, and formatted output.
+Assembles the final streaming LLM response chunks, injecting provenance citations,
+tool outputs, and formatted output.
 """
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
-from app.domain import ExecutionPlan, Message, Role
+from app.domain import ExecutionPlan
 
-
-from langgraph.graph import StateGraph, START, END  # Sprint 3: graph wiring skeleton
 NODE_FLOW = ("intent_analyzer", "task_planner", "tool_executor", "response_synthesizer")
 
 

@@ -7,16 +7,23 @@ will flip PASS once full graph is wired (node definitions + adapter persistence)
 Next increment: adapter full persistence wiring + node logic.
 """
 
-from langgraph.graph import StateGraph, START, END
-from typing import TypedDict, Any
+# langgraph is an OPTIONAL dependency, required only for this Sprint-3 graph skeleton.
+# It is deliberately NOT in requirements.txt: the shipped cognitive loop (IntentAnalyzer /
+# TaskPlanner / ExecutionRunner) is heuristic and does not import this module. Install
+# `langgraph` to exercise the graph; note it constrains websockets<17 (see ACCEPTED_RISKS).
+try:
+    import langgraph.graph as _langgraph_graph  # noqa: F401
+
+    LANGGRAPH_AVAILABLE = True
+except ModuleNotFoundError:  # pragma: no cover - env without the optional dep
+    LANGGRAPH_AVAILABLE = False
 
 # Import typed-state definitions (Sprint 3 contract, app/domain/state.py)
-from app.domain import IntentState, PlanState, ExecutionState, ResponseState
+from app.brain.analyzer import IntentAnalyzer
+from app.brain.planner import TaskPlanner
+from app.domain import ExecutionState, IntentState, PlanState, ResponseState
 from app.session.checkpointer import MemorySaverAdapter
 
-from app.brain.analyzer import IntentAnalyzer, IntentAnalysis
-from app.brain.planner import TaskPlanner
-from app.brain.synthesizer import ResponseSynthesizer
 # Note: tool_executor node skeleton will be wired in next increment.
 
 # Define node function skeletons (typed contract per AGENTS.md §5 / docs/CAPABILITY-CONTRACT.md)
@@ -49,7 +56,7 @@ def task_planner_node(state: IntentState) -> PlanState:
 
 
 def tool_executor_node(state: PlanState) -> ExecutionState:
-    """Node 3: Tool execution (typed-state contract; HITL approvals applied; adapter persistence verified)."""
+    """Node 3: Tool execution (typed-state contract; HITL approvals applied)."""
     adapter = MemorySaverAdapter()
     adapter.save(checkpoint_data=state.get("plan") or {}, thread_id="default")
     return {
@@ -61,9 +68,12 @@ def tool_executor_node(state: PlanState) -> ExecutionState:
 
 def response_synthesizer_node(state: ExecutionState) -> ResponseState:
     """Node 4: Final response synthesis (typed-state contract)."""
-    synthesizer = ResponseSynthesizer()
-    # Full synthesis with provenance -> next increment (after adapter persistence verified)
-    synthesized_text = "Sprint 3: typed-state contract verified (StateGraph wired); adapter persistence + node logic -> next increment."
+    # Real synthesis (ResponseSynthesizer + provenance) is wired in the next increment
+    # (ADR-006); this node currently publishes the typed-state contract only.
+    synthesized_text = (
+        "Sprint 3: typed-state contract verified (StateGraph wired); "
+        "adapter persistence + node logic -> next increment."
+    )
     return {
         "synthesized": synthesized_text,
         "executed": state.get("executed"),
@@ -72,13 +82,18 @@ def response_synthesizer_node(state: ExecutionState) -> ResponseState:
 
 # Define the full execution graph connecting nodes per Sprint 3 capability contract.
 # This closes the gap between node skeleton (NODE_NODES / NODE_FLOW) and real typed-state routing.
-graph = StateGraph(state_schema=IntentState)
-graph.add_node("intent_analyzer", intent_analyzer_node)
-graph.add_node("task_planner", task_planner_node)
-graph.add_node("tool_executor", tool_executor_node)
-graph.add_node("response_synthesizer", response_synthesizer_node)
-graph.add_edge(START, "intent_analyzer")
-graph.add_edge("intent_analyzer", "task_planner")
-graph.add_edge("task_planner", "tool_executor")
-graph.add_edge("tool_executor", "response_synthesizer")
-graph.add_edge("response_synthesizer", END)
+if LANGGRAPH_AVAILABLE:
+    from langgraph.graph import END, START, StateGraph
+
+    graph = StateGraph(state_schema=IntentState)
+    graph.add_node("intent_analyzer", intent_analyzer_node)
+    graph.add_node("task_planner", task_planner_node)
+    graph.add_node("tool_executor", tool_executor_node)
+    graph.add_node("response_synthesizer", response_synthesizer_node)
+    graph.add_edge(START, "intent_analyzer")
+    graph.add_edge("intent_analyzer", "task_planner")
+    graph.add_edge("task_planner", "tool_executor")
+    graph.add_edge("tool_executor", "response_synthesizer")
+    graph.add_edge("response_synthesizer", END)
+else:  # pragma: no cover - optional dep absent
+    graph = None
