@@ -72,10 +72,11 @@ async def chat_completions(payload: dict[str, Any]) -> dict[str, Any]:
     # 4. Record metrics
     container.metrics.record_request()
 
+    inner_analysis = analysis.get("analysis") if isinstance(analysis, dict) else analysis
     return {
         "session_id": session_id,
         "plan_id": executed_plan.plan_id,
         "status": "completed" if executed_plan.is_complete else ("failed" if executed_plan.has_failed else "running"),
         "steps_count": len(executed_plan.steps),
-        "complexity": analysis.complexity.value,
+        "complexity": inner_analysis.complexity.value,
     }
