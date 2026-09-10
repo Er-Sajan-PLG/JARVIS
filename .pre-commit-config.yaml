@@ -33,5 +33,12 @@ repos:
     rev: v1.11.2
     hooks:
       - id: mypy
-        args: [--strict, app/]
+        # Scope to STAGED files. `args: [--strict, app/]` made pre-commit run a
+        # full strict scan of app/ on any commit touching one .py file, which
+        # can never pass (465+ pre-existing errors) -- so every Python commit
+        # was blocked and people reached for --no-verify. The repo-wide ceiling
+        # is enforced by gate_mypy against .governance/mypy_baseline.txt instead.
+        # --ignore-missing-imports: this hook's isolated venv has no project deps
+        # (uvicorn etc.), so without it every file reports phantom import errors.
+        args: [--strict, --ignore-missing-imports]
         additional_dependencies: [types-requests]

@@ -263,6 +263,7 @@ scripts/verify_git_safety.py
 
 # Governance scanner output (generated per run — never commit)
 .governance/
+!.governance/mypy_baseline.txt
 governance-report.json
 sbom.json
 

@@ -1,8 +1,8 @@
 # JARVIS Architecture — Living Document v3.0.0
 
-**Status**: IMPLEMENTED (forensic-verified)  
-**Source of Truth**: `/home/sajan/Projects/JARVIS` @ `e8bef8f`  
-**Last Updated**: 2026-09-10  
+**Status**: IMPLEMENTED (forensic-verified)
+**Source of Truth**: `/home/sajan/Projects/JARVIS` @ `e8bef8f`
+**Last Updated**: 2026-09-10
 **Workflow Orchestration**: n8n (external)
 
 ---
@@ -62,6 +62,64 @@ JARVIS is a **single-tenant personal AI platform** built on a **Pragmatic Hybrid
 ```
 
 ---
+
+### Topology (rendered)
+
+```mermaid
+graph TD
+    Client[Web Client / REST API / WS] -->|HTTP / WS| Adapters[app/adapters/ Layer]
+    Adapters -->|Token Auth & Forward| Bootstrap[app/bootstrap.py Composition Root]
+    Bootstrap -->|Inject Dependencies| Brain[app/brain/ Cognitive Engine]
+
+    subgraph "Cognitive Engine Loop (Direct await)"
+        Brain --> Analyzer[IntentAnalyzer]
+        Analyzer --> Planner[TaskPlanner]
+        Planner --> Runner[ExecutionRunner]
+        Runner --> Synthesizer[ResponseSynthesizer]
+    end
+
+    subgraph "Services & Subsystems"
+        Runner -->|Evaluate Policy| Safety[app/guardrails/ Safety Policy]
+        Brain -->|Assemble Context| Context[app/context/ ContextBuilder]
+        Brain -->|Route LLM Calls| Models[app/models/ ModelRouter]
+        Brain -->|Memory Queries| Memory[app/memory/ MemoryService]
+        Brain -->|Session Lookup| Session[app/session/ SessionManager]
+        Brain -->|Workspace Scan| Workspace[app/workspace/ WorkspaceManager]
+    end
+
+    subgraph "Pure Business Domain Layer"
+        Context & Models & Memory & Session & Workspace --> Domain[app/domain/ Pure Dataclasses]
+    end
+
+    subgraph "Passive Event Telemetry"
+        Runner & Models & Memory -->|Publish Events| Bus[app/events/ InMemoryAsyncBus]
+        Bus -->|Subscribe| Telemetry[app/telemetry/ EventLogger & Metrics]
+    end
+
+    subgraph "Third-Party Integrations"
+        Memory & Workspace -->|Wrapped Integration| OSS[app/integrations/ ChromaDB & OCR]
+    end
+```
+
+### Package boundaries (rendered)
+
+```mermaid
+graph LR
+    app_adapters[app/adapters] --> app_bootstrap[app/bootstrap]
+    app_adapters --> app_brain[app/brain]
+    app_bootstrap --> app_brain
+    app_bootstrap --> app_models[app/models]
+    app_bootstrap --> app_resources[app/resources]
+    app_bootstrap --> app_memory[app/memory]
+    app_bootstrap --> app_session[app/session]
+    app_bootstrap --> app_workspace[app/workspace]
+    app_brain --> app_domain[app/domain]
+    app_brain --> app_events[app/events]
+    app_brain --> app_guardrails[app/guardrails]
+    app_models --> app_resources
+    app_memory --> app_integrations[app/integrations]
+    app_telemetry[app/telemetry] --> app_events
+```
 
 ## 3. Cognitive Engine Loop (Direct Async)
 

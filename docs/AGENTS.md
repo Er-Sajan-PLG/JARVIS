@@ -1,5 +1,10 @@
 # JARVIS Agents — `app/agents/`
 
+> **Not to be confused with the repo-root [`AGENTS.md`](../AGENTS.md).** That
+> file is the authoritative governance standard. This file documents the
+> `app/agents/` package only.
+
+
 > Scope of this document: only the code under `app/agents/` and the modules it
 > directly imports/invokes were inspected. Every claim below was checked against
 > source files; discrepancies found during review are called out explicitly.
@@ -422,8 +427,3 @@ I compared the repository commit history for the files referenced above to verif
   - f9fa068 | Er Sajan PLG | 2026-07-18 18:05:40 +0545 | feat: add web UI, FastAPI server, and fix batch of issues
 
 Conclusion: the git history shows the DocumentationAgent and the tool infrastructure were introduced together and received follow-up changes across the commits listed above. These findings align with the claims in this document (tool registration, `append_file` dead-code observation, missing `git_diff` helper, and `write_file` requiring confirmation). If you'd like, I can update specific assertions in the prose to cite the exact commit hashes shown above or open a PR that references these commits inline.
-
-
-
-
-

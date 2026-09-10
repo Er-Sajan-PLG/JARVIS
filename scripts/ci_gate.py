@@ -425,23 +425,86 @@ def gate_compileall(worktree: Path) -> Check:
 
 
 def gate_mypy(worktree: Path) -> Check:
-    """REPORTED ONLY — 591 legacy errors, tracked as RISK-005."""
+    """ENFORCED CEILING — mypy --strict app/ may not get worse (RISK-005).
+
+    This used to be `blocking=False` with the rationale "mypy stays CI-only
+    until burn-down, CI flips to hard-enforce per sprint". Two problems with
+    that, both raised by the owner:
+
+      1. "Per sprint" was not a date. There is no dated sprint schedule in this
+         repo, so the promise could never lapse, never be checked, and never
+         fail. An accepted risk with an unverifiable deadline is an ignored risk.
+
+      2. Reported-only means a PR could ADD type errors and still go green. The
+         number only ever went up.
+
+    A ratchet is the honest middle: the ceiling lives in
+    `.governance/mypy_baseline.txt`, and this gate fails when the count RISES.
+    Fixing the 494 legacy errors is NOT required here and is not the point --
+    not adding to them is. Lower the baseline when you fix some (that is the
+    only direction it may be edited without a recorded decision).
+
+    If the baseline file is absent the gate degrades to reported-only rather
+    than blocking every PR on a file someone forgot to commit.
+    """
     mypy = _tool("mypy")
     if not mypy:
         return Check("mypy", "Lint & Typecheck", False, "skip", "mypy not installed")
+
     res = _run([mypy, "--strict", "app/"], cwd=worktree, timeout=1800, env=_worktree_env(worktree))
     out = res.stdout + res.stderr
     last = out.strip().splitlines()[-1] if out.strip() else ""
-    status = "pass" if res.returncode == 0 else "fail"
-    return Check(
-        "mypy",
-        "Lint & Typecheck",
-        False,
-        status,
-        last or f"mypy exit {res.returncode}",
-        exit_code=res.returncode,
-        output=_tail(out),
-    )
+
+    m = re.search(r"Found (\d+) error", out)
+    current = int(m.group(1)) if m else (0 if res.returncode == 0 else None)
+
+    baseline_path = worktree / ".governance" / "mypy_baseline.txt"
+    ceiling = None
+    if baseline_path.is_file():
+        for line in baseline_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                ceiling = int(line)
+                break
+
+    if ceiling is None:
+        return Check(
+            "mypy",
+            "Lint & Typecheck",
+            False,
+            "pass" if res.returncode == 0 else "fail",
+            f"no baseline file; reported only. {last}",
+            exit_code=res.returncode,
+            output=_tail(out),
+        )
+
+    if current is None:
+        return Check(
+            "mypy",
+            "Lint & Typecheck",
+            True,
+            "fail",
+            f"mypy produced no parseable count (exit {res.returncode}): {last}",
+            exit_code=res.returncode,
+            output=_tail(out),
+        )
+
+    if current > ceiling:
+        return Check(
+            "mypy",
+            "Lint & Typecheck",
+            True,
+            "fail",
+            f"REGRESSION: {current} strict errors, ceiling is {ceiling} "
+            f"(+{current - ceiling}). Fix the new ones, or record the raise in RISK-005.",
+            exit_code=res.returncode,
+            output=_tail(out),
+        )
+
+    detail = f"{current} strict errors (ceiling {ceiling})"
+    if current < ceiling:
+        detail += " — DOWN, lower the baseline to lock the gain"
+    return Check("mypy", "Lint & Typecheck", True, "pass", detail, output=_tail(out))
 
 
 def gate_bandit(worktree: Path) -> Check:

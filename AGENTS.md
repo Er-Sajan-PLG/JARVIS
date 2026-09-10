@@ -1,5 +1,10 @@
 # JARVIS Agent Standards & Governance
 
+> **Not to be confused with [`docs/AGENTS.md`](docs/AGENTS.md).** That file
+> documents the `app/agents/` package. This file is the authoritative
+> governance standard every agent must follow.
+
+
 **Version**: 1.0.0
 **Status**: ACTIVE - All agents MUST follow these standards
 **Authority**: Architecture Review Board

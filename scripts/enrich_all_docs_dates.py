@@ -26,11 +26,12 @@ VERSION_DATE_MAP = {
     "v2.4.2": ("2026-07-14", "2026-07-14", "6034224"),
     "v2.5.0": ("2026-07-18", "2026-07-18", "f9fa068"),
     "v3.0.1 Refactored": ("2026-07-28", "2026-07-28", "ec0dc4e"),
-    "v3.0.1": ("2026-07-19 / 2026-07-26", "2026-07-26", "81e45f0")
+    "v3.0.1": ("2026-07-19 / 2026-07-26", "2026-07-26", "81e45f0"),
 }
 
-def scan_and_enrich_file(filepath):
-    with open(filepath, "r", encoding="utf-8") as f:
+
+def scan_and_enrich_file(filepath: str) -> None:
+    with open(filepath, encoding="utf-8") as f:
         content = f.read()
 
     lines = content.splitlines()
@@ -40,7 +41,9 @@ def scan_and_enrich_file(filepath):
     for line in lines:
         new_lines.append(line)
         # Check if line is a version heading e.g. # vX.Y.Z, ## vX.Y.Z, ### vX.Y.Z or [vX.Y.Z]
-        m = re.search(r"^(?:#+|\#\#+|\#\#\#+)\s+\[?(v\d+\.\d+\.\d+(?:\s+Refactored)?)\]?", line, re.IGNORECASE)
+        m = re.search(
+            r"^(?:#+|\#\#+|\#\#\#+)\s+\[?(v\d+\.\d+\.\d+(?:\s+Refactored)?)\]?", line, re.IGNORECASE
+        )
         if m:
             v_tag = m.group(1).strip()
             # Find matching tag in map
@@ -52,12 +55,11 @@ def scan_and_enrich_file(filepath):
 
             if matched_key:
                 feat_date, tag_date, commit = VERSION_DATE_MAP[matched_key]
-                metadata_line = f"- **Timeline Metadata**: *Feature Author Date: {feat_date} (`{commit}`) | Tag Release Date: {tag_date}*"
-                
-                # Ensure we don't add duplicate metadata lines
-                if len(new_lines) > 0:
-                    # check next lines in context if already added
-                    pass
+                metadata_line = (
+                    f"- **Timeline Metadata**: *Feature Author Date: {feat_date} "
+                    f"(`{commit}`) | Tag Release Date: {tag_date}*"
+                )
+
                 new_lines.append(metadata_line)
                 modified = True
 
@@ -66,9 +68,12 @@ def scan_and_enrich_file(filepath):
             f.write("\n".join(new_lines) + "\n")
         print(f"[+] Enriched timeline metadata in {filepath}")
 
-def main():
+
+def main() -> None:
     target_dirs = ["docs"]
-    target_files = ["README.md", "ARCHITECTURE.md", "ROADMAP.md"]
+    # ARCHITECTURE.md was moved into docs/ during the doc-consolidation pass, so
+    # this list now points at the docs/ copy rather than the deleted root file.
+    target_files = ["README.md", "docs/ARCHITECTURE.md", "docs/ROADMAP.md"]
 
     for tf in target_files:
         if os.path.exists(tf):
@@ -79,6 +84,7 @@ def main():
             for file in files:
                 if file.endswith(".md"):
                     scan_and_enrich_file(os.path.join(root, file))
+
 
 if __name__ == "__main__":
     main()
