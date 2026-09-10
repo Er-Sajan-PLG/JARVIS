@@ -19,6 +19,12 @@ repos:
       - id: check-merge-conflict
       - id: debug-statements
 
+  - repo: https://github.com/alphanodes/commitlint
+    rev: v19.4.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.2
     hooks:
