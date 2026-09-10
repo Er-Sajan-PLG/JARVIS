@@ -170,10 +170,12 @@ blockers remain — all outside n8n:
    implement that route before the loop can close.
 2. **No `JARVIS_API_KEY`.** `validate_api_key()` returns `"development"` and skips
    auth when the var is unset, so there is no key to put in `jarvis-api-auth` yet.
-3. **Slack channel ID unknown.** The `Send to Slack` node needs a real channel ID
-   (e.g. `C0XXXXXXXXX`), and the `learninghub` bot must be **invited** to that
-   channel. Its token lacks `channels:read`, so it cannot list channels itself.
-   Set the node's `channel` field (currently `REPLACE_WITH_SLACK_CHANNEL_ID`).
+3. ~~**Slack channel ID unknown.**~~ **RESOLVED (2026-09-10).** Channel ID is
+   `C0C0UPLGY12`, set on the `Send to Slack` node's `channelId` resource locator
+   (the legacy v1 `channel` string field was removed — it is not read by the Slack
+   node at typeVersion 2.1). The `learninghub` bot's membership was verified with a
+   self-deleting probe: `chat.postMessage` → ok, `chat.delete` → ok. Nothing was left
+   in the channel.
 4. **Telegram chat ID unknown.** The `Send to Telegram` node needs a chat ID
    (`REPLACE_WITH_TELEGRAM_CHAT_ID`). `getUpdates` currently returns HTTP 409
    (another consumer / webhook is polling this bot), so the ID cannot be discovered

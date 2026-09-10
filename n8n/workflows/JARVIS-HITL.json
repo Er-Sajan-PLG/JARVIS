@@ -35,7 +35,6 @@
       "parameters": {
         "resource": "message",
         "operation": "send",
-        "channel": "REPLACE_WITH_SLACK_CHANNEL_ID",
         "text": "={{ $json.message }}",
         "blocksUi": {
           "blocks": [
@@ -75,7 +74,13 @@
             }
           ]
         },
-        "options": {}
+        "options": {},
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0C0UPLGY12",
+          "mode": "id"
+        }
       },
       "id": "slack-notify",
       "name": "Send to Slack",

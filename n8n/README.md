@@ -86,12 +86,13 @@ n8n import:credentials --input=/path/to/cred.json
   1. `/api/v1/hitl/approve` **does not exist** in JARVIS (`app/adapters/http/router.py`
      exposes only `/api/v1/health` and `/api/v1/chat/completions`).
   2. No `JARVIS_API_KEY` is set, so `jarvis-api-auth` cannot be created.
-  3. The Slack node needs a real channel **ID** (and the bot invited to it); the
-     token lacks `channels:read`, so it cannot list channels itself.
+  3. ~~The Slack node needs a real channel **ID** (and the bot invited to it).~~
+     **Done** — channel `C0C0UPLGY12` is set on the node's `channelId` locator and the
+     bot's ability to post there was verified with a self-deleting probe.
   4. The Telegram node needs a chat **ID**; `getUpdates` returns HTTP 409 (another
      consumer is polling the bot).
-  The nodes' channel/chat fields are marked `REPLACE_WITH_…`. We also fixed an
-  inherited bug: the nodes referenced `$credentials.slackChannelId` /
+  Only the Telegram node's chat field remains to be filled (`REPLACE_WITH_TELEGRAM_CHAT_ID`).
+  We also fixed an inherited bug: the nodes referenced `$credentials.slackChannelId` /
   `$credentials.telegramChatId` / `$credentials.jarvisApiUrl` — fields that do not
   exist on those n8n credential types (they resolved empty and failed silently).
 - `JARVIS-Release` / `JARVIS-Incident` (Sprint-4 contract targets) do not exist.
