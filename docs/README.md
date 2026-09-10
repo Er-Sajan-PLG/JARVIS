@@ -1,36 +1,79 @@
 # JARVIS Documentation Guide
 
-Welcome to the **JARVIS Documentation Suite**. This directory contains the complete architectural specifications, release notes, diagnostic guides, decision records, and API contracts for JARVIS across all versions (`v0.1.0` through `v3.0.1`).
+Welcome to the **JARVIS Documentation Suite** — the architectural specifications,
+release notes, diagnostic guides, decision records, and API contracts for JARVIS
+across all versions (`v0.1.0` through `v3.0.1`).
+
+**Start at [INDEX.md](INDEX.md)** — the master navigation map.
 
 ---
 
-## 🗺️ Documentation Directory Map
+## 🗺️ Where to start
 
-- **[INDEX.md](file:///home/sajan/JARVIS/docs/INDEX.md)** — **Master Navigation Map & LLM Guide** (Start here!)
-- **[ARCHITECTURE.md](file:///home/sajan/JARVIS/docs/ARCHITECTURE.md)** — Living System Topology & Core Architectural Invariants at `HEAD`.
-- **[API.md](file:///home/sajan/JARVIS/docs/API.md)** — Public REST, WebSocket, and class API signatures across versions.
-- **[CHANGELOG.md](file:///home/sajan/JARVIS/docs/CHANGELOG.md)** — User-facing release notes (`v0.1.0` ➔ `v3.0.1`).
-- **[DEVLOG.md](file:///home/sajan/JARVIS/docs/DEVLOG.md)** — Developer architectural evolution & decision rationale log.
-- **[HISTORY.md](file:///home/sajan/JARVIS/docs/HISTORY.md)** — Git Database Archaeology & Milestone Timeline.
-- **[DEBUGGING.md](file:///home/sajan/JARVIS/docs/DEBUGGING.md)** — Master Diagnostic Matrix & Verified Error Fixes.
-- **[ROADMAP.md](file:///home/sajan/JARVIS/docs/ROADMAP.md)**: Technical Debt Register (`DEBT-001` through `DEBT-007`).
-- **[HEALTH_REPORT.md](file:///home/sajan/JARVIS/docs/HEALTH_REPORT.md)** — Repository Health Metrics across releases.
-
----
-
-## 📂 Subfolder Structure
-
-| Directory | Content Description |
-| :--- | :--- |
-| **[`docs/architecture/`](file:///home/sajan/JARVIS/docs/architecture/)** | High-level Mermaid flowcharts (`components.md`, `cognitive_brain.md`, `model_routing.md`, `memory_subsystem.md`, `data_flow.md`, `startup_flow.md`). |
-| **[`docs/modules/`](file:///home/sajan/JARVIS/docs/modules/)** | Detailed subsystem module guides (`domain.md`, `brain.md`, `models.md`, `memory.md`, `guardrails.md`, `adapters.md`, `integrations.md`, `config.md`, `frontend.md`, `scripts.md`, `tests.md`). |
-| **[`docs/adr/`](file:///home/sajan/JARVIS/docs/adr/)** | Architectural Decision Records (`ADR-001` through `ADR-010`). |
-| **[`docs/metadata/`](file:///home/sajan/JARVIS/docs/metadata/)** | JSON symbol lineage & module topology graph data (`api_graph.json`, `module_graph.json`, `history_graph.json`, `knowledge_graph.json`). |
+| Document | Purpose |
+|---|---|
+| **[INDEX.md](INDEX.md)** | Master navigation map — start here |
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Living system topology and core invariants at `HEAD` |
+| **[GOVERNANCE.md](GOVERNANCE.md)** | Decision authority, branching, quality gates, release process |
+| **[DEVELOPMENT.md](DEVELOPMENT.md)** | Daily workflow, local setup, testing standards, git conventions |
+| **[API_CONTRACT.md](API_CONTRACT.md)** | REST/WS endpoints, auth, data models, error codes |
+| **[ROADMAP.md](ROADMAP.md)** | Sprint plan and technical debt register |
+| **[ACCEPTED_RISKS.md](ACCEPTED_RISKS.md)** | Risk register — owners and review dates for every CRITICAL/HIGH finding |
 
 ---
 
-## 📌 Contributor Guidelines
+## ⚙️ Automation & CI
 
-1. **Source of Truth**: Git tags (`git tag`) are authoritative for release tag names and release publication dates.
-2. **Feature Timelines**: All documentation entries must distinguish between **Feature Commit Author Date** (the date code was authored in Git) and **Tag Release Date**.
-3. **Automated Bumping**: Use `python3 scripts/bump_version.py bump patch|minor|major` to update versions and generate release notes.
+| Document | Purpose |
+|---|---|
+| **[CI-GATE-SOTA.md](CI-GATE-SOTA.md)** | The local CI engine: 22 checks, 8 published contexts, threat model |
+| **[CI-TOKEN-PERMISSIONS.md](CI-TOKEN-PERMISSIONS.md)** | Which GitHub token needs which permission, and why |
+| **[N8N-SETUP.md](N8N-SETUP.md)** | Standing up the n8n automation plane |
+| **[N8N-HANDOVER.md](N8N-HANDOVER.md)** | Editing workflows in the UI and reading changes back |
+| **[GITHUB-APP-SETUP.md](GITHUB-APP-SETUP.md)** | Migrating CI auth from long-lived PATs to GitHub Apps |
+| **[BRANCH_PROTECTION_SETUP.md](BRANCH_PROTECTION_SETUP.md)** | Branch protection status and the platform limits hit |
+
+---
+
+## 📋 History & Decisions
+
+| Document | Purpose |
+|---|---|
+| **[CHANGELOG.md](CHANGELOG.md)** | User-facing release notes (`v0.1.0` ➔ `v3.0.1`) |
+| **[DEVLOG.md](DEVLOG.md)** | Developer architectural evolution and decision rationale |
+| **[HISTORY.md](HISTORY.md)** | Git database archaeology and milestone timeline |
+| **[adr/](adr/)** | Architectural Decision Records — **ADR-001 through ADR-012** |
+| **[DECISIONS-AUTONOMOUS-2026-09-10.md](DECISIONS-AUTONOMOUS-2026-09-10.md)** | Autonomous decisions: what, why, rejected alternatives |
+| **[AUDIT-USAT.md](AUDIT-USAT.md)** | Forensic architecture audit (implemented vs documented) |
+| **[HEALTH_REPORT.md](HEALTH_REPORT.md)** | ⚠️ **Historical snapshot (2026-07-28)** — not current |
+| **[CAPABILITY_TRACKER.md](CAPABILITY_TRACKER.md)** | Capability Contract v1.0 compliance tracking (JARVIS ↔ PROFESSOR-J) |
+| **[CAPABILITY-CONTRACT.md](CAPABILITY-CONTRACT.md)** | The contract itself |
+
+---
+
+## 📂 Subfolder structure
+
+| Directory | Content |
+|---|---|
+| [`architecture/`](architecture/) | Mermaid flowcharts: components, cognitive brain, model routing, memory, data flow, startup |
+| [`modules/`](modules/) | Per-subsystem guides: domain, brain, models, memory, guardrails, adapters, integrations |
+| [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-012) |
+| [`migrations/`](migrations/) | v2→v3 migration notes and tombstones |
+| [`timelines/`](timelines/) | Evolution and symbol timelines |
+
+Reference documents: **[API.md](API.md)** (class/method signatures),
+**[CONFIG.md](CONFIG.md)**, **[DATABASE.md](DATABASE.md)**, **[MEMORY.md](MEMORY.md)**,
+**[LLM.md](LLM.md)**, **[TOOLS.md](TOOLS.md)**, **[DEBUGGING.md](DEBUGGING.md)**,
+**[CODING_STANDARDS.md](CODING_STANDARDS.md)**, **[SYMBOL_LINEAGE.md](SYMBOL_LINEAGE.md)**.
+
+---
+
+## 📌 Contributor guidelines
+
+1. **Source of truth**: the repository state is authoritative. If a document and
+   the code disagree, the code wins — and the document is a bug.
+2. **Feature timelines**: distinguish **Feature Commit Author Date** (when the code
+   was authored) from **Tag Release Date**.
+3. **Version bumping**: `python3 scripts/bump_version.py patch|minor|major`.
+4. **No absolute paths in links.** Use repo-relative markdown links; this repo has
+   lived at more than one path.

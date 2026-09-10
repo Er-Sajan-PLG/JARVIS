@@ -1,7 +1,7 @@
 # JARVIS Documentation Index — Living Document v3.0.0
 
-**Status**: COMPLETE — All fundamental documents created  
-**Last Updated**: 2026-09-10  
+**Status**: COMPLETE — All fundamental documents created
+**Last Updated**: 2026-09-10
 **Source**: Forensic Architecture Audit + USAT Audit + Capability Contract v1.0
 
 ---
@@ -31,24 +31,21 @@ source .venv/bin/activate
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Add missing API key
+# 3. API key (required — the server refuses unauthenticated calls without it)
 grep -q JARVIS_API_KEY .env || echo "JARVIS_API_KEY=$(openssl rand -hex 32)" >> .env
 
-# 4. Archive legacy servers (dead code)
-mkdir -p app/legacy
-mv app/api/server.py app/web_api_server.py app/legacy/
+# 4. Verify v3.0 works
+.venv/bin/python -m app.main
 
-# 5. Fix WebSocket auth (add validate_api_key to ws_router)
-# Edit: app/adapters/websocket/stream.py
-
-# 6. Verify v3.0 works
-python -m app.main
-
-# 7. Health check
+# 5. Health check
 curl -H "Authorization: Bearer $JARVIS_API_KEY" http://localhost:8000/api/v1/health
 ```
 
-**Expected**: Server starts, health returns 200, chat completion works via REST + WS
+**Expected**: Server starts on `:8000`, health returns 200, chat completion works via REST + WS.
+
+> Steps that used to live here ("archive legacy servers", "fix WebSocket auth") are
+> **done** — `app/api/server.py` and `app/web_api_server.py` no longer exist, and
+> they are not recoverable by moving files around. `app.main` is the only entry point.
 
 ---
 
@@ -56,13 +53,17 @@ curl -H "Authorization: Bearer $JARVIS_API_KEY" http://localhost:8000/api/v1/hea
 
 | Aspect | Status | Evidence |
 |--------|--------|----------|
-| **v3.0 Architecture** | ✅ Implemented | `app/main.py`, `app/bootstrap.py` import cleanly |
-| **Legacy v2.x** | 🗑️ Dead code | `app/api/server.py`, `app/web_api_server.py` crash on import |
-| **Venv** | ❌ Empty | 0 packages installed |
-| **JARVIS_API_KEY** | ❌ Missing | Not in `.env` |
-| **CI/CD** | ❌ None | Only Jules conflict resolver workflow |
-| **Python Version** | ⚠️ 3.14 (broken) | Must use 3.11/3.12 |
-| **Capability Contract** | ~48% | 5/10 capabilities at ≥60% |
+| **v3.0 Architecture** | ✅ Implemented | `app/main.py`, `app/bootstrap.py` import cleanly; 10 routes registered |
+| **Legacy v2.x** | 🗑️ Removed | `app/api/server.py`, `app/web_api_server.py` deleted, not merely archived |
+| **Venv** | ✅ Populated | `requirements.txt` installed, `pip check` clean |
+| **JARVIS_API_KEY** | ✅ Set | `.env` present; 401 without it, 200 with it (verified) |
+| **CI/CD** | ✅ Local n8n plane | 22 checks in `scripts/ci_gate.py` → 8 published commit-status contexts. Actions billing-blocked, so `.github/workflows` are `workflow_dispatch`-only |
+| **Python Version** | ✅ 3.11 | 3.11/3.12 supported; 3.14 not |
+| **Capability Contract** | see [CAPABILITY_TRACKER.md](CAPABILITY_TRACKER.md) | Compliance tracked there |
+
+> This table was a **forensic audit snapshot**, not a live status board. Treating it
+> as current is how docs drift. For live state use the CI gate, `ACCEPTED_RISKS.md`,
+> and `git log`.
 
 ---
 
@@ -145,6 +146,6 @@ ARCHITECTURE.md (System Topology)
 
 ---
 
-**Document Owner**: Architecture Review Board  
-**Next Full Review**: 2026-12-10  
+**Document Owner**: Architecture Review Board
+**Next Full Review**: 2026-12-10
 **Emergency Override**: P0 incident → immediate update required

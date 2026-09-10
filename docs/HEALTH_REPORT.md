@@ -1,8 +1,24 @@
 # JARVIS Repository Health & Engineering Scorecard Across History
 
+> **⚠️ HISTORICAL SNAPSHOT — NOT CURRENT.** This scorecard was written on
+> **2026-07-28** and its `HEAD` (`ec0dc4e`) is frozen at that date. Everything
+> below describes the repository as it was *then*: it predates the n8n automation
+> plane, the local CI gate, the HITL approval loop, and ADR-011/ADR-012. The test
+> counts it quotes (108–110) are historical and mutually contradictory — the same
+> "HEAD" row is listed three times with three different counts.
+>
+> For the current state use:
+> [`ACCEPTED_RISKS.md`](ACCEPTED_RISKS.md) (16 tracked risks, owners, review dates),
+> [`CI-GATE-SOTA.md`](CI-GATE-SOTA.md) (the live gate), and
+> [`ROADMAP.md`](ROADMAP.md). Do not cite this file as current.
+>
+> It is retained deliberately: it is the only commit-by-commit engineering
+> archaeology of the pre-v3.0 era.
+
 - **Assessment Date**: 2026-07-28
 - **Scope**: Complete repository commit history from `1999e53` to `HEAD` (`ec0dc4e`)
 - **Evaluator**: Principal Software Architect & Repository Archaeologist
+- **Status**: Superseded — see the banner above
 
 ---
 
