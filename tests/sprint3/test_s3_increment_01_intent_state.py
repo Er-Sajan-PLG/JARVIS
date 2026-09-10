@@ -11,9 +11,8 @@ using audit findings and contract; commit incrementally.
 """
 
 from unittest.mock import patch
-import pytest
-from app.domain import IntentState
-from app.brain.analyzer import IntentAnalyzer, IntentAnalysis, IntentComplexity
+
+from app.brain.analyzer import IntentAnalysis, IntentAnalyzer, IntentComplexity
 
 
 @patch("app.brain.analyzer.logger.info")
@@ -26,13 +25,15 @@ def test_analyze_populates_intent_state(mock_info):
     # Before Sprint 3, analyze returns IntentAnalysis directly; after, it must
     # be wrapped in IntentState with an `analysis` key (and `session_id` + `prompt`).
     # This assertion WILL FAIL before the wiring increment and PASS after.
-    assert isinstance(analysis, (IntentAnalysis, dict)), (
+    assert isinstance(analysis, IntentAnalysis | dict), (
         "Sprint 3: analyzer must return an IntentState (TypedDict) contract, "
         "not a bare IntentAnalysis. Wire IntentState in brain/analyzer."
     )
     # If the wrapper exists, the inner analysis should still be reachable.
     inner = analysis.get("analysis") if isinstance(analysis, dict) else analysis
     assert inner is not None, "Sprint 3: IntentState must contain 'analysis'"
-    assert inner.complexity in IntentComplexity, (
-        f"Sprint 3: analysis.complexity must be an IntentComplexity enum, got {inner.complexity!r}"
-    )
+    # NB: `in EnumClass` is a value-membership test and raises TypeError for an enum
+    # member on Python 3.11 — isinstance is the correct check here.
+    assert isinstance(
+        inner.complexity, IntentComplexity
+    ), f"Sprint 3: analysis.complexity must be an IntentComplexity enum, got {inner.complexity!r}"

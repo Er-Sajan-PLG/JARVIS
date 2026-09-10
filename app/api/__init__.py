@@ -1,16 +1,11 @@
-"""JARVIS Web API package.
+"""JARVIS web API package.
 
-Exposes a :func:`create_app` factory that builds a FastAPI application wrapping
-the existing JARVIS conversation / memory / model pipeline and serves the
-static web UI from the ``frontend/`` directory.
+The legacy ``app.api.server`` module was retired under ARCH-003: the HTTP surface now
+lives in ``app/main.py`` + ``app/adapters/http/router.py``. It is therefore NOT
+importable any more, by design — ``tests/sprint3/test_langgraph_engine_contract.py::
+test_legacy_server_import_blocked`` asserts exactly that.
 
-Run with::
-
-    python -m app.api.server
-
-Then open http://localhost:8000 in your browser.
+``app.api.ocr`` remains a live subpackage, so this ``__init__`` must stay importable
+(it previously re-exported ``create_app``/``run`` from the archived module, which made
+``import app.api`` raise ModuleNotFoundError).
 """
-
-from app.api.server import create_app, run
-
-__all__ = ["create_app", "run"]

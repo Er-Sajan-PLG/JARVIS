@@ -3,7 +3,10 @@
 from pathlib import Path
 from unittest.mock import patch
 
-work = Path(__file__).resolve().parents[1]
+# tests/sprint3/<file> -> parents[2] is the repo root (parents[1] is tests/, which has
+# no app/ directory, so every path below used to resolve to nothing and the file-content
+# assertions failed on empty text).
+work = Path(__file__).resolve().parents[2]
 
 
 @patch("app.brain.analyzer.logger.info")

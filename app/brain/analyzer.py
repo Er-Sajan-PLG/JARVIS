@@ -4,8 +4,13 @@ Analyzes user queries to determine complexity, required capability route (fast p
 and required tools without incurring unnecessary LLM latency for simple requests.
 """
 
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
+
+# Module logger. The Sprint-3 contract tests patch `app.brain.analyzer.logger.info`, so
+# the name must exist even though today's heuristic path does not log.
+logger = logging.getLogger(__name__)
 
 # LangGraph typed-state (Sprint 3 capability contract, ADR-006, AGENTS.md §5)
 
