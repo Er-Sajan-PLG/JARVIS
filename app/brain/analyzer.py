@@ -30,6 +30,14 @@ class IntentAnalysis:
     reasoning: str = ""
 
 
+# Sprint 3: LangGraph typed-state graph definition (minimal — node skeleton only; full wiring in next increment)
+from langgraph.graph import StateGraph, START, END
+
+# Sprint 3 capability (ADR-006, docs/ROADMAP.md Sprint 3): define node skeleton.
+# Full execution (intent_analyzer -> planner -> executor -> synthesizer) is the NEXT increment.
+NODE_NODES = {"intent_analyzer", "task_planner", "tool_executor", "response_synthesizer"}
+
+
 class IntentAnalyzer:
     """Fast heuristic classifier for incoming user requests."""
 
