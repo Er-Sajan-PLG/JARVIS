@@ -204,3 +204,33 @@ async def hitl_approve(payload: dict[str, Any]) -> dict[str, Any]:
         "steps_count": len(resumed.steps),
         "awaiting_approval": [item.to_dict() for item in still_awaiting],
     }
+
+
+@http_router.post("/hitl/notified", dependencies=[Depends(validate_api_key)])
+async def hitl_mark_notified(payload: dict[str, Any]) -> dict[str, Any]:
+    """Record that the automation plane delivered a human-facing notification.
+
+    Body: ``plan_id`` (str, required), ``step_id`` (str, required).
+
+    Idempotent — the first timestamp wins. This is what stops a polling workflow (n8n
+    every minute) from re-announcing the same approval on every tick; n8n's own workflow
+    static data does not persist in this n8n build, so the marker lives with the approval
+    state it describes.
+    """
+    container = bootstrap_system()
+
+    plan_id = payload.get("plan_id")
+    step_id = payload.get("step_id")
+    if not plan_id or not step_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Both 'plan_id' and 'step_id' are required.",
+        )
+
+    try:
+        record = container.approval_registry.mark_notified(str(plan_id), str(step_id))
+    except KeyError as err:
+        # ApprovalNotFoundError subclasses KeyError — surface as 404.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+
+    return {"notified": record.to_dict()}

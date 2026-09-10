@@ -266,3 +266,64 @@ async def test_double_decision_returns_409(client):
 
     assert client.post("/api/v1/hitl/approve", headers=_headers(), json=body).status_code == 200
     assert client.post("/api/v1/hitl/approve", headers=_headers(), json=body).status_code == 409
+
+
+# ─── Notification marker (what stops the n8n poll re-announcing) ───────────────
+
+
+def test_mark_notified_is_idempotent():
+    registry = ApprovalRegistry()
+    plan = _destructive_plan("plan-notify")
+    plan.steps[0].status = StepStatus.AWAITING_APPROVAL  # else there is nothing to register
+    registry.register_paused_plan(plan)
+
+    first = registry.mark_notified("plan-notify", "step-1")
+    assert first.notified_at is not None
+    stamp = first.notified_at
+
+    again = registry.mark_notified("plan-notify", "step-1")
+    assert again.notified_at == stamp, "the first delivery timestamp must win"
+
+
+def test_mark_notified_unknown_raises():
+    registry = ApprovalRegistry()
+    with pytest.raises(ApprovalNotFoundError):
+        registry.mark_notified("nope", "nope")
+
+
+@pytest.mark.asyncio
+async def test_notified_at_is_reported_then_survives_a_decision(client):
+    await _pause_a_plan("plan-notify-http")
+
+    before = client.get("/api/v1/hitl/pending", headers=_headers()).json()["pending"][0]
+    assert before["notified_at"] is None, "a fresh approval has not been announced yet"
+
+    marked = client.post(
+        "/api/v1/hitl/notified",
+        headers=_headers(),
+        json={"plan_id": "plan-notify-http", "step_id": "step-1"},
+    )
+    assert marked.status_code == 200
+    assert marked.json()["notified"]["notified_at"] is not None
+
+    # The marker is history, not state: deciding afterwards must not clear it.
+    decided = client.post(
+        "/api/v1/hitl/approve",
+        headers=_headers(),
+        json={"plan_id": "plan-notify-http", "step_id": "step-1", "decision": "deny"},
+    )
+    assert decided.status_code == 200
+
+
+def test_notified_unknown_returns_404(client):
+    response = client.post(
+        "/api/v1/hitl/notified",
+        headers=_headers(),
+        json={"plan_id": "ghost", "step_id": "ghost"},
+    )
+    assert response.status_code == 404
+
+
+def test_notified_missing_fields_returns_422(client):
+    response = client.post("/api/v1/hitl/notified", headers=_headers(), json={"plan_id": "p"})
+    assert response.status_code == 422

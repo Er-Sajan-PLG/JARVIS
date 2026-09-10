@@ -46,6 +46,9 @@ class PendingApproval:
     description: str
     safety_tier: str
     requested_at: datetime = field(default_factory=_utcnow)
+    #: Set by the automation plane (n8n) once a human-facing notification was delivered,
+    #: so a polling workflow does not re-announce the same approval on every tick.
+    notified_at: datetime | None = None
     decided: bool = False
     decision: str | None = None
     approver: str | None = None
@@ -62,6 +65,7 @@ class PendingApproval:
             "description": self.description,
             "safety_tier": self.safety_tier,
             "requested_at": self.requested_at.isoformat(),
+            "notified_at": self.notified_at.isoformat() if self.notified_at else None,
             "decided": self.decided,
             "decision": self.decision,
             "approver": self.approver,
@@ -117,6 +121,18 @@ class ApprovalRegistry:
         """All tracked approvals, newest request first."""
         records = [r for r in self._pending.values() if include_decided or not r.decided]
         return sorted(records, key=lambda r: r.requested_at, reverse=True)
+
+    def mark_notified(self, plan_id: str, step_id: str) -> PendingApproval:
+        """Record that a human-facing notification was delivered for this approval.
+
+        Idempotent — the first delivery timestamp wins, so a repeated delivery (or a
+        polling workflow that re-sends) cannot keep extending the window. Raises
+        ``ApprovalNotFoundError`` for an unknown plan/step.
+        """
+        record = self.get(plan_id, step_id)
+        if record.notified_at is None:
+            record.notified_at = _utcnow()
+        return record
 
     def get(self, plan_id: str, step_id: str) -> PendingApproval:
         """Fetch one approval record, or raise ``ApprovalNotFoundError``."""
