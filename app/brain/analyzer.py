@@ -76,9 +76,15 @@ class IntentAnalyzer:
                 reasoning="Information retrieval or tool keyword detected",
             )
 
-        # Default fast path
-        return IntentAnalysis(
-            complexity=IntentComplexity.DIRECT_CHAT,
-            requires_tools=False,
-            reasoning="Simple conversation query (fast path)",
-        )
+        # Sprint 3 (Capability Contract, ADR-006): return typed-state contract
+        # (IntentState TypedDict) rather than bare IntentAnalysis, so the
+        # LangGraph graph nodes have a typed interface.
+        return IntentState(
+            analysis=IntentAnalysis(
+                complexity=IntentComplexity.DIRECT_CHAT,
+                requires_tools=False,
+                reasoning="Simple conversation query (fast path)",
+            ),
+            session_id="default",
+            prompt=query,
+        )  # type: ignore[arg-type]  # IntentState is TypedDict; runtime compatible
