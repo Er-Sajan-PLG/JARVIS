@@ -65,7 +65,21 @@ GATE = REPO_ROOT / "scripts" / "ci_gate.py"
 PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
 STATE_FILE = REPO_ROOT / ".governance" / "ci_bridge_state.json"
 
-TOKEN_VARS = ("GITHUB_MCP_PAT", "GITHUB_TOKEN", "GH_TOKEN", "GITHUB_PAT")
+# Order matters: the FIRST usable var wins. `JARVIS_CI_TOKEN` is the dedicated
+# slot for the CI-publishing token, so a general-purpose dev token (e.g.
+# GITHUB_MCP_PAT, which lacks "Commit statuses: write") cannot shadow it.
+TOKEN_VARS = (
+    "JARVIS_CI_TOKEN",
+    "GITHUB_MCP_PAT",
+    "GITHUB_TOKEN",
+    "GH_TOKEN",
+    "GITHUB_PAT",
+)
+
+# Substrings that mark a value as a placeholder rather than a real token.
+# `.env` ships `GITHUB_MCP_PAT=PLACEHOLDER_...`, and handing that to the API
+# yields a bare 401 "Bad credentials" that reads like a network fault.
+_TOKEN_PLACEHOLDER_MARKERS = ("PLACEHOLDER", "CHANGEME", "YOUR_TOKEN", "XXXX")
 TOKEN_FILES = (
     Path.home() / "Projects" / ".env",
     Path.home() / ".hermes" / ".env",
@@ -141,18 +155,31 @@ def _parse_env_file(path: Path) -> dict[str, str]:
     return out
 
 
+def _usable(value: str) -> bool:
+    """True if `value` looks like a real token rather than a placeholder."""
+    if not value or len(value) < 20:
+        return False
+    upper = value.upper()
+    return not any(marker in upper for marker in _TOKEN_PLACEHOLDER_MARKERS)
+
+
 def load_token() -> tuple[str, str]:
-    """Return (token, source_description). Never logs the token value."""
+    """Return (token, source_description). Never logs the token value.
+
+    Placeholders are skipped rather than returned: a placeholder reaches the API
+    as a bare 401 "Bad credentials", which reads like a network fault and hides
+    the real problem (a missing credential).
+    """
     for var in TOKEN_VARS:
         value = os.environ.get(var, "").strip()
-        if value:
+        if _usable(value):
             return value, f"env:{var}"
 
     for path in TOKEN_FILES:
         env = _parse_env_file(path)
         for var in TOKEN_VARS:
             value = env.get(var, "").strip()
-            if value:
+            if _usable(value):
                 return value, f"{path}:{var}"
 
     try:
@@ -551,6 +578,20 @@ class PRResult:
     action: str
     conclusion: str = ""
     statuses: list[dict[str, Any]] = field(default_factory=list)
+    publish_error: str = ""
+
+    @property
+    def posted(self) -> int:
+        return sum(1 for s in self.statuses if s.get("posted"))
+
+    @property
+    def attempted(self) -> int:
+        return sum(1 for s in self.statuses if "context" in s)
+
+    @property
+    def publish_failed(self) -> bool:
+        """True when publishing was requested but no status actually landed."""
+        return self.attempted > 0 and self.posted == 0
 
 
 def gate_one(pr: PRInfo, token: str, dry: bool) -> PRResult:
@@ -567,6 +608,14 @@ def gate_one(pr: PRInfo, token: str, dry: bool) -> PRResult:
     result.conclusion = str(report.get("conclusion", "error"))
     buckets = aggregate(report)
     result.statuses = publish_statuses(token, pr.head_sha, buckets, dry)
+
+    # The gate result and the publish result are separate facts. Reporting only
+    # the gate let a run announce success while every status POST had 403'd.
+    if result.publish_failed:
+        first = next((s for s in result.statuses if not s.get("posted")), {})
+        http = first.get("http")
+        result.action = "publish-failed"
+        result.publish_error = f"HTTP {http}: {str(first.get('error', ''))[:120]}"
     return result
 
 
@@ -649,10 +698,15 @@ def main() -> int:
         print(f"==> #{pr.number} {pr.head_sha[:10]} ({pr.title[:50]})")
         result = gate_one(pr, token, args.dry_run)
         results.append(result)
-        print(
-            f"    conclusion={result.conclusion} "
-            f"statuses={len(result.statuses)} action={result.action}"
-        )
+        if result.attempted:
+            print(
+                f"    conclusion={result.conclusion} "
+                f"published={result.posted}/{result.attempted} action={result.action}"
+            )
+        else:
+            print(f"    conclusion={result.conclusion} action={result.action}")
+        if result.publish_error:
+            print(f"    ! publish failed: {result.publish_error}")
         if not args.dry_run and result.action == "gated":
             gated[pr.head_sha] = {
                 "pr": pr.number,
@@ -680,17 +734,47 @@ def main() -> int:
         ],
     }
 
+    publish_failures = [r for r in results if r.publish_failed]
+    summary["published_total"] = sum(r.posted for r in results)
+    summary["attempted_total"] = sum(r.attempted for r in results)
+    summary["publish_failures"] = len(publish_failures)
+
     if args.json:
         print(json.dumps(summary, indent=2))
     else:
         print("-" * 68)
         for r in results:
-            print(f"  #{r.number:<4} {r.conclusion:<8} {r.action}")
+            line = f"  #{r.number:<4} {r.conclusion:<8} {r.action}"
+            if r.attempted:
+                line += f"  published={r.posted}/{r.attempted}"
+            print(line)
+            if r.publish_error:
+                print(f"         ! {r.publish_error}")
             for s in r.statuses:
                 if "context" in s:
-                    print(f"         {s['state']:<8} {s['context']}: " f"{s['description']}")
-        print(f"gated {len(results)}, skipped {summary['skipped']}, " f"{summary['duration_s']}s")
+                    mark = "" if s.get("posted") else "  (NOT POSTED)"
+                    print(f"         {s['state']:<8} {s['context']}: " f"{s['description']}{mark}")
+        print(
+            f"gated {len(results)}, skipped {summary['skipped']}, "
+            f"published {summary['published_total']}/{summary['attempted_total']}, "
+            f"{summary['duration_s']}s"
+        )
+        if publish_failures:
+            print()
+            print("!" * 68)
+            print(f"PUBLISH FAILED for {len(publish_failures)} PR(s): the gates ran, but")
+            print("no commit status reached GitHub, so the PR shows NO local-CI result.")
+            print(f"First error: {publish_failures[0].publish_error}")
+            print()
+            print("Cause is almost always a token without 'Commit statuses: write'.")
+            print("Fix: put a token that HAS that permission in .ci-bridge.env as")
+            print("     JARVIS_CI_TOKEN=<token>")
+            print("     (the bridge prefers it over GITHUB_MCP_PAT/GITHUB_TOKEN/etc.)")
+            print("then: systemctl --user restart jarvis-ci-bridge")
+            print("!" * 68)
 
+    if publish_failures:
+        return 1
     return 0 if all(r.action == "gated" for r in results) else 1
 
 
