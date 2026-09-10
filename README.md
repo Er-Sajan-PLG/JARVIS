@@ -154,8 +154,9 @@ Only the variables you actually use are required. `.env` is gitignored — never
 Serves the REST/WS API and the SPA on **`http://localhost:8000`**.
 Interactive API docs: `http://localhost:8000/docs`.
 
-> Historically this was `python -m app.api.server`. That module has been retired —
-> `app.main` is the only entry point.
+> Historically this was `python -m app.api.server`. That module was archived to
+> `legacy/server.py` and is no longer importable from `app/`; `app.main` is the only
+> entry point. `legacy/` is tracked for reference only and is not part of the runtime.
 
 ### 4. Run the tests
 

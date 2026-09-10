@@ -37,3 +37,12 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 disallow_untyped_defs = true
+# `legacy/` is an archive, not code: it contains `legacy/app/api/...`, which makes
+# mypy see a SECOND directory claiming to be the `app` package. Without this line,
+# any run that reaches app/ aborts with "Duplicate module named app" and reports
+# NOTHING about the real package — a gate that cannot run is worse than one that
+# fails loudly, because silence reads as success.
+#
+# With the exclusion, mypy checks app/ and reports the genuine, pre-existing
+# strict-mode debt (RISK-005). That debt is not fixed here; it is now *visible*.
+exclude = ['^legacy/']

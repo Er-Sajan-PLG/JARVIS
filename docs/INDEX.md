@@ -44,8 +44,8 @@ curl -H "Authorization: Bearer $JARVIS_API_KEY" http://localhost:8000/api/v1/hea
 **Expected**: Server starts on `:8000`, health returns 200, chat completion works via REST + WS.
 
 > Steps that used to live here ("archive legacy servers", "fix WebSocket auth") are
-> **done** — `app/api/server.py` and `app/web_api_server.py` no longer exist, and
-> they are not recoverable by moving files around. `app.main` is the only entry point.
+> **done** — the servers were moved to `legacy/` and `app.main` is the only entry
+> point. See `ROADMAP.md` Sprint 0 for the completed checklist.
 
 ---
 
@@ -54,7 +54,7 @@ curl -H "Authorization: Bearer $JARVIS_API_KEY" http://localhost:8000/api/v1/hea
 | Aspect | Status | Evidence |
 |--------|--------|----------|
 | **v3.0 Architecture** | ✅ Implemented | `app/main.py`, `app/bootstrap.py` import cleanly; 10 routes registered |
-| **Legacy v2.x** | 🗑️ Removed | `app/api/server.py`, `app/web_api_server.py` deleted, not merely archived |
+| **Legacy v2.x** | 🗑️ Archived | Moved out of `app/` to `legacy/server.py` + `legacy/web_api_server.py`; tracked for reference, not on the import path |
 | **Venv** | ✅ Populated | `requirements.txt` installed, `pip check` clean |
 | **JARVIS_API_KEY** | ✅ Set | `.env` present; 401 without it, 200 with it (verified) |
 | **CI/CD** | ✅ Local n8n plane | 22 checks in `scripts/ci_gate.py` → 8 published commit-status contexts. Actions billing-blocked, so `.github/workflows` are `workflow_dispatch`-only |

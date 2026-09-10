@@ -1,8 +1,8 @@
 # JARVIS Roadmap — Living Document v3.0.0
 
-**Status**: ACTIVE — Prioritized from forensic audit findings  
-**Source**: Forensic Architecture Audit (2026-09-10) + USAT Audit  
-**Workflow Orchestration**: n8n (all CI/CD, automation, approval flows)  
+**Status**: ACTIVE — Prioritized from forensic audit findings
+**Source**: Forensic Architecture Audit (2026-09-10) + USAT Audit
+**Workflow Orchestration**: n8n (all CI/CD, automation, approval flows)
 **Last Updated**: 2026-09-10
 
 ---
@@ -23,12 +23,18 @@
 
 | Task | Owner | n8n Workflow | Status |
 |------|-------|--------------|--------|
-| Recreate venv with Python 3.11 | Dev | `JARVIS-Setup-Env` | 🔴 TODO |
-| Install deps (`pip install -r requirements.txt`) | Dev | `JARVIS-Setup-Env` | 🔴 TODO |
-| Add `JARVIS_API_KEY` to `.env` | Dev | `JARVIS-Setup-Secrets` | 🔴 TODO |
-| Archive legacy servers (`app/api/server.py`, `app/web_api_server.py` → `app/legacy/`) | Dev | `JARVIS-Archive-Legacy` | 🔴 TODO |
-| Add WS auth (`validate_api_key` to `ws_router`) | Dev | `JARVIS-Fix-WS-Auth` | 🔴 TODO |
-| Verify: `.venv/bin/python -m app.main` | Dev | `JARVIS-Smoke-Test` | 🔴 TODO |
+| Recreate venv with Python 3.11 | Dev | — | ✅ DONE |
+| Install deps (`pip install -r requirements.txt`) | Dev | — | ✅ DONE |
+| Add `JARVIS_API_KEY` to `.env` | Dev | — | ✅ DONE |
+| Archive legacy servers (moved to `legacy/`, not `app/legacy/`) | Dev | — | ✅ DONE |
+| Add WS auth (`validate_api_key` to `ws_router`) | Dev | — | ✅ DONE |
+| Verify: `.venv/bin/python -m app.main` | Dev | — | ✅ DONE |
+
+> **Completed.** Every Sprint 0 task is done. Two corrections to the plan as written:
+> the archived servers live at `legacy/` (not `app/legacy/`), and none of these needed
+> an n8n workflow — they were one-off shell actions, so the `JARVIS-Setup-Env` /
+> `JARVIS-Archive-Legacy` workflows named here were never built and should not be
+> looked for in the n8n instance.
 
 **Exit Criteria**: v3.0 server starts, health endpoint returns 200, chat completion works via REST + WS
 
@@ -121,18 +127,18 @@
 
 | ID | Item | Severity | Sprint | Owner |
 |----|------|----------|--------|-------|
-| TD-001 | Python 3.14 venv (recreate with 3.11) | 🔴 CRITICAL | 0 | Dev |
-| TD-002 | Legacy servers in namespace (archive) | 🔴 CRITICAL | 0 | Dev |
-| TD-003 | Missing `JARVIS_API_KEY` | 🔴 CRITICAL | 0 | Dev |
-| TD-004 | WS auth bypass | 🔴 CRITICAL | 0 | Dev |
-| TD-005 | No CI pipeline | 🔴 CRITICAL | 1 | Dev |
-| TD-006 | No branch protection | 🔴 CRITICAL | 1 | Dev |
-| TD-007 | No security scanning | 🟠 HIGH | 1 | Dev |
-| TD-008 | No container image | 🟠 HIGH | 2 | Dev |
-| TD-009 | No release automation | 🟠 HIGH | 2 | Dev |
-| TD-010 | Capability Contract gaps | 🟡 MEDIUM | 3 | Dev |
+| TD-001 | Python 3.14 venv (recreate with 3.11) | ✅ RESOLVED | 0 | Dev |
+| TD-002 | Legacy servers in namespace (archive) | ✅ RESOLVED — moved to `legacy/` | 0 | Dev |
+| TD-003 | Missing `JARVIS_API_KEY` | ✅ RESOLVED | 0 | Dev |
+| TD-004 | WS auth bypass | ✅ RESOLVED | 0 | Dev |
+| TD-005 | No CI pipeline | ✅ RESOLVED — local n8n plane, 22 checks, 8 published contexts (Actions billing-blocked) | 1 | Dev |
+| TD-006 | No branch protection | ⛔ BLOCKED — GitHub returns 403 on a private free-tier repo (RISK-012) | 1 | Dev |
+| TD-007 | No security scanning | ✅ RESOLVED — gitleaks, trufflehog, bandit, semgrep, trivy, osv, pip-audit in the gate | 1 | Dev |
+| TD-008 | No container image | ✅ RESOLVED — multi-stage Dockerfile + hadolint gate | 2 | Dev |
+| TD-009 | No release automation | 🟠 HIGH — release.yml exists but is `workflow_dispatch`-only (Actions blocked) | 2 | Dev |
+| TD-010 | Capability Contract gaps | 🟡 MEDIUM — see `CAPABILITY_TRACKER.md` | 3 | Dev |
 | TD-011 | No eval suite | 🟡 MEDIUM | 3 | Dev |
-| TD-012 | No Dockerfile | 🟠 HIGH | 2 | Dev |
+| TD-012 | No Dockerfile | ✅ RESOLVED — same as TD-008 | 2 | Dev |
 
 ---
 
