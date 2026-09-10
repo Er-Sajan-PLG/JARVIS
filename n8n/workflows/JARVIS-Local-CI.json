@@ -2,7 +2,7 @@
   "id": "6631c9dc-56d2-4af0-93a7-e1da475244d2",
   "name": "JARVIS-CI-Local",
   "active": false,
-  "description": "Local n8n replacement for paid GitHub Actions. Calls the JARVIS CI bridge (scripts/ci_bridge_server.py, a localhost wrapper around scripts/ci_bridge.py) which lists open PRs, gates each head SHA in a local shadow worktree via scripts/ci_gate.py, and can publish commit statuses. n8n v2 removed the Execute Command node, so local commands run through the bridge over HTTP instead. Edit the Config node to choose how many PRs to gate and whether statuses are published.",
+  "description": "Local n8n replacement for paid GitHub Actions. Every 30 minutes it calls the JARVIS CI bridge (scripts/ci_bridge_server.py, a localhost wrapper around scripts/ci_bridge.py) which lists open PRs, gates each merge result in a local shadow worktree via scripts/ci_gate.py, and publishes one commit status per gate context. n8n v2 removed the Execute Command node, so local commands run through the bridge over HTTP instead. Edit the Config node to choose how many PRs to gate and whether statuses are published.",
   "nodes": [
     {
       "parameters": {
@@ -16,14 +16,14 @@
         }
       },
       "id": "trigger-schedule",
-      "name": "Schedule every 6h",
+      "name": "Schedule every 30 min",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
         -60,
         120
       ],
-      "notes": "Automatic poll. Activate the workflow to enable this trigger."
+      "notes": "Automatic poll every 30 minutes. Activate the workflow to enable this trigger."
     },
     {
       "parameters": {},
@@ -39,7 +39,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// \u2500\u2500 EDIT ME \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// limit  : how many open PRs to gate this run (each takes ~1.5-2 min)\n// dryRun : true  = run the gates, publish NOTHING to GitHub\n//          false = publish commit statuses (the real local CI)\n// pr     : a specific PR number, or null to let the bridge pick\nconst limit = 1;\nconst dryRun = true;\nconst pr = null;\n\nreturn [{ json: { limit: limit, dryRun: dryRun, pr: pr,\n                  body: { limit: limit, dryRun: dryRun, pr: pr } } }];"
+        "jsCode": "// \u2500\u2500 EDIT ME \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// limit  : how many open PRs to gate this run (each takes ~1.5-2 min, and the\n//          bridge skips PRs whose head SHA was already gated, so this converges)\n// dryRun : true  = run the gates, publish NOTHING to GitHub\n//          false = publish commit statuses (the real local CI)  <-- live setting\n// pr     : a specific PR number, or null to let the bridge pick\nconst limit = 3;\nconst dryRun = false;\nconst pr = null;\n\nreturn [{ json: { limit: limit, dryRun: dryRun, pr: pr,\n                  body: { limit: limit, dryRun: dryRun, pr: pr } } }];\n"
       },
       "id": "config",
       "name": "Config",
@@ -98,20 +98,51 @@
         740,
         220
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({channel: 'C0C0UPLGY12', text: `JARVIS local CI \u2014 PR gating run\\n\\nexit: ${$json.exitCode}\\nduration: ${$json.durationSec}s\\nok: ${$json.ok}\\n\\n${$json.tail ? $json.tail.substring(0, 1200) : '(no stdout)'}${$json.stderrTail ? '\\n--- stderr ---\\n' + $json.stderrTail.substring(0, 400) : ''}` }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "1c021b0d-b005-41f9-99ff-e234cbe55835",
+      "name": "Notify Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "82c4yvpRwbN8MMCM",
+          "name": "slack-bot-auth"
+        }
+      }
     }
   ],
   "connections": {
-    "Schedule every 6h": {
-      "main": [
-        [
-          {
-            "node": "Config",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Manual Trigger": {
       "main": [
         [
@@ -139,6 +170,28 @@
         [
           {
             "node": "Summarize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Result": {
+      "main": [
+        [
+          {
+            "node": "Notify Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule every 30 min": {
+      "main": [
+        [
+          {
+            "node": "Config",
             "type": "main",
             "index": 0
           }
