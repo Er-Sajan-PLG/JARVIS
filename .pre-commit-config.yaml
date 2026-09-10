@@ -19,11 +19,15 @@ repos:
       - id: check-merge-conflict
       - id: debug-statements
 
-  - repo: https://github.com/alphanodes/commitlint
-    rev: v19.4.0
+  # NOTE: the previous repo (github.com/alphanodes/commitlint) was deleted from
+  # GitHub (404), which broke `pre-commit` entirely — every hook install failed
+  # before any hook ran. Switched to the maintained hook below.
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.26.0
     hooks:
       - id: commitlint
         stages: [commit-msg]
+        additional_dependencies: ['@commitlint/config-conventional']
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.2

@@ -133,9 +133,7 @@ def load_token() -> tuple[str, str]:
                 return value, f"{path}:{var}"
 
     try:
-        res = subprocess.run(
-            ["gh", "auth", "token"], capture_output=True, text=True, timeout=30
-        )
+        res = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, timeout=30)
         if res.returncode == 0 and res.stdout.strip():
             return res.stdout.strip(), "gh auth token"
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -205,14 +203,18 @@ def check_auth(token: str, source: str) -> int:
     rl_status, rl = api("GET", "/rate_limit", token)
     if rl_status == 200 and isinstance(rl, dict):
         core = rl.get("resources", {}).get("core", {})
-        print(f"  limit  : {core.get('remaining')}/{core.get('limit')} "
-              f"(resets {core.get('reset')})")
+        print(
+            f"  limit  : {core.get('remaining')}/{core.get('limit')} "
+            f"(resets {core.get('reset')})"
+        )
 
     _, repo = api("GET", f"/repos/{OWNER}/{REPO}", token)
     if isinstance(repo, dict):
         perms = repo.get("permissions", {})
-        print(f"  repo   : {repo.get('full_name')} "
-              f"(private={repo.get('private')}, push={perms.get('push')})")
+        print(
+            f"  repo   : {repo.get('full_name')} "
+            f"(private={repo.get('private')}, push={perms.get('push')})"
+        )
     return 0
 
 
@@ -238,8 +240,7 @@ class PRInfo:
 def list_open_prs(token: str, limit: int = 20) -> list[PRInfo]:
     status, body = api(
         "GET",
-        f"/repos/{OWNER}/{REPO}/pulls?state=open&per_page={limit}"
-        "&sort=updated&direction=desc",
+        f"/repos/{OWNER}/{REPO}/pulls?state=open&per_page={limit}" "&sort=updated&direction=desc",
         token,
     )
     if status != 200 or not isinstance(body, list):
@@ -251,14 +252,16 @@ def list_open_prs(token: str, limit: int = 20) -> list[PRInfo]:
             continue
         head = item.get("head") or {}
         base = item.get("base") or {}
-        prs.append(PRInfo(
-            number=int(item.get("number", 0)),
-            head_sha=str(head.get("sha", "")),
-            head_ref=str(head.get("ref", "")),
-            base_ref=str(base.get("ref", "main")),
-            title=str(item.get("title", "")),
-            draft=bool(item.get("draft")),
-        ))
+        prs.append(
+            PRInfo(
+                number=int(item.get("number", 0)),
+                head_sha=str(head.get("sha", "")),
+                head_ref=str(head.get("ref", "")),
+                base_ref=str(base.get("ref", "main")),
+                title=str(item.get("title", "")),
+                draft=bool(item.get("draft")),
+            )
+        )
     return prs
 
 
@@ -279,19 +282,52 @@ def save_state(state: dict[str, Any]) -> None:
 
 
 def fetch_pr_head(pr: PRInfo) -> tuple[bool, str]:
-    """Materialise the PR head commit locally so ci_gate can worktree it."""
+    """Materialise the PR head commit locally so ci_gate can worktree it.
+
+    Fetches over HTTPS with the fine-grained token so headless runs (n8n,
+    systemd services, CI) do not depend on an ssh-agent holding a GitHub key.
+    The token is passed through the child environment (not argv) and expanded
+    by an inline credential helper, so it never appears in `ps` output.
+    Falls back to the configured `origin` remote when no token is available.
+    """
     ref = f"refs/remotes/jarvis-pr/{pr.number}"
+    refspec = f"+refs/pull/{pr.number}/head:{ref}"
+
+    token, _ = load_token()
+    if token:
+        url = f"https://github.com/{OWNER}/{REPO}.git"
+        helper = "!f() { echo username=x-access-token; " 'echo "password=${JARVIS_GIT_TOKEN}"; }; f'
+        env = {**os.environ, "JARVIS_GIT_TOKEN": token, "GIT_TERMINAL_PROMPT": "0"}
+        cmd = [
+            "git",
+            "-c",
+            f"credential.helper={helper}",
+            "fetch",
+            "--no-tags",
+            "--force",
+            url,
+            refspec,
+        ]
+    else:
+        env = None
+        cmd = ["git", "fetch", "--no-tags", "--force", "origin", refspec]
+
     res = subprocess.run(
-        ["git", "fetch", "--no-tags", "--force", "origin",
-         f"+refs/pull/{pr.number}/head:{ref}"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=600,
+        cmd,
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=600,
+        env=env,
     )
     if res.returncode != 0:
         return False, (res.stderr or res.stdout).strip()[:400]
 
     have = subprocess.run(
         ["git", "cat-file", "-e", f"{pr.head_sha}^{{commit}}"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True,
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
     )
     if have.returncode != 0:
         return False, f"{pr.head_sha[:12]} not present after fetch"
@@ -301,11 +337,11 @@ def fetch_pr_head(pr: PRInfo) -> tuple[bool, str]:
 def run_gate(pr: PRInfo, timeout: int = 2400) -> dict[str, Any]:
     """Invoke ci_gate.py and return its parsed report."""
     proc = subprocess.run(
-        [str(PYTHON), str(GATE),
-         "--sha", pr.head_sha,
-         "--base", pr.base_branch,
-         "--json"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=timeout,
+        [str(PYTHON), str(GATE), "--sha", pr.head_sha, "--base", pr.base_branch, "--json"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=timeout,
     )
     stdout = proc.stdout.strip()
     if stdout:
@@ -327,10 +363,15 @@ def aggregate(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
     for check in report.get("checks", []):
         name = check.get("name", "")
         context = CONTEXT_OF.get(name, check.get("context", name))
-        bucket = buckets.setdefault(context, {
-            "blocking": False, "blocking_failures": [],
-            "reported_failures": [], "checks": [],
-        })
+        bucket = buckets.setdefault(
+            context,
+            {
+                "blocking": False,
+                "blocking_failures": [],
+                "reported_failures": [],
+                "checks": [],
+            },
+        )
         bucket["checks"].append(name)
         if check.get("blocking"):
             bucket["blocking"] = True
@@ -356,8 +397,10 @@ def publish_statuses(
         if bucket["blocking_failures"]:
             desc = f"{len(bucket['blocking_failures'])} blocking gate(s) failed"
         elif bucket["reported_failures"]:
-            desc = (f"blocking gates pass; {len(bucket['reported_failures'])} "
-                    f"reported-only gate(s) failing")
+            desc = (
+                f"blocking gates pass; {len(bucket['reported_failures'])} "
+                f"reported-only gate(s) failing"
+            )
         else:
             desc = "all gates pass"
         desc = desc[:140]
@@ -369,10 +412,10 @@ def publish_statuses(
             continue
 
         status, body = api(
-            "POST", f"/repos/{OWNER}/{REPO}/statuses/{sha}",
+            "POST",
+            f"/repos/{OWNER}/{REPO}/statuses/{sha}",
             token,
-            payload={"state": state, "context": context,
-                     "description": desc},
+            payload={"state": state, "context": context, "description": desc},
         )
         record["posted"] = status in (200, 201)
         record["http"] = status
@@ -418,23 +461,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check-auth", action="store_true")
     parser.add_argument("--list-prs", action="store_true")
-    parser.add_argument("--once", action="store_true",
-                        help="gate every open PR that still needs it")
+    parser.add_argument(
+        "--once", action="store_true", help="gate every open PR that still needs it"
+    )
     parser.add_argument("--pr", type=int, help="gate only this PR number")
-    parser.add_argument("--limit", type=int, default=10,
-                        help="max PRs to consider (default 10)")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="run gates but publish nothing")
-    parser.add_argument("--force", action="store_true",
-                        help="re-gate even if the SHA was already gated")
+    parser.add_argument("--limit", type=int, default=10, help="max PRs to consider (default 10)")
+    parser.add_argument("--dry-run", action="store_true", help="run gates but publish nothing")
+    parser.add_argument(
+        "--force", action="store_true", help="re-gate even if the SHA was already gated"
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
     token, source = load_token()
     if not token:
-        print("FATAL: no GitHub token found. Looked in env "
-              f"{TOKEN_VARS} and {[str(p) for p in TOKEN_FILES]}, then gh.",
-              file=sys.stderr)
+        print(
+            "FATAL: no GitHub token found. Looked in env "
+            f"{TOKEN_VARS} and {[str(p) for p in TOKEN_FILES]}, then gh.",
+            file=sys.stderr,
+        )
         return 2
 
     if args.check_auth:
@@ -465,8 +510,10 @@ def main() -> int:
         print(f"open PRs: {len(prs)} | need gating: {len(todo)}")
         for pr in prs:
             mark = "TODO" if pr in todo else "done"
-            print(f"  [{mark}] #{pr.number:<4} {pr.head_sha[:10]}  "
-                  f"{pr.head_ref[:44]:<44} {pr.title[:40]}")
+            print(
+                f"  [{mark}] #{pr.number:<4} {pr.head_sha[:10]}  "
+                f"{pr.head_ref[:44]:<44} {pr.title[:40]}"
+            )
         print(f"\ntoken source: {source}")
         return 0
 
@@ -475,10 +522,12 @@ def main() -> int:
         return 0
 
     if not todo:
-        summary = {"considered": len(prs), "gated": 0, "skipped": len(prs),
-                   "dry_run": args.dry_run}
-        print(json.dumps(summary, indent=2) if args.json
-              else f"nothing to do — all {len(prs)} PR(s) already gated")
+        summary = {"considered": len(prs), "gated": 0, "skipped": len(prs), "dry_run": args.dry_run}
+        print(
+            json.dumps(summary, indent=2)
+            if args.json
+            else f"nothing to do — all {len(prs)} PR(s) already gated"
+        )
         return 0
 
     started = time.time()
@@ -487,8 +536,10 @@ def main() -> int:
         print(f"==> #{pr.number} {pr.head_sha[:10]} ({pr.title[:50]})")
         result = gate_one(pr, token, args.dry_run)
         results.append(result)
-        print(f"    conclusion={result.conclusion} "
-              f"statuses={len(result.statuses)} action={result.action}")
+        print(
+            f"    conclusion={result.conclusion} "
+            f"statuses={len(result.statuses)} action={result.action}"
+        )
         if not args.dry_run and result.action == "gated":
             gated[pr.head_sha] = {
                 "pr": pr.number,
@@ -505,8 +556,13 @@ def main() -> int:
         "duration_s": round(time.time() - started, 1),
         "token_source": source,
         "results": [
-            {"pr": r.number, "sha": r.sha[:12], "conclusion": r.conclusion,
-             "action": r.action, "statuses": r.statuses}
+            {
+                "pr": r.number,
+                "sha": r.sha[:12],
+                "conclusion": r.conclusion,
+                "action": r.action,
+                "statuses": r.statuses,
+            }
             for r in results
         ],
     }
@@ -519,10 +575,8 @@ def main() -> int:
             print(f"  #{r.number:<4} {r.conclusion:<8} {r.action}")
             for s in r.statuses:
                 if "context" in s:
-                    print(f"         {s['state']:<8} {s['context']}: "
-                          f"{s['description']}")
-        print(f"gated {len(results)}, skipped {summary['skipped']}, "
-              f"{summary['duration_s']}s")
+                    print(f"         {s['state']:<8} {s['context']}: " f"{s['description']}")
+        print(f"gated {len(results)}, skipped {summary['skipped']}, " f"{summary['duration_s']}s")
 
     return 0 if all(r.action == "gated" for r in results) else 1
 
