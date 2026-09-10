@@ -1,66 +1,99 @@
 """HTTP Adapter Layer (REST API & Auth Security).
 
-Exposes FastAPI HTTP routes secured with single-tenant Bearer Token / API Key authentication (`JARVIS_API_KEY`),
-delegating execution to app.bootstrap Composition Root and app.brain Cognitive Engine.
+Exposes FastAPI HTTP routes secured with single-tenant Bearer Token / API Key
+authentication (``JARVIS_API_KEY``), delegating execution to the app.bootstrap
+Composition Root and the app.brain Cognitive Engine.
 """
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import os
 from typing import Any
 
-from app.bootstrap import bootstrap_system
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
-http_router = APIRouter(prefix="/api/v1", tags=["REST API"])
-security_bearer = HTTPBearer(auto_error=False)
+from app.bootstrap import ApplicationContainer, bootstrap_system
+from app.domain import ExecutionPlan
+from app.guardrails import (
+    DECISION_APPROVE,
+    DECISION_DENY,
+    ApprovalAlreadyDecidedError,
+    ApprovalNotFoundError,
+)
+
+http_router = APIRouter(prefix="/api/v1", tags=["JARVIS REST API"])
+
+
+def _plan_status(plan: ExecutionPlan) -> str:
+    """Human-readable lifecycle status for an ExecutionPlan."""
+    if plan.is_complete:
+        return "completed"
+    return "failed" if plan.has_failed else "running"
 
 
 async def validate_api_key(
     request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(security_bearer),
-    x_api_key: str | None = Header(None, alias="X-API-Key"),
-) -> str:
-    """Validate single-tenant API Key from Bearer token or X-API-Key header."""
-    expected_key = os.getenv("JARVIS_API_KEY")
-    if not expected_key:
-        return "development"
+    authorization: str | None = Header(default=None),
+    x_api_key: str | None = Header(default=None),
+) -> bool:
+    """Single-tenant API Key / Bearer Token authentication dependency.
 
-    provided_key: str | None = None
-    if credentials:
-        provided_key = credentials.credentials
+    Security model: if `JARVIS_API_KEY` is configured in the environment, every
+    protected route requires a matching credential supplied either as
+    `Authorization: Bearer <key>` or `X-API-Key: <key>`. If `JARVIS_API_KEY` is
+    unset (local development), auth is disabled and all requests are allowed.
+    """
+    expected = os.environ.get("JARVIS_API_KEY", "").strip()
+    if not expected:
+        return True
+
+    presented = ""
+    if authorization and authorization.lower().startswith("bearer "):
+        presented = authorization[7:].strip()
     elif x_api_key:
-        provided_key = x_api_key
+        presented = x_api_key.strip()
 
-    if not provided_key or provided_key != expected_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing JARVIS_API_KEY authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return provided_key
+    if presented != expected:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    return True
 
 
-@http_router.get("/health")
+@http_router.get("/health", tags=["System"])
 async def health_check() -> dict[str, Any]:
-    """Health check endpoint."""
-    container = bootstrap_system()
+    """Liveness probe & subsystem health snapshot."""
+    container: ApplicationContainer = bootstrap_system()
     return {
         "status": "healthy",
-        "system": "JARVIS v3.0",
-        "providers_registered": list(container.model_router.providers.keys()),
+        "service": "JARVIS",
+        "version": "3.0.0",
+        "tools_registered": len(container.execution_runner._tool_registry),
     }
 
 
 @http_router.post("/chat/completions", dependencies=[Depends(validate_api_key)])
 async def chat_completions(payload: dict[str, Any]) -> dict[str, Any]:
-    """Process chat completion request through Cognitive Brain."""
-    container = bootstrap_system()
-    prompt = payload.get("prompt", payload.get("message", ""))
+    """Primary synchronous cognitive loop endpoint.
+
+    Pipeline: Intent Analysis -> Task Planning -> Execution -> Synthesis.
+    Any DESTRUCTIVE step pauses for Human-in-the-Loop approval; the plan is then
+    registered with the approval registry so it can be decided via
+    POST /api/v1/hitl/approve and resumed.
+    """
+    container: ApplicationContainer = bootstrap_system()
+
+    messages = payload.get("messages", [])
+    prompt = ""
+    if isinstance(messages, list) and messages:
+        prompt = str(messages[-1].get("content", ""))
+    elif "prompt" in payload:
+        prompt = str(payload["prompt"])
+
+    # NB: a missing prompt falls back to "" (contract: must not 500) — the cognitive
+    # loop treats it as a direct-chat turn.
     session_id = payload.get("session_id", "default_session")
 
     # 1. Active Session & Conversation
-    session = await container.session_manager.get_or_create_session(session_id)
-    conversation = await container.session_manager.get_or_create_conversation(session_id=session_id)
+    await container.session_manager.get_or_create_session(session_id)
+    await container.session_manager.get_or_create_conversation(session_id=session_id)
 
     # 2. Intent Analysis & Plan
     analysis = container.intent_analyzer.analyze(prompt)
@@ -72,11 +105,99 @@ async def chat_completions(payload: dict[str, Any]) -> dict[str, Any]:
     # 4. Record metrics
     container.metrics.record_request()
 
-    inner_analysis = analysis.get("analysis") if isinstance(analysis, dict) else analysis
+    # 5. Register any DESTRUCTIVE step that paused for Human-in-the-Loop approval so it
+    #    can be decided later via POST /api/v1/hitl/approve.
+    awaiting = container.approval_registry.register_paused_plan(executed_plan)
+
+    inner_analysis = analysis["analysis"] if isinstance(analysis, dict) else analysis
     return {
         "session_id": session_id,
         "plan_id": executed_plan.plan_id,
-        "status": "completed" if executed_plan.is_complete else ("failed" if executed_plan.has_failed else "running"),
+        "status": _plan_status(executed_plan),
         "steps_count": len(executed_plan.steps),
         "complexity": inner_analysis.complexity.value,
+        "requires_tools": inner_analysis.requires_tools,
+        "awaiting_approval": [item.to_dict() for item in awaiting],
+    }
+
+
+@http_router.get("/hitl/pending", dependencies=[Depends(validate_api_key)])
+async def hitl_pending(include_decided: bool = False) -> dict[str, Any]:
+    """List DESTRUCTIVE steps currently awaiting Human-in-the-Loop approval."""
+    container = bootstrap_system()
+    records = container.approval_registry.list_pending(include_decided=include_decided)
+    return {
+        "count": len(records),
+        "pending": [record.to_dict() for record in records],
+    }
+
+
+@http_router.post("/hitl/approve", dependencies=[Depends(validate_api_key)])
+async def hitl_approve(payload: dict[str, Any]) -> dict[str, Any]:
+    """Record a human approve/deny decision for a paused DESTRUCTIVE step and resume.
+
+    Body:
+        plan_id   (str, required)  - plan returned by /chat/completions or /hitl/pending
+        step_id   (str, required)  - the step awaiting approval
+        decision  (str)            - "approve" | "deny" (alias: approved: true/false)
+        approver  (str)            - who decided (e.g. "slack:U0123" or "telegram:12345")
+        reason    (str)            - optional justification, recorded on deny
+
+    Approving re-queues the step and resumes the plan; denying skips the destructive
+    step and resumes the remainder. A second decision for the same step returns 409.
+    """
+    container = bootstrap_system()
+    registry = container.approval_registry
+
+    plan_id = payload.get("plan_id")
+    step_id = payload.get("step_id")
+    if not plan_id or not step_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Both 'plan_id' and 'step_id' are required.",
+        )
+
+    # Accept either an explicit "decision" string or an "approved" boolean.
+    raw_decision = payload.get("decision")
+    if raw_decision is None:
+        approved_flag = payload.get("approved")
+        if approved_flag is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Provide 'decision' ('approve'|'deny') or 'approved' (true|false).",
+            )
+        raw_decision = DECISION_APPROVE if approved_flag else DECISION_DENY
+
+    decision = str(raw_decision).strip().lower()
+    if decision not in (DECISION_APPROVE, DECISION_DENY):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="'decision' must be 'approve' or 'deny'.",
+        )
+
+    approver = str(payload.get("approver") or "unknown")
+    reason = str(payload.get("reason") or "")
+    approve = decision == DECISION_APPROVE
+
+    try:
+        record = registry.decide(
+            plan_id, step_id, approve=approve, approver=approver, reason=reason
+        )
+    except ApprovalNotFoundError as err:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+    except ApprovalAlreadyDecidedError as err:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(err)) from err
+
+    # Resume the plan. Approved steps execute; denied steps were set to SKIPPED and are
+    # therefore passed over by the runner.
+    plan = registry.get_plan(plan_id)
+    resumed = await container.execution_runner.execute_plan(plan, hitl_approvals={step_id: approve})
+    still_awaiting = registry.register_paused_plan(resumed)
+
+    return {
+        "decision": record.to_dict(),
+        "plan_id": plan_id,
+        "status": _plan_status(resumed),
+        "steps_count": len(resumed.steps),
+        "awaiting_approval": [item.to_dict() for item in still_awaiting],
     }

@@ -1,17 +1,18 @@
 """Composition Root for Dependency Injection & Service Wiring.
 
-Instantiates, configures, and wires all JARVIS application services, subsystems, and event listeners.
+Instantiates, configures, and wires all JARVIS application services, subsystems,
+and event listeners.
 """
 
-from dataclasses import dataclass, field
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 from app.artifacts import ArtifactManager
 from app.brain import ExecutionRunner, IntentAnalyzer, ResponseSynthesizer, TaskPlanner
 from app.context import ContextBuilder
 from app.events import InMemoryAsyncBus
-from app.guardrails import ToolSafetyPolicy, set_global_policy
+from app.guardrails import ApprovalRegistry, ToolSafetyPolicy, set_global_policy
 from app.memory import MemoryService
 from app.models import ModelRouter
 from app.prompt import PromptLoader
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ApplicationContainer:
     """Dependency Injection container holding singletons for all active subsystems."""
+
     event_bus: InMemoryAsyncBus
     telemetry_logger: EventLogger
     tracer: Tracer
@@ -40,6 +42,7 @@ class ApplicationContainer:
     resource_manager: ResourceManager
     model_router: ModelRouter
     safety_policy: ToolSafetyPolicy
+    approval_registry: ApprovalRegistry
     intent_analyzer: IntentAnalyzer
     task_planner: TaskPlanner
     execution_runner: ExecutionRunner
@@ -96,6 +99,7 @@ def bootstrap_system(
     # 6. Safety Policy & Guardrails
     safety_policy = ToolSafetyPolicy(auto_approve_sensitive=True)
     set_global_policy(safety_policy)
+    approval_registry = ApprovalRegistry()
 
     # 7. Cognitive Engine (Brain)
     intent_analyzer = IntentAnalyzer()
@@ -118,6 +122,7 @@ def bootstrap_system(
         resource_manager=resource_manager,
         model_router=model_router,
         safety_policy=safety_policy,
+        approval_registry=approval_registry,
         intent_analyzer=intent_analyzer,
         task_planner=task_planner,
         execution_runner=execution_runner,
