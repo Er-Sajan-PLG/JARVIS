@@ -11,16 +11,16 @@ In v3.0, this becomes a proper permission system with user-configurable rules.
 """
 
 from pathlib import Path
+
 from app.domain import SafetyTier
 from app.guardrails import safety_gate
 from app.tools.base import ToolDefinition
 
-
 ALLOWED_READ: set[str] = {
     "docs/CHANGELOG.md",
     "docs/DEVLOG.md",
-    "docs/CHANGELOG_recovered.md",   
-    "docs/DEVLOG_recovered.md",      
+    "docs/CHANGELOG_recovered.md",
+    "docs/DEVLOG_recovered.md",
     "docs/V3_ROADMAP.md",
     "CHANGELOG.md",
     "DEVLOG.md",
@@ -39,6 +39,7 @@ ALLOWED_CREATE_DIR: set[str] = set()
 
 
 # ─── Raw functions ─────────────────────────────────────────────────────────────
+
 
 @safety_gate(tier=SafetyTier.SAFE, description="Read file content")
 def read_file(path: str) -> str:
@@ -76,6 +77,20 @@ def create_directory(path: str) -> str:
     return f"Created directory: {path}"
 
 
+@safety_gate(tier=SafetyTier.SAFE, description="List directory entries")
+def list_dir(path: str = ".") -> str:
+    """List directory entries (bounded to 200 so model context stays small).
+
+    Registered as a SAFE tool so the planner's workspace-inspection step actually
+    executes (ADR-011); the runner invokes tools by name with keyword arguments.
+    """
+    p = Path(path)
+    if not p.exists() or not p.is_dir():
+        return f"(directory not found: {path})"
+    entries = sorted(entry.name + ("/" if entry.is_dir() else "") for entry in p.iterdir())
+    return "\n".join(entries[:200])
+
+
 # ─── Tool definitions ──────────────────────────────────────────────────────────
 
 FILE_TOOLS: list[ToolDefinition] = [
@@ -103,7 +118,8 @@ FILE_TOOLS: list[ToolDefinition] = [
         name="write_file",
         description=(
             "Write generated content to a documentation file. "
-            "Use this ONLY after you have gathered all information and generated the complete entry. "
+            "Use this ONLY after you have gathered all information and generated "
+            "the complete entry. "
             f"Allowed paths: {sorted(ALLOWED_WRITE)}"
         ),
         parameters={
@@ -115,14 +131,17 @@ FILE_TOOLS: list[ToolDefinition] = [
                 },
                 "content": {
                     "type": "string",
-                    "description": "Complete file content to write (the ENTIRE file, not just the new section)",
+                    "description": (
+                        "Complete file content to write (the ENTIRE file, "
+                        "not just the new section)"
+                    ),
                 },
             },
             "required": ["path", "content"],
         },
         handler=write_file,
         risk_level="medium",
-        requires_confirmation=True,   # always confirm before writing
+        requires_confirmation=True,  # always confirm before writing
     ),
     ToolDefinition(
         name="append_file",
@@ -147,7 +166,7 @@ FILE_TOOLS: list[ToolDefinition] = [
         },
         handler=append_file,
         risk_level="medium",
-        requires_confirmation=True,   # always confirm before appending
+        requires_confirmation=True,  # always confirm before appending
     ),
     ToolDefinition(
         name="create_directory",
@@ -160,14 +179,16 @@ FILE_TOOLS: list[ToolDefinition] = [
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Path of the directory to create (must be an allowed path or a subpath of an allowed path)",
+                    "description": (
+                        "Path of the directory to create "
+                        "(must be an allowed path or a subpath of an allowed path)"
+                    ),
                 }
             },
             "required": ["path"],
         },
         handler=create_directory,
         risk_level="medium",
-        requires_confirmation=True, # always confirm before creating a directory
+        requires_confirmation=True,  # always confirm before creating a directory
     ),
 ]
-

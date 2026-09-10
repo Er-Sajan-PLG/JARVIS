@@ -19,6 +19,7 @@ from app.prompt import PromptLoader
 from app.resources import ResourceManager
 from app.session import SessionManager, SessionPersistence
 from app.telemetry import EventLogger, MetricsCollector, Tracer
+from app.tools import DEFAULT_TOOLSET
 from app.workspace import WorkspaceManager
 
 logger = logging.getLogger(__name__)
@@ -105,6 +106,11 @@ def bootstrap_system(
     intent_analyzer = IntentAnalyzer()
     task_planner = TaskPlanner()
     execution_runner = ExecutionRunner(event_bus=bus, safety_policy=safety_policy)
+    # Composition-root wiring (ADR-011). ExecutionRunner dispatches tools by NAME, so the
+    # registry must be populated here: unregistered names were silently marked COMPLETED
+    # without executing anything (RISK-014).
+    for _tool_name, _tool_fn in DEFAULT_TOOLSET.items():
+        execution_runner.register_tool(_tool_name, _tool_fn)
     response_synthesizer = ResponseSynthesizer()
 
     _container_instance = ApplicationContainer(

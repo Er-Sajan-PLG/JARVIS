@@ -18,6 +18,35 @@ logger = logging.getLogger(__name__)
 # Full execution graph definition with typed-state routing is NEXT increment.
 NODE_FLOW = ("intent_analyzer", "task_planner", "tool_executor", "response_synthesizer")
 
+# ─── Destructive-intent routing (ADR-011) ──────────────────────────────────────────
+# `create_directory` is the only DESTRUCTIVE-tier tool, so it is the sole route into the
+# HITL gate. Keyword routing is intentionally conservative — a creating verb AND a
+# path-like token — so an ambiguous prompt never pauses the loop or invents a target.
+DESTRUCTIVE_DIR_TOOL = "create_directory"
+DESTRUCTIVE_KEYWORDS = (
+    "create directory",
+    "make directory",
+    "create dir",
+    "make dir",
+    "create folder",
+    "make folder",
+    "new directory",
+    "new folder",
+    "mkdir",
+)
+
+
+def _destructive_path(goal: str) -> str | None:
+    """Return a path-like argument when the goal asks for a directory to be created."""
+    lowered = goal.lower()
+    if not any(keyword in lowered for keyword in DESTRUCTIVE_KEYWORDS):
+        return None
+    for token in goal.replace(",", " ").split():
+        cleaned = token.strip("\"'`()[]{}:;.")
+        if cleaned.startswith(("/", "./", "../", "~")) or "/" in cleaned:
+            return cleaned
+    return None
+
 
 class TaskPlanner:
     """Dynamic Task Planner generating inspectable ExecutionPlans."""
@@ -41,7 +70,24 @@ class TaskPlanner:
         plan_id = f"plan-{uuid.uuid4().hex[:8]}"
         steps: list[ExecutionStep] = []
 
-        if analysis.complexity == IntentComplexity.DIRECT_CHAT:
+        # A plan can only reach the HITL gate if it contains a DESTRUCTIVE step (ADR-011).
+        destructive_path = _destructive_path(goal)
+
+        if destructive_path:
+            steps.append(
+                ExecutionStep(
+                    step_id=f"{plan_id}-s1",
+                    title=f"Create directory {destructive_path} (requires human approval)",
+                    tool_call=ToolCall(
+                        tool_name=DESTRUCTIVE_DIR_TOOL,
+                        arguments={"path": destructive_path},
+                        safety_tier=SafetyTier.DESTRUCTIVE,
+                        description=f"Create directory {destructive_path}",
+                    ),
+                    status=StepStatus.PENDING,
+                )
+            )
+        elif analysis.complexity == IntentComplexity.DIRECT_CHAT:
             steps.append(
                 ExecutionStep(
                     step_id=f"{plan_id}-s1",
@@ -80,7 +126,7 @@ class TaskPlanner:
                     title="Analyze workspace context",
                     tool_call=ToolCall(
                         tool_name="list_dir",
-                        arguments={"DirectoryPath": "."},
+                        arguments={"path": "."},
                         safety_tier=SafetyTier.SAFE,
                         description="Explore workspace directory",
                     ),

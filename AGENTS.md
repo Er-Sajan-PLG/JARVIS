@@ -1,8 +1,8 @@
 # JARVIS Agent Standards & Governance
 
-**Version**: 1.0.0  
-**Status**: ACTIVE - All agents MUST follow these standards  
-**Authority**: Architecture Review Board  
+**Version**: 1.0.0
+**Status**: ACTIVE - All agents MUST follow these standards
+**Authority**: Architecture Review Board
 **Last Updated**: 2026-09-10
 
 ---
@@ -42,7 +42,7 @@
 ### 2.2 Architecture Boundaries (Enforced by `scripts/board/review.py`)
 ```
 app.adapters      → app.bootstrap, app.brain
-app.bootstrap     → app.brain, app.models, app.resources, app.memory, app.session, app.workspace, app.telemetry, app.prompt, app.guardrails, app.artifacts
+app.bootstrap     → app.brain, app.models, app.resources, app.memory, app.session, app.workspace, app.telemetry, app.prompt, app.guardrails, app.artifacts, app.tools
 app.brain         → app.domain, app.events, app.guardrails
 app.models        → app.resources
 app.memory        → app.integrations
