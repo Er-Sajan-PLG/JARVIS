@@ -1,9 +1,13 @@
 name: "JARVIS-Release"
 
+# DISABLED (2026-09-10): Actions is billing-blocked for this private repo, so
+# releases triggered on push/tag could never run. Release automation is being moved
+# to n8n (JARVIS-Release workflow). Re-enable by restoring:
+#   push:
+#     branches: [main]
+#     tags: [v*]
 on:
-  push:
-    branches: [main]
-    tags: [v*]
+  workflow_dispatch:
 
 concurrency:
   group: release-${{ github.ref }}

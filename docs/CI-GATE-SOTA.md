@@ -143,3 +143,16 @@ dependency trees.
 - 2026-09-10 — created. Added `commitlint`, `hadolint`, `semgrep`, `trivy`,
   `licenses`, `sbom`, `provenance`, `osv`, `checkov`, `contract`, `mutation` and
   the risk-register exemption mechanism; documented the nine remaining gaps.
+- 2026-09-10 — GitHub Actions disabled in-repo (all three workflows reduced to
+  `workflow_dispatch`): the account is billing-blocked, so every PR/push run died
+  in ~5s and turned PRs red without executing a check. Re-enable instructions sit
+  at the top of each workflow file.
+- 2026-09-10 — `ci_bridge.py` now gates the PR's **merge result** (`git
+  merge-tree --write-tree` + `commit-tree`), matching GitHub's `pull_request`
+  checkout semantics instead of gating the raw head. Stale Dependabot branches
+  previously failed forever against a fixed `main`; now they are judged on the
+  code that would actually land. Merge conflicts are reported separately.
+- 2026-09-10 — the three n8n workflows were found **unpublished** (n8n v2 draft/
+  publish model: `workflow_entity.activeVersionId` was NULL) and the systemd unit
+  pointed `N8N_USER_FOLDER` one level too deep, so the service was reading a
+  different, empty database. Both fixed; JARVIS-CI-Local now polls every 30 min.

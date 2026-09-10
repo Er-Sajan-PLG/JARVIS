@@ -357,10 +357,97 @@ def fetch_pr_head(pr: PRInfo) -> tuple[bool, str]:
     return True, ""
 
 
+def _rev(ref: str) -> str:
+    """Resolve a ref to a sha, or "" when it does not exist."""
+    res = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", ref],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    return res.stdout.strip() if res.returncode == 0 else ""
+
+
+def _fetch_ref(branch: str) -> bool:
+    """Refresh origin/<branch> over HTTPS with the token (headless-safe)."""
+    refspec = f"+refs/heads/{branch}:refs/remotes/origin/{branch}"
+    token, _ = load_token()
+    if token:
+        url = f"https://github.com/{OWNER}/{REPO}.git"
+        helper = "!f() { echo username=x-access-token; " 'echo "password=${JARVIS_GIT_TOKEN}"; }; f'
+        env = {**os.environ, "JARVIS_GIT_TOKEN": token, "GIT_TERMINAL_PROMPT": "0"}
+        cmd = ["git", "-c", f"credential.helper={helper}", "fetch", "--no-tags", url, refspec]
+    else:
+        env = None
+        cmd = ["git", "fetch", "--no-tags", "origin", refspec]
+    res = subprocess.run(
+        cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=600, env=env
+    )
+    return res.returncode == 0
+
+
+def merge_gate_ref(pr: PRInfo) -> tuple[str, str, str]:
+    """Return (gate_sha, gate_base, note).
+
+    GitHub's `pull_request` jobs check out a MERGE commit — the head merged into the
+    base — not the raw head. Gating the raw head means every branch that predates a
+    fix on main fails forever, which is exactly what happened to the Dependabot
+    backlog after main's test-suite fix landed. We reproduce the merge locally
+    (`git merge-tree --write-tree` + `git commit-tree`) so the gate sees what
+    GitHub Actions would have seen.
+    """
+    # PRInfo.base_branch is already origin-prefixed ("origin/main").
+    base_ref = pr.base_branch
+    _fetch_ref(pr.base_ref)
+    base = _rev(base_ref) or _rev(pr.base_ref)
+    if not base:
+        return pr.head_sha, base_ref, "base ref unavailable — gated raw head"
+
+    anc = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", base, pr.head_sha],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    if anc.returncode == 0:
+        return pr.head_sha, base_ref, "head already contains base — gated head"
+
+    mt = subprocess.run(
+        ["git", "merge-tree", "--write-tree", base, pr.head_sha],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    tree = (mt.stdout or "").splitlines()[0].strip() if mt.stdout else ""
+    if mt.returncode != 0 or not tree:
+        return pr.head_sha, base_ref, f"MERGE CONFLICT against {pr.base_ref} — gated raw head"
+
+    ct = subprocess.run(
+        [
+            "git",
+            "commit-tree",
+            tree,
+            "-p",
+            base,
+            "-p",
+            pr.head_sha,
+            "-m",
+            f"ci: gate merge of {pr.head_sha[:12]} into {pr.base_ref}",
+        ],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    if ct.returncode != 0 or not ct.stdout.strip():
+        return pr.head_sha, base_ref, "merge commit failed — gated raw head"
+    return ct.stdout.strip(), base_ref, f"gated merge of {pr.head_sha[:12]} into {pr.base_ref}"
+
+
 def run_gate(pr: PRInfo, timeout: int = 2400) -> dict[str, Any]:
-    """Invoke ci_gate.py and return its parsed report."""
+    """Invoke ci_gate.py against the PR's MERGE result and return its parsed report."""
+    sha, base, note = merge_gate_ref(pr)
     proc = subprocess.run(
-        [str(PYTHON), str(GATE), "--sha", pr.head_sha, "--base", pr.base_branch, "--json"],
+        [str(PYTHON), str(GATE), "--sha", sha, "--base", base, "--json"],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
@@ -369,13 +456,16 @@ def run_gate(pr: PRInfo, timeout: int = 2400) -> dict[str, Any]:
     stdout = proc.stdout.strip()
     if stdout:
         try:
-            return json.loads(stdout)
+            report = json.loads(stdout)
+            report["merge_gate_note"] = note
+            return report
         except json.JSONDecodeError:
             pass
     return {
-        "sha": pr.head_sha,
+        "sha": sha,
         "conclusion": "error",
         "checks": [],
+        "merge_gate_note": note,
         "error": (proc.stderr or stdout or "no output")[:800],
     }
 

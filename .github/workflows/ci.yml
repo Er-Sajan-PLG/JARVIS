@@ -1,10 +1,22 @@
 name: "JARVIS-CI"
 
+# DISABLED (2026-09-10): GitHub Actions is unusable for this private repo — the
+# account is billing-blocked and every run dies in ~5s ("The job was not started
+# because recent account payments have failed or your spending limit needs to be
+# increased"), which turned every PR red without running a single check.
+#
+# CI now runs locally: n8n (jarvis-n8n.service) polls every 30 minutes and drives
+# scripts/ci_bridge.py -> scripts/ci_gate.py, which enforces strictly MORE than
+# this workflow did (22 checks incl. SAST, SCA, SBOM, provenance, licences).
+# See docs/CI-GATE-SOTA.md.
+#
+# To restore Actions, re-add the triggers:
+#   pull_request:
+#     types: [opened, synchronize, reopened]
+#   push:
+#     branches: [main]
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
