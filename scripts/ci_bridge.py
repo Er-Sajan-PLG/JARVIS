@@ -192,12 +192,14 @@ def api(
 
 def check_auth(token: str, source: str) -> int:
     status, body = api("GET", "/user", token)
+    masked = _mask(token) if token else "***"
     if status != 200 or not isinstance(body, dict):
-        print(f"FAIL  token from {source} rejected (HTTP {status}): {body}")
+        print(f"FAIL  token from {source} rejected: masked={masked} (HTTP {status})")
         return 1
     print("AUTH OK")
+    # Token value never printed — only source and masked form for audit; SEC-002.
     print(f"  source : {source}")
-    print(f"  token  : {_mask(token)}")
+    print(f"  token  : masked={_mask(token)}")
     print(f"  login  : {body.get('login')}")
 
     rl_status, rl = api("GET", "/rate_limit", token)
