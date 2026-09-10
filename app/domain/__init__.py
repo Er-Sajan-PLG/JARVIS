@@ -8,6 +8,8 @@ from app.domain.conversation import ConversationState, Message, MessageAttachmen
 from app.domain.memory import FactExtractionResult, MemoryRecord, MemoryType
 from app.domain.plan import ExecutionPlan, ExecutionStep, SafetyTier, StepStatus, ToolCall
 from app.domain.session import SessionState, UserPreferences
+# Sprint 3 typed-state contract (LangGraph, ADR-006)
+from app.domain.state import IntentState, PlanState, ExecutionState, ResponseState
 
 __all__ = [
     # Content

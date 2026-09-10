@@ -8,6 +8,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 import re
 
+# LangGraph typed-state (Sprint 3 capability contract, ADR-006, AGENTS.md §5)
+from app.domain import IntentState, PlanState
+
 
 class IntentComplexity(str, Enum):
     """Complexity classification of user intent."""
