@@ -111,9 +111,9 @@ async def health_check():
 @app.get("/ready")
 async def readiness_check():
     """Readiness probe - checks if all subsystems are initialized."""
+    import json as _json
     try:
         container = bootstrap_system()
-        # Check critical subsystems
         checks = {
             "model_router": container.model_router is not None,
             "memory_service": container.memory_service is not None,
@@ -123,15 +123,15 @@ async def readiness_check():
         all_ready = all(checks.values())
         status_code = 200 if all_ready else 503
         return Response(
-            content=f'{{"ready": {str(all_ready).lower()}, "checks": {checks}}}',
+            content=_json.dumps({"ready": all_ready, "checks": checks}),
             status_code=status_code,
-            media_type="application/json"
+            media_type="application/json",
         )
     except Exception as e:
         return Response(
-            content=f'{{"ready": false, "error": "{str(e)}"}}',
+            content=_json.dumps({"ready": False, "error": str(e)}),
             status_code=503,
-            media_type="application/json"
+            media_type="application/json",
         )
 
 

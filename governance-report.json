@@ -1,0 +1,96 @@
+{
+  "generated_at": "2026-09-10T02:54:33.489985+00:00",
+  "results": [
+    {
+      "name": "secret_scan",
+      "status": "SKIP",
+      "severity": "INFO",
+      "message": "gitleaks not installed",
+      "remediation": "brew install gitleaks",
+      "details": {}
+    },
+    {
+      "name": "dependency_vulns",
+      "status": "FAIL",
+      "severity": "CRITICAL",
+      "message": "1 vulnerable package(s)",
+      "remediation": "Upgrade or patch vulnerable dependencies",
+      "details": {
+        "vulnerable": [
+          [
+            "chromadb",
+            "1.5.9"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "license_compliance",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "message": "1 copyleft-licensed package(s): pymupdf-Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License",
+      "remediation": "Replace or obtain legal review for AGPL/GPL deps",
+      "details": {
+        "violations": [
+          "pymupdf-Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License"
+        ]
+      }
+    },
+    {
+      "name": "sbom",
+      "status": "FAIL",
+      "severity": "MEDIUM",
+      "message": "No SBOM generated",
+      "remediation": "Generate SBOM in release workflow (syft/cyclonedx)",
+      "details": {}
+    },
+    {
+      "name": "container_security",
+      "status": "PASS",
+      "severity": "INFO",
+      "message": "Non-root USER directive present",
+      "remediation": "",
+      "details": {}
+    },
+    {
+      "name": "test_coverage",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "message": "Coverage 36% below 80%",
+      "remediation": "Add tests to reach 80% coverage",
+      "details": {
+        "coverage_pct": 36
+      }
+    },
+    {
+      "name": "contract_tests",
+      "status": "PASS",
+      "severity": "INFO",
+      "message": "Contract tests pass",
+      "remediation": "",
+      "details": {}
+    },
+    {
+      "name": "slsa",
+      "status": "PASS",
+      "severity": "INFO",
+      "message": "SLSA Level 4",
+      "remediation": "",
+      "details": {
+        "checks": {
+          "build_script": true,
+          "provenance": true,
+          "signed": true
+        }
+      }
+    },
+    {
+      "name": "dependabot",
+      "status": "PASS",
+      "severity": "INFO",
+      "message": "Dependabot configured",
+      "remediation": "",
+      "details": {}
+    }
+  ]
+}

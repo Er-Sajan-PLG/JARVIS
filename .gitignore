@@ -259,4 +259,4 @@ docker-compose.override.yml
 ###############################################################################
 
 scripts/verify.py
-scripts/verify_git_safety.py
+scripts/verify_git_safety.pygovernance-report.json
