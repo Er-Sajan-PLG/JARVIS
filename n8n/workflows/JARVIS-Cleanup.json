@@ -76,7 +76,10 @@
         200
       ],
       "credentials": {
-        "httpHeaderAuth": "github-api-auth"
+        "httpHeaderAuth": {
+          "id": "1HqqeKWS0pDkXLRP",
+          "name": "github-api-auth"
+        }
       }
     },
     {
@@ -124,7 +127,10 @@
         200
       ],
       "credentials": {
-        "httpHeaderAuth": "github-api-auth"
+        "httpHeaderAuth": {
+          "id": "1HqqeKWS0pDkXLRP",
+          "name": "github-api-auth"
+        }
       }
     },
     {
@@ -172,7 +178,10 @@
         200
       ],
       "credentials": {
-        "httpHeaderAuth": "github-api-auth"
+        "httpHeaderAuth": {
+          "id": "1HqqeKWS0pDkXLRP",
+          "name": "github-api-auth"
+        }
       }
     },
     {
@@ -223,7 +232,10 @@
         500
       ],
       "credentials": {
-        "httpHeaderAuth": "github-api-auth"
+        "httpHeaderAuth": {
+          "id": "1HqqeKWS0pDkXLRP",
+          "name": "github-api-auth"
+        }
       }
     },
     {
@@ -272,7 +284,10 @@
         500
       ],
       "credentials": {
-        "httpHeaderAuth": "github-api-auth"
+        "httpHeaderAuth": {
+          "id": "1HqqeKWS0pDkXLRP",
+          "name": "github-api-auth"
+        }
       }
     },
     {
@@ -319,7 +334,10 @@
         800
       ],
       "credentials": {
-        "httpHeaderAuth": "github-api-auth"
+        "httpHeaderAuth": {
+          "id": "1HqqeKWS0pDkXLRP",
+          "name": "github-api-auth"
+        }
       }
     },
     {
@@ -367,7 +385,10 @@
         800
       ],
       "credentials": {
-        "httpHeaderAuth": "github-api-auth"
+        "httpHeaderAuth": {
+          "id": "1HqqeKWS0pDkXLRP",
+          "name": "github-api-auth"
+        }
       }
     },
     {
@@ -575,5 +596,5 @@
     "executionTimeout": 3600,
     "errorWorkflow": "JARVIS-Error-Handler"
   },
-  "id": "1"
+  "id": "4b435cd8-00dc-436c-8308-ee80e7bcab8e"
 }

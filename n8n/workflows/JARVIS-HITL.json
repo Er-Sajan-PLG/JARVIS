@@ -122,7 +122,10 @@
         400
       ],
       "credentials": {
-        "telegramApi": "telegram-credentials"
+        "telegramApi": {
+          "id": "Lp7660U6W0ypdKBc",
+          "name": "telegram-credentials"
+        }
       }
     },
     {
@@ -448,5 +451,5 @@
     "executionTimeout": 1800,
     "errorWorkflow": "JARVIS-Error-Handler"
   },
-  "id": "1"
+  "id": "e0f3e292-55ad-488d-927f-1417655fcabd"
 }

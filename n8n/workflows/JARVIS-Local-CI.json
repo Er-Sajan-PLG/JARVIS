@@ -1,0 +1,106 @@
+{
+  "id": "6631c9dc-56d2-4af0-93a7-e1da475244d2",
+  "name": "JARVIS-CI-Local",
+  "active": false,
+  "description": "Local n8n replacement for paid GitHub Actions. Calls the JARVIS CI bridge (scripts/ci_bridge_server.py, a localhost wrapper around scripts/ci_bridge.py) which lists open PRs, gates each head SHA in a local shadow worktree via scripts/ci_gate.py, and can publish commit statuses. n8n v2 removed the Execute Command node, so local commands run through the bridge over HTTP instead. Edit the Config node to choose how many PRs to gate and whether statuses are published.",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "trigger-schedule",
+      "name": "Schedule every 6h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-60, 120],
+      "notes": "Automatic poll. Activate the workflow to enable this trigger."
+    },
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-60, 320],
+      "notes": "Click the editor's Run button to gate on demand."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── EDIT ME ──────────────────────────────────────────────\n// limit  : how many open PRs to gate this run (each takes ~1.5-2 min)\n// dryRun : true  = run the gates, publish NOTHING to GitHub\n//          false = publish commit statuses (the real local CI)\n// pr     : a specific PR number, or null to let the bridge pick\nconst limit = 1;\nconst dryRun = true;\nconst pr = null;\n\nreturn [{ json: { limit: limit, dryRun: dryRun, pr: pr,\n                  body: { limit: limit, dryRun: dryRun, pr: pr } } }];"
+      },
+      "id": "config",
+      "name": "Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [180, 220],
+      "notes": "Edit limit / dryRun / pr in this node's code."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8770/run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 900000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "run-ci-gate",
+      "name": "Run Local CI (bridge)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 220],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "S3tItkgWZjUI9Dmg",
+          "name": "ci-bridge-auth"
+        }
+      },
+      "notes": "POSTs to the localhost CI bridge, which runs scripts/ci_bridge.py. Bound to 127.0.0.1 and token-authenticated."
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst stdout = String(d.stdout || '');\nconst stderr = String(d.stderr || '');\nconst tail = stdout.split('\\n').filter(function (l) { return l.trim().length > 0; }).slice(-18).join('\\n');\nreturn [{ json: {\n  ok: d.ok === true,\n  exitCode: (d.exitCode !== undefined ? d.exitCode : null),\n  durationSec: (d.durationSec !== undefined ? d.durationSec : null),\n  tail: tail,\n  stderrTail: stderr.split('\\n').filter(function (l) { return l.trim().length > 0; }).slice(-6).join('\\n')\n} }];"
+      },
+      "id": "summarize",
+      "name": "Summarize Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 220]
+    }
+  ],
+  "connections": {
+    "Schedule every 6h": {
+      "main": [[{ "node": "Config", "type": "main", "index": 0 }]]
+    },
+    "Manual Trigger": {
+      "main": [[{ "node": "Config", "type": "main", "index": 0 }]]
+    },
+    "Config": {
+      "main": [[{ "node": "Run Local CI (bridge)", "type": "main", "index": 0 }]]
+    },
+    "Run Local CI (bridge)": {
+      "main": [[{ "node": "Summarize Result", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}
