@@ -1,6 +1,8 @@
-"""Live Hugging Face model catalog."""
-
 from __future__ import annotations
+
+import os
+
+"""Live Hugging Face model catalog."""
 
 import threading
 import time
@@ -11,7 +13,9 @@ from app.utils.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
-API_URL = "https://huggingface.co/api/models"
+# ARCH-007: API endpoint externalised to .env (not hardcoded in source).
+# Allows different environments (dev/staging/prod/proxy) without code edits.
+API_URL = os.getenv("HF_API_URL", "https://huggingface.co/api/models")
 _TTL_SECONDS = 300
 
 _cache: dict = {"data": None, "fetched_at": 0.0}
