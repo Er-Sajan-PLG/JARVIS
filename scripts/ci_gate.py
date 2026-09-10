@@ -853,19 +853,27 @@ def gate_licenses(worktree: Path) -> Check:
     if exe is None:
         return _missing_tool("licenses", "Supply Chain", True, "pip-licenses not installed")
     res = _run(
-        [str(PYTHON), str(exe), "--format=json", "--with-urls", "--with-license-file=no"],
+        [str(PYTHON), str(exe), "--format=json", "--with-urls"],
         cwd=worktree,
         timeout=600,
     )
     try:
-        pkgs = json.loads(res.stdout or "[]")
+        pkgs = json.loads(res.stdout or "")
     except json.JSONDecodeError:
         return Check(
             "licenses",
             "Supply Chain",
             True,
             "skip",
-            f"pip-licenses produced no JSON — {_tail(res.stderr, 300)}",
+            f"pip-licenses produced no JSON — {_tail(res.stderr or res.stdout, 300)}",
+        )
+    if not pkgs:
+        return Check(
+            "licenses",
+            "Supply Chain",
+            True,
+            "skip",
+            "pip-licenses listed no packages — nothing was verified",
         )
     accepted = _accepted_risk_tokens(worktree)
     offenders: list[str] = []
@@ -1058,7 +1066,11 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
     }
     stmt_path = ARTIFACT_DIR / f"provenance-{sha[:12]}.intoto.json"
     stmt_path.write_text(json.dumps(statement, indent=2))
+    bundle_path = ARTIFACT_DIR / f"provenance-{sha[:12]}.sigstore.json"
     sig_path = ARTIFACT_DIR / f"provenance-{sha[:12]}.sig"
+
+    # cosign v3 requires --bundle (the detached --output-signature form is deprecated
+    # and now hard-fails); fall back to the detached form for older cosign builds.
     sign_res = _run(
         [
             cosign,
@@ -1066,14 +1078,35 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
             "--yes",
             "--key",
             str(key),
-            "--output-signature",
-            str(sig_path),
+            "--bundle",
+            str(bundle_path),
             str(stmt_path),
         ],
         cwd=worktree,
         timeout=300,
         env={"COSIGN_PASSWORD": pw},
     )
+    if sign_res.returncode == 0:
+        verify_args = ["--bundle", str(bundle_path)]
+        artifact = bundle_path.name
+    else:
+        sign_res = _run(
+            [
+                cosign,
+                "sign-blob",
+                "--yes",
+                "--key",
+                str(key),
+                "--output-signature",
+                str(sig_path),
+                str(stmt_path),
+            ],
+            cwd=worktree,
+            timeout=300,
+            env={"COSIGN_PASSWORD": pw},
+        )
+        verify_args = ["--signature", str(sig_path)]
+        artifact = sig_path.name
     if sign_res.returncode != 0:
         return Check(
             "provenance",
@@ -1084,7 +1117,7 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
             exit_code=sign_res.returncode,
         )
     verify_res = _run(
-        [cosign, "verify-blob", "--key", str(pub), "--signature", str(sig_path), str(stmt_path)],
+        [cosign, "verify-blob", "--key", str(pub), *verify_args, str(stmt_path)],
         cwd=worktree,
         timeout=300,
     )
@@ -1102,7 +1135,7 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
         "Supply Chain",
         False,
         "pass",
-        f"SLSA provenance signed + verified -> {stmt_path.name}",
+        f"SLSA provenance signed + verified ({artifact})",
     )
 
 

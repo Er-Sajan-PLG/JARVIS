@@ -1,0 +1,24 @@
+# hadolint policy for JARVIS.
+#
+# Everything NOT listed here stays enforced by the blocking `hadolint` gate in
+# scripts/ci_gate.py. The three suppressions below are deliberate and reviewable;
+# the rationale for each is recorded in docs/ACCEPTED_RISKS.md (RISK-013).
+
+ignored:
+  # Pin versions in `apt-get install`.
+  # The apt packages come from the digest-pinned `python:3.11-slim` base image and are
+  # build-only (build-essential, gcc). Hard-coding versions here would duplicate the
+  # base image's pin and rot independently of it.
+  - DL3008
+
+  # Pin versions in `pip install`.
+  # Every Python dependency is pinned by requirements.txt (a frozen pip-freeze of the
+  # versions actually installed), which this Dockerfile installs with `-r`. The only
+  # unpinned install is `pip install --upgrade pip` (the tool itself).
+  - DL3013
+
+  # Non-numeric user-id.
+  # `useradd -r` allocates the uid/gid itself, so the image has no fixed numeric id.
+  # Switching to `USER <uid>:<gid>` changes runtime ownership of /app/data and needs a
+  # migration for existing volumes — tracked as RISK-013 rather than done silently.
+  - DL3066

@@ -12,12 +12,13 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.bootstrap import ApplicationContainer, bootstrap_system
 from app.domain import ExecutionPlan
-from app.guardrails import (
-    DECISION_APPROVE,
-    DECISION_DENY,
-    ApprovalAlreadyDecidedError,
-    ApprovalNotFoundError,
-)
+
+# NB: app.adapters may only depend on app.bootstrap / app.brain (enforced by
+# scripts/board/review.py `import_layering`). The HITL approval registry is reached
+# through the container, so the two decision literals live here instead of being
+# imported from app.guardrails.
+DECISION_APPROVE = "approve"
+DECISION_DENY = "deny"
 
 http_router = APIRouter(prefix="/api/v1", tags=["JARVIS REST API"])
 
@@ -183,9 +184,11 @@ async def hitl_approve(payload: dict[str, Any]) -> dict[str, Any]:
         record = registry.decide(
             plan_id, step_id, approve=approve, approver=approver, reason=reason
         )
-    except ApprovalNotFoundError as err:
+    except KeyError as err:
+        # ApprovalNotFoundError subclasses KeyError — surface as 404.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
-    except ApprovalAlreadyDecidedError as err:
+    except ValueError as err:
+        # ApprovalAlreadyDecidedError subclasses ValueError — surface as 409.
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(err)) from err
 
     # Resume the plan. Approved steps execute; denied steps were set to SKIPPED and are

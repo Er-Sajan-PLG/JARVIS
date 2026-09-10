@@ -18,6 +18,7 @@ expiry; a lapsed entry is a governance failure.
 | RISK-010 | `requirements.txt` is frozen but not hash-pinned | MEDIUM | **Accepted (gap)** | `pip install --require-hashes` is not enforced, so mirror/substitution attacks are not detected. Closing it needs a full hash-locked regeneration. | 2026-09-10 | Sprint 3 | Dev |
 | RISK-011 | Commits are format-checked but neither signed nor DCO-signed-off | LOW | **Accepted (gap)** | commitlint enforces Conventional Commits; GPG/SSH commit signing and DCO sign-off are not enforced. | 2026-09-10 | 2026-12-10 | Dev |
 | RISK-012 | The n8n gate cannot make a PR unmergeable on GitHub | HIGH | **Accepted (platform limit)** | Branch protection returns 403 on a private free-tier repo, so the gate publishes commit statuses but cannot block the merge button. Enforcement is n8n-side: the pipeline stops, the human merge button stays green. | 2026-09-10 | 2026-10-10 | User (plan call) |
+| RISK-013 | Dockerfile: unpinned apt/pip versions and a non-numeric runtime user (hadolint DL3008/DL3013/DL3066) | LOW | **Accepted (documented)** | Suppressions are explicit in `.hadolint.yaml` with rationale, never silent. apt packages are build-only from the digest-pinned base image; Python deps are pinned by requirements.txt; `useradd -r` allocates the uid, so pinning `USER <uid>` would need a volume-ownership migration for /app/data. | 2026-09-10 | 2026-12-10 | Dev |
 
 ## Rules
 

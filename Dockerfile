@@ -40,9 +40,10 @@ RUN mkdir -p /app/data && chown -R jarvis:jarvis /app/data
 # Switch to non-root user
 USER jarvis
 
-# Health check
+# Health check (JSON form: httpx.raise_for_status() already exits non-zero on failure,
+# so the shell `|| exit 1` was redundant — and shell form trips hadolint DL3025)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8000/api/v1/health', timeout=5).raise_for_status()" || exit 1
+    CMD ["python", "-c", "import httpx; httpx.get('http://localhost:8000/api/v1/health', timeout=5).raise_for_status()"]
 
 # Expose port
 EXPOSE 8000

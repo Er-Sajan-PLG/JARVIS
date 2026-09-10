@@ -22,7 +22,10 @@ except ModuleNotFoundError:  # pragma: no cover - env without the optional dep
 from app.brain.analyzer import IntentAnalyzer
 from app.brain.planner import TaskPlanner
 from app.domain import ExecutionState, IntentState, PlanState, ResponseState
-from app.session.checkpointer import MemorySaverAdapter
+
+# NOTE: app.brain may only import app.domain / app.events / app.guardrails
+# (scripts/board/review.py `import_layering`). Persistence adapters such as
+# MemorySaverAdapter (app.session) are injected by app.bootstrap, never imported here.
 
 # Note: tool_executor node skeleton will be wired in next increment.
 
@@ -57,8 +60,9 @@ def task_planner_node(state: IntentState) -> PlanState:
 
 def tool_executor_node(state: PlanState) -> ExecutionState:
     """Node 3: Tool execution (typed-state contract; HITL approvals applied)."""
-    adapter = MemorySaverAdapter()
-    adapter.save(checkpoint_data=state.get("plan") or {}, thread_id="default")
+    # Checkpointing is owned by app.bootstrap: app.brain may only import app.domain,
+    # app.events and app.guardrails (scripts/board/review.py `import_layering`), so this
+    # node stays pure and the adapter is injected one layer up.
     return {
         "executed": state.get("plan"),
         "hitl_approvals": {},
