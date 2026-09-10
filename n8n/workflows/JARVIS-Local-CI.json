@@ -140,6 +140,20 @@
           "name": "slack-bot-auth"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The bridge answers HTTP 200 even when the gate failed (ok:false), and the\n// HTTP node keeps neverError on, so without this node a failed run would be\n// recorded as a SUCCESS. That is the same false-green the bridge itself was\n// fixed to stop, one layer up.\n//\n// Read the gate result by NAME: $input here is Slack's API response\n// ({ok:true, ts:...}), not the CI summary.\nconst d = $('Summarize Result').first().json;\nif (d.ok !== true) {\n  throw new Error(\n    'CI gate failed (exit ' + d.exitCode + ', ' + d.durationSec + 's): ' +\n    String(d.stderrTail || d.tail || 'no detail').slice(0, 500)\n  );\n}\nreturn [{ json: d }];"
+      },
+      "id": "fail-if-not-ok",
+      "name": "Fail If Not OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        220
+      ],
+      "notes": "Turns the execution red when the bridge reported ok:false."
     }
   ],
   "connections": {
@@ -192,6 +206,17 @@
         [
           {
             "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Slack": {
+      "main": [
+        [
+          {
+            "node": "Fail If Not OK",
             "type": "main",
             "index": 0
           }
