@@ -8,6 +8,10 @@ from typing import AsyncGenerator
 from app.domain import ExecutionPlan, Message, Role
 
 
+from langgraph.graph import StateGraph, START, END  # Sprint 3: graph wiring skeleton
+NODE_FLOW = ("intent_analyzer", "task_planner", "tool_executor", "response_synthesizer")
+
+
 class ResponseSynthesizer:
     """Assembles final user response streams."""
 

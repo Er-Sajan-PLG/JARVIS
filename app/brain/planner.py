@@ -13,6 +13,13 @@ from app.domain import ExecutionPlan, ExecutionStep, SafetyTier, StepStatus, Too
 logger = logging.getLogger(__name__)
 
 
+# Sprint 3 capability (ADR-006, AGENTS.md §5): node skeleton.
+# Full execution graph definition with typed-state routing is NEXT increment.
+NODE_FLOW = ("intent_analyzer", "task_planner", "tool_executor", "response_synthesizer")
+
+from langgraph.graph import StateGraph, START, END
+
+
 class TaskPlanner:
     """Dynamic Task Planner generating inspectable ExecutionPlans."""
 
