@@ -265,3 +265,6 @@ scripts/verify_git_safety.py
 .governance/
 governance-report.json
 sbom.json
+
+# n8n CI bridge local secret
+.ci-bridge.env
