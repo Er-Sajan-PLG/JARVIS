@@ -76,23 +76,46 @@ TOKEN_FILES = (
 # names the intended branch protection would require, so they stay stable
 # whether enforcement is local or (later) GitHub-side.
 CONTEXT_OF: dict[str, str] = {
+    # Static analysis & types
     "ruff_ratchet": "Lint & Typecheck",
     "mypy": "Lint & Typecheck",
+    "semgrep": "SAST",
+    # Tests
     "pytest": "Tests",
+    "contract": "Tests",
     "coverage": "Tests",
+    # Secrets & appsec
     "gitleaks": "Security Scan",
+    "trufflehog": "Security Scan",
     "bandit": "Security Scan",
     "pip_audit": "Security Scan",
+    # Supply chain (SCA / SBOM / licences / provenance / IaC)
+    "trivy": "Supply Chain",
+    "osv": "Supply Chain",
+    "licenses": "Supply Chain",
+    "sbom": "Supply Chain",
+    "provenance": "Supply Chain",
+    "checkov": "Supply Chain",
+    # Governance, build, commits
     "board": "Virtual Board Governance",
     "compileall": "Build",
+    "hadolint": "Build",
+    "docker_build": "Build",
     "worktree": "Build",
+    "commitlint": "Conventional Commits",
+    # Heavy / ratcheted
+    "mutation": "Mutation Testing",
 }
 CONTEXT_ORDER = (
     "Lint & Typecheck",
+    "SAST",
     "Tests",
     "Security Scan",
+    "Supply Chain",
+    "Conventional Commits",
     "Virtual Board Governance",
     "Build",
+    "Mutation Testing",
 )
 
 

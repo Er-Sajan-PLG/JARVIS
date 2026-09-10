@@ -9,8 +9,8 @@
         "rule": {
           "interval": [
             {
-              "field": "hours",
-              "hoursInterval": 6
+              "field": "minutes",
+              "minutesInterval": 30
             }
           ]
         }
@@ -19,7 +19,10 @@
       "name": "Schedule every 6h",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-60, 120],
+      "position": [
+        -60,
+        120
+      ],
       "notes": "Automatic poll. Activate the workflow to enable this trigger."
     },
     {
@@ -28,18 +31,24 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [-60, 320],
+      "position": [
+        -60,
+        320
+      ],
       "notes": "Click the editor's Run button to gate on demand."
     },
     {
       "parameters": {
-        "jsCode": "// ── EDIT ME ──────────────────────────────────────────────\n// limit  : how many open PRs to gate this run (each takes ~1.5-2 min)\n// dryRun : true  = run the gates, publish NOTHING to GitHub\n//          false = publish commit statuses (the real local CI)\n// pr     : a specific PR number, or null to let the bridge pick\nconst limit = 1;\nconst dryRun = true;\nconst pr = null;\n\nreturn [{ json: { limit: limit, dryRun: dryRun, pr: pr,\n                  body: { limit: limit, dryRun: dryRun, pr: pr } } }];"
+        "jsCode": "// \u2500\u2500 EDIT ME \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// limit  : how many open PRs to gate this run (each takes ~1.5-2 min)\n// dryRun : true  = run the gates, publish NOTHING to GitHub\n//          false = publish commit statuses (the real local CI)\n// pr     : a specific PR number, or null to let the bridge pick\nconst limit = 1;\nconst dryRun = true;\nconst pr = null;\n\nreturn [{ json: { limit: limit, dryRun: dryRun, pr: pr,\n                  body: { limit: limit, dryRun: dryRun, pr: pr } } }];"
       },
       "id": "config",
       "name": "Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [180, 220],
+      "position": [
+        180,
+        220
+      ],
       "notes": "Edit limit / dryRun / pr in this node's code."
     },
     {
@@ -65,7 +74,10 @@
       "name": "Run Local CI (bridge)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [460, 220],
+      "position": [
+        460,
+        220
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "S3tItkgWZjUI9Dmg",
@@ -82,21 +94,56 @@
       "name": "Summarize Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [740, 220]
+      "position": [
+        740,
+        220
+      ]
     }
   ],
   "connections": {
     "Schedule every 6h": {
-      "main": [[{ "node": "Config", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Manual Trigger": {
-      "main": [[{ "node": "Config", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Config": {
-      "main": [[{ "node": "Run Local CI (bridge)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Run Local CI (bridge)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Run Local CI (bridge)": {
-      "main": [[{ "node": "Summarize Result", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Summarize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {

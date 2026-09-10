@@ -36,6 +36,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -50,6 +52,12 @@ PYTHON = VENV_BIN / "python"
 WORKTREE_BASE = Path("/tmp/jarvis-ci-gate")
 OUTPUT_CAP = 4000
 
+# SOTA scanners live in an ISOLATED venv/bin so the project's pinned .venv is never
+# disturbed by their (heavy) dependency trees. Evidence artifacts land in artifacts/.
+TOOLS_HOME = Path.home() / ".local" / "share" / "jarvis-ci-tools"
+TOOLS_VENV_BIN = TOOLS_HOME / "venv" / "bin"
+ARTIFACT_DIR = REPO_ROOT / "artifacts"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Result model
@@ -61,9 +69,9 @@ class Check:
     """Outcome of a single gate."""
 
     name: str
-    context: str          # GitHub check-run context this maps to
+    context: str  # GitHub check-run context this maps to
     blocking: bool
-    status: str           # pass | fail | skip | error
+    status: str  # pass | fail | skip | error
     summary: str
     exit_code: int = 0
     duration_ms: int = 0
@@ -116,13 +124,20 @@ def _run(
         merged.update(env)
     try:
         return subprocess.run(
-            cmd, cwd=str(cwd), capture_output=True, text=True,
-            timeout=timeout, env=merged,
+            cmd,
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=merged,
         )
     except subprocess.TimeoutExpired as exc:
         partial = (exc.stdout or "") if isinstance(exc.stdout, str) else ""
         return subprocess.CompletedProcess(
-            cmd, 124, partial, f"TIMEOUT after {timeout}s",
+            cmd,
+            124,
+            partial,
+            f"TIMEOUT after {timeout}s",
         )
     except FileNotFoundError as exc:
         return subprocess.CompletedProcess(cmd, 127, "", str(exc))
@@ -134,15 +149,20 @@ def _tail(text: str, cap: int = OUTPUT_CAP) -> str:
     if len(text) <= cap:
         return text
     head = text[: cap // 2]
-    tail = text[-(cap // 2):]
+    tail = text[-(cap // 2) :]
     return f"{head}\n... [{len(text) - cap} chars omitted] ...\n{tail}"
 
 
 def _tool(name: str) -> str | None:
-    """Absolute path to a venv-installed tool, else a PATH lookup."""
-    candidate = VENV_BIN / name
-    if candidate.exists():
-        return str(candidate)
+    """Absolute path to a venv-installed tool, else a PATH lookup.
+
+    Resolution order: the project venv (ruff, mypy, bandit, pip-licenses), then the
+    isolated scanner venv (semgrep, mutmut, cyclonedx-py), then PATH (gitleaks, trivy,
+    syft, cosign, hadolint, trufflehog, osv-scanner).
+    """
+    for candidate in (VENV_BIN / name, TOOLS_VENV_BIN / name):
+        if candidate.exists():
+            return str(candidate)
     return shutil.which(name)
 
 
@@ -164,17 +184,22 @@ def _prepare_worktree(sha: str) -> tuple[Path | None, str]:
     if path.exists():
         subprocess.run(
             ["git", "worktree", "remove", "--force", str(path)],
-            cwd=str(REPO_ROOT), capture_output=True, text=True,
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
         )
         shutil.rmtree(path, ignore_errors=True)
     subprocess.run(
         ["git", "worktree", "prune"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True,
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
     )
 
     res = _run(
         ["git", "worktree", "add", "--detach", "--force", str(path), sha],
-        cwd=REPO_ROOT, timeout=300,
+        cwd=REPO_ROOT,
+        timeout=300,
     )
     if res.returncode != 0:
         return None, f"worktree add failed: {_tail(res.stderr or res.stdout, 800)}"
@@ -184,12 +209,16 @@ def _prepare_worktree(sha: str) -> tuple[Path | None, str]:
 def _teardown_worktree(path: Path) -> None:
     subprocess.run(
         ["git", "worktree", "remove", "--force", str(path)],
-        cwd=str(REPO_ROOT), capture_output=True, text=True,
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
     )
     shutil.rmtree(path, ignore_errors=True)
     subprocess.run(
         ["git", "worktree", "prune"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True,
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
     )
 
 
@@ -207,7 +236,9 @@ def _resolve_app(worktree: Path) -> str:
     """Prove which ``app`` package the interpreter will import."""
     res = _run(
         [str(PYTHON), "-c", "import app, sys; print(app.__file__)"],
-        cwd=worktree, timeout=120, env=_worktree_env(worktree),
+        cwd=worktree,
+        timeout=120,
+        env=_worktree_env(worktree),
     )
     if res.returncode != 0:
         return f"<import failed: {_tail(res.stderr, 300)}>"
@@ -239,37 +270,53 @@ def gate_ruff_ratchet(worktree: Path, base: str) -> Check:
     """Ruff on files changed vs ``base`` — the legacy debt is out of scope."""
     ruff = _tool("ruff")
     if not ruff:
-        return Check("ruff_ratchet", "Lint & Typecheck", True, "skip",
-                     "ruff not installed")
+        return Check("ruff_ratchet", "Lint & Typecheck", True, "skip", "ruff not installed")
 
     diff = _run(
-        ["git", "diff", "--name-only", "--diff-filter=ACMR", base, "HEAD",
-         "--", "*.py"],
-        cwd=worktree, timeout=120,
+        ["git", "diff", "--name-only", "--diff-filter=ACMR", base, "HEAD", "--", "*.py"],
+        cwd=worktree,
+        timeout=120,
     )
     if diff.returncode != 0:
-        return Check("ruff_ratchet", "Lint & Typecheck", True, "skip",
-                     f"cannot diff against {base}: {_tail(diff.stderr, 300)}")
+        return Check(
+            "ruff_ratchet",
+            "Lint & Typecheck",
+            True,
+            "skip",
+            f"cannot diff against {base}: {_tail(diff.stderr, 300)}",
+        )
 
     changed = [f for f in diff.stdout.splitlines() if f.strip()]
     if not changed:
-        return Check("ruff_ratchet", "Lint & Typecheck", True, "pass",
-                     "no changed Python files")
+        return Check("ruff_ratchet", "Lint & Typecheck", True, "pass", "no changed Python files")
 
     res = _run([ruff, "check", *changed], cwd=worktree, timeout=600)
     if res.returncode == 0:
-        return Check("ruff_ratchet", "Lint & Typecheck", True, "pass",
-                     f"{len(changed)} changed file(s) clean",
-                     output=_tail(res.stdout))
-    return Check("ruff_ratchet", "Lint & Typecheck", True, "fail",
-                 f"{len(changed)} changed file(s) with lint errors",
-                 exit_code=res.returncode, output=_tail(res.stdout + res.stderr))
+        return Check(
+            "ruff_ratchet",
+            "Lint & Typecheck",
+            True,
+            "pass",
+            f"{len(changed)} changed file(s) clean",
+            output=_tail(res.stdout),
+        )
+    return Check(
+        "ruff_ratchet",
+        "Lint & Typecheck",
+        True,
+        "fail",
+        f"{len(changed)} changed file(s) with lint errors",
+        exit_code=res.returncode,
+        output=_tail(res.stdout + res.stderr),
+    )
 
 
 def gate_pytest(worktree: Path) -> Check:
     res = _run(
         [str(PYTHON), "-m", "pytest", "tests/", "-q", "--no-header"],
-        cwd=worktree, timeout=1800, env=_worktree_env(worktree),
+        cwd=worktree,
+        timeout=1800,
+        env=_worktree_env(worktree),
     )
     out = res.stdout + res.stderr
     tail_line = ""
@@ -278,127 +325,208 @@ def gate_pytest(worktree: Path) -> Check:
             tail_line = line.strip()
             break
     status = "pass" if res.returncode == 0 else "fail"
-    return Check("pytest", "Tests", True, status,
-                 tail_line or f"pytest exit {res.returncode}",
-                 exit_code=res.returncode, output=_tail(out))
+    return Check(
+        "pytest",
+        "Tests",
+        True,
+        status,
+        tail_line or f"pytest exit {res.returncode}",
+        exit_code=res.returncode,
+        output=_tail(out),
+    )
 
 
 def gate_gitleaks(worktree: Path) -> Check:
     """Secret scan in git-aware mode so gitignored artifacts are not noise."""
     gitleaks = _tool("gitleaks")
     if not gitleaks:
-        return Check("gitleaks", "Security Scan", True, "skip",
-                     "gitleaks not installed")
+        return Check("gitleaks", "Security Scan", True, "skip", "gitleaks not installed")
     cfg = worktree / ".gitleaks.toml"
-    cmd = [gitleaks, "detect", "--redact", "--report-format", "json",
-           "--report-path", "/dev/stdout"]
+    cmd = [
+        gitleaks,
+        "detect",
+        "--redact",
+        "--report-format",
+        "json",
+        "--report-path",
+        "/dev/stdout",
+    ]
     if cfg.exists():
         cmd += ["--config", ".gitleaks.toml"]
     res = _run(cmd, cwd=worktree, timeout=600)
     if res.returncode == 0:
-        return Check("gitleaks", "Security Scan", True, "pass",
-                     "no secrets in tracked content")
+        return Check("gitleaks", "Security Scan", True, "pass", "no secrets in tracked content")
     leaks: list[Any] = []
     try:
         leaks = json.loads(res.stdout or "[]")
     except json.JSONDecodeError:
         leaks = []
     files = sorted({str(leak.get("File", "?")) for leak in leaks})
-    return Check("gitleaks", "Security Scan", True, "fail",
-                 f"{len(leaks)} potential secret(s) in {len(files)} file(s)",
-                 exit_code=res.returncode,
-                 output=_tail("\n".join(files[:20])))
+    return Check(
+        "gitleaks",
+        "Security Scan",
+        True,
+        "fail",
+        f"{len(leaks)} potential secret(s) in {len(files)} file(s)",
+        exit_code=res.returncode,
+        output=_tail("\n".join(files[:20])),
+    )
 
 
 def gate_board(worktree: Path) -> Check:
     script = worktree / "scripts" / "board" / "review.py"
     if not script.exists():
-        return Check("board", "Virtual Board Governance", True, "skip",
-                     "scripts/board/review.py absent")
-    res = _run([str(PYTHON), "scripts/board/review.py"],
-               cwd=worktree, timeout=900, env=_worktree_env(worktree))
+        return Check(
+            "board", "Virtual Board Governance", True, "skip", "scripts/board/review.py absent"
+        )
+    res = _run(
+        [str(PYTHON), "scripts/board/review.py"],
+        cwd=worktree,
+        timeout=900,
+        env=_worktree_env(worktree),
+    )
     out = res.stdout + res.stderr
     status = "pass" if res.returncode == 0 else "fail"
     failed = [ln for ln in out.splitlines() if ln.strip().startswith("❌")]
-    summary = "all 8 governance checks passed" if status == "pass" else \
-        f"{len(failed)} governance check(s) failed"
-    return Check("board", "Virtual Board Governance", True, status, summary,
-                 exit_code=res.returncode, output=_tail(out))
+    summary = (
+        "all 8 governance checks passed"
+        if status == "pass"
+        else f"{len(failed)} governance check(s) failed"
+    )
+    return Check(
+        "board",
+        "Virtual Board Governance",
+        True,
+        status,
+        summary,
+        exit_code=res.returncode,
+        output=_tail(out),
+    )
 
 
 def gate_compileall(worktree: Path) -> Check:
-    res = _run([str(PYTHON), "-m", "compileall", "-q", "app/"],
-               cwd=worktree, timeout=600, env=_worktree_env(worktree))
+    res = _run(
+        [str(PYTHON), "-m", "compileall", "-q", "app/"],
+        cwd=worktree,
+        timeout=600,
+        env=_worktree_env(worktree),
+    )
     status = "pass" if res.returncode == 0 else "fail"
     summary = "all modules compile" if status == "pass" else "syntax errors present"
-    return Check("compileall", "Build", True, status, summary,
-                 exit_code=res.returncode, output=_tail(res.stdout + res.stderr))
+    return Check(
+        "compileall",
+        "Build",
+        True,
+        status,
+        summary,
+        exit_code=res.returncode,
+        output=_tail(res.stdout + res.stderr),
+    )
 
 
 def gate_mypy(worktree: Path) -> Check:
     """REPORTED ONLY — 591 legacy errors, tracked as RISK-005."""
     mypy = _tool("mypy")
     if not mypy:
-        return Check("mypy", "Lint & Typecheck", False, "skip",
-                     "mypy not installed")
-    res = _run([mypy, "--strict", "app/"],
-               cwd=worktree, timeout=1800, env=_worktree_env(worktree))
+        return Check("mypy", "Lint & Typecheck", False, "skip", "mypy not installed")
+    res = _run([mypy, "--strict", "app/"], cwd=worktree, timeout=1800, env=_worktree_env(worktree))
     out = res.stdout + res.stderr
     last = out.strip().splitlines()[-1] if out.strip() else ""
     status = "pass" if res.returncode == 0 else "fail"
-    return Check("mypy", "Lint & Typecheck", False, status,
-                 last or f"mypy exit {res.returncode}",
-                 exit_code=res.returncode, output=_tail(out))
+    return Check(
+        "mypy",
+        "Lint & Typecheck",
+        False,
+        status,
+        last or f"mypy exit {res.returncode}",
+        exit_code=res.returncode,
+        output=_tail(out),
+    )
 
 
 def gate_bandit(worktree: Path) -> Check:
     """REPORTED ONLY — SAST signal, not yet a merge gate."""
     bandit = _tool("bandit")
     if not bandit:
-        return Check("bandit", "Security Scan", False, "skip",
-                     "bandit not installed")
-    res = _run([bandit, "-r", "app/", "-q", "-f", "txt"],
-               cwd=worktree, timeout=900, env=_worktree_env(worktree))
+        return Check("bandit", "Security Scan", False, "skip", "bandit not installed")
+    res = _run(
+        [bandit, "-r", "app/", "-q", "-f", "txt"],
+        cwd=worktree,
+        timeout=900,
+        env=_worktree_env(worktree),
+    )
     out = res.stdout + res.stderr
     status = "pass" if res.returncode == 0 else "fail"
     highs = out.count("Severity: High")
     summary = "no issues" if status == "pass" else f"{highs} high-severity issue(s)"
-    return Check("bandit", "Security Scan", False, status, summary,
-                 exit_code=res.returncode, output=_tail(out))
+    return Check(
+        "bandit",
+        "Security Scan",
+        False,
+        status,
+        summary,
+        exit_code=res.returncode,
+        output=_tail(out),
+    )
 
 
 def gate_pip_audit(worktree: Path) -> Check:
     """REPORTED ONLY — policy lives in docs/ACCEPTED_RISKS.md."""
     tool = _tool("pip-audit")
     if not tool:
-        return Check("pip_audit", "Security Scan", False, "skip",
-                     "pip-audit not installed")
-    res = _run([tool, "-r", "requirements.txt", "-f", "json"],
-               cwd=worktree, timeout=900, env=_worktree_env(worktree))
+        return Check("pip_audit", "Security Scan", False, "skip", "pip-audit not installed")
+    res = _run(
+        [tool, "-r", "requirements.txt", "-f", "json"],
+        cwd=worktree,
+        timeout=900,
+        env=_worktree_env(worktree),
+    )
     vuln: list[str] = []
     try:
         data = json.loads(res.stdout or "{}")
         vuln = [
             f"{d.get('name')}=={d.get('version')}"
-            for d in data.get("dependencies", []) if d.get("vulns")
+            for d in data.get("dependencies", [])
+            if d.get("vulns")
         ]
     except json.JSONDecodeError:
         pass
     if not vuln:
-        return Check("pip_audit", "Security Scan", False, "pass",
-                     "no known vulnerabilities", output=_tail(res.stdout))
-    return Check("pip_audit", "Security Scan", False, "fail",
-                 f"{len(vuln)} vulnerable package(s)",
-                 exit_code=res.returncode,
-                 output=_tail(", ".join(vuln)))
+        return Check(
+            "pip_audit",
+            "Security Scan",
+            False,
+            "pass",
+            "no known vulnerabilities",
+            output=_tail(res.stdout),
+        )
+    return Check(
+        "pip_audit",
+        "Security Scan",
+        False,
+        "fail",
+        f"{len(vuln)} vulnerable package(s)",
+        exit_code=res.returncode,
+        output=_tail(", ".join(vuln)),
+    )
 
 
 def gate_coverage(worktree: Path) -> Check:
     """REPORTED ONLY — 36% vs 80% target, tracked as RISK-004."""
     res = _run(
-        [str(PYTHON), "-m", "pytest", "tests/", "-q", "--no-header",
-         "--cov=app", "--cov-report=term"],
-        cwd=worktree, timeout=1800, env=_worktree_env(worktree),
+        [
+            str(PYTHON),
+            "-m",
+            "pytest",
+            "tests/",
+            "-q",
+            "--no-header",
+            "--cov=app",
+            "--cov-report=term",
+        ],
+        cwd=worktree,
+        timeout=1800,
+        env=_worktree_env(worktree),
     )
     out = res.stdout + res.stderr
     pct = 0
@@ -411,9 +539,753 @@ def gate_coverage(worktree: Path) -> Check:
                     break
             break
     status = "pass" if pct >= 80 else "fail"
-    return Check("coverage", "Tests", False, status,
-                 f"coverage {pct}% (floor 80%)",
-                 output=_tail(out))
+    return Check(
+        "coverage", "Tests", False, status, f"coverage {pct}% (floor 80%)", output=_tail(out)
+    )
+
+
+# ── Conventional Commits (mirrors commitlint.config.cjs + the Actions job) ─────
+# commitlint.config.cjs pins type-enum=[feat, fix, docs, style, refactor, perf, test,
+# chore, revert], header-max-length=100, and subject-case=never[sentence-case,
+# start-case, pascal-case, upper-case]. Implemented in Python so the gate needs no Node.
+CONVENTIONAL_TYPES = frozenset(
+    {
+        "feat",
+        "fix",
+        "docs",
+        "style",
+        "refactor",
+        "perf",
+        "test",
+        "chore",
+        "revert",
+    }
+)
+_CONVENTIONAL_HEADER = re.compile(r"^(\w+)(?:\(([^)]+)\))?(!)?:\s(\S.*)$")
+_HEADER_MAX = 100
+
+
+def _conventional_problems(subject: str) -> list[str]:
+    """Rule violations for a single commit subject ([] means compliant)."""
+    s = subject.strip()
+    if s.startswith("Merge "):
+        return []  # merge commits are exempt, as in the upstream lint action
+    problems: list[str] = []
+    if len(s) > _HEADER_MAX:
+        problems.append(f"header is {len(s)} chars (max {_HEADER_MAX})")
+    match = _CONVENTIONAL_HEADER.match(s)
+    if match is None:
+        problems.append("header must read `type(scope): subject`")
+        return problems
+    ctype, body = match.group(1), match.group(4)
+    if ctype not in CONVENTIONAL_TYPES:
+        allowed = ", ".join(sorted(CONVENTIONAL_TYPES))
+        problems.append(f"type '{ctype}' is not allowed (allowed: {allowed})")
+    if body.upper() == body and any(c.isalpha() for c in body):
+        problems.append("subject is UPPER-CASE")
+    elif body[:1].isupper():
+        problems.append("subject starts capitalised (sentence/start/pascal-case)")
+    if body.endswith("."):
+        problems.append("subject must not end with a full stop")
+    return problems
+
+
+def gate_commitlint(worktree: Path, base: str) -> Check:
+    """Blocking: every commit in base..HEAD must be a Conventional Commit."""
+    res = _run(
+        ["git", "log", "--no-merges", "--format=%H%x1f%s", "--max-count=250", f"{base}..HEAD"],
+        cwd=worktree,
+        timeout=120,
+    )
+    if res.returncode != 0:
+        return Check(
+            "commitlint",
+            "Conventional Commits",
+            True,
+            "skip",
+            f"cannot list commits: {_tail(res.stderr, 300)}",
+        )
+    entries = [ln for ln in res.stdout.splitlines() if ln.strip()]
+    if not entries:
+        return Check(
+            "commitlint", "Conventional Commits", True, "pass", "no non-merge commits in range"
+        )
+    offenders: list[str] = []
+    for line in entries:
+        sha, _, subject = line.partition("\x1f")
+        problems = _conventional_problems(subject)
+        if problems:
+            offenders.append(f"{sha[:10]}  {subject[:70]}\n    - " + "\n    - ".join(problems))
+    if offenders:
+        return Check(
+            "commitlint",
+            "Conventional Commits",
+            True,
+            "fail",
+            f"{len(offenders)}/{len(entries)} commit(s) not Conventional Commits",
+            exit_code=1,
+            output=_tail("\n".join(offenders)),
+        )
+    return Check(
+        "commitlint",
+        "Conventional Commits",
+        True,
+        "pass",
+        f"{len(entries)} commit(s) Conventional Commits",
+    )
+
+
+def gate_docker_build(worktree: Path) -> Check:
+    """REPORTED ONLY: mirrors the `docker build` step of the Actions Build job.
+
+    Opt-in (`--with-docker`): a cold image build costs minutes per PR and the gate is
+    polled, so the compileall + worktree checks stay the blocking Build gates.
+    """
+    if not (worktree / "Dockerfile").is_file():
+        return Check("docker_build", "Build", False, "skip", "no Dockerfile in tree")
+    docker = shutil.which("docker")
+    if docker is None:
+        return Check("docker_build", "Build", False, "skip", "docker not on PATH")
+    res = _run([docker, "build", "-t", "jarvis-ci-gate:local", "."], cwd=worktree, timeout=1800)
+    if res.returncode != 0:
+        return Check(
+            "docker_build",
+            "Build",
+            False,
+            "fail",
+            "docker build failed (reported only)",
+            exit_code=res.returncode,
+            output=_tail(res.stdout + res.stderr),
+        )
+    return Check("docker_build", "Build", False, "pass", "docker image built (reported only)")
+
+
+# ── SOTA supply-chain & static-analysis gates ─────────────────────────────────
+# The gates below bring the local gate to parity with a modern supply-chain posture
+# (SLSA v1.0 build levels, OpenSSF Scorecard, NIST SSDF PW.4/PW.7, CycloneDX SBOM,
+# Sigstore signing, OWASP ASVS/SAMM verification). See docs/CI-GATE-SOTA.md for the
+# element-by-element comparison and the evidence each gate emits.
+#
+# Exemptions are data-driven: docs/ACCEPTED_RISKS.md is parsed for accepted/deferred
+# vulnerability IDs (CVE-*/PYSEC-*/GHSA-*) and package names, so a reviewed risk
+# silences exactly that finding — and a lapsed entry resurfaces it.
+_RISK_TOKEN_RE = re.compile(r"\b(CVE-\d{4}-\d{4,}|PYSEC-\d{4}-\d+|GHSA-[A-Za-z0-9-]+)\b")
+_RISK_PKG_RE = re.compile(r"`([A-Za-z0-9][A-Za-z0-9_.\-]{2,})")
+
+# Licenses that block a merge unless the package is named in the risk register.
+DENIED_LICENSE_MARKERS = ("AGPL", "GPL-3", "GPL-2", "SSPL", "BUSL", "CC-BY-NC")
+
+
+def _changed_files(worktree: Path, base: str) -> list[str]:
+    """Files added/copied/modified/renamed by this branch (for ratchets)."""
+    res = _run(
+        ["git", "diff", "--name-only", "--diff-filter=ACMR", f"{base}...HEAD"],
+        cwd=worktree,
+        timeout=180,
+    )
+    if res.returncode != 0:
+        return []
+    return [ln.strip() for ln in res.stdout.splitlines() if ln.strip()]
+
+
+def _accepted_risk_tokens(worktree: Path) -> set[str]:
+    """Vuln IDs + package names that docs/ACCEPTED_RISKS.md has reviewed (not resolved)."""
+    path = worktree / "docs" / "ACCEPTED_RISKS.md"
+    if not path.is_file():
+        return set()
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return set()
+    tokens: set[str] = set()
+    for line in text.splitlines():
+        low = line.lower()
+        if "|" not in line or "risk-" not in low or "resolved" in low:
+            continue
+        if not any(k in low for k in ("accepted", "deferred", "needs decision")):
+            continue
+        tokens.update(m.group(0).upper() for m in _RISK_TOKEN_RE.finditer(line))
+        tokens.update(m.group(1).lower() for m in _RISK_PKG_RE.finditer(line))
+    tokens.discard("risk")
+    return tokens
+
+
+def _missing_tool(tool: str, context: str, blocking: bool, why: str) -> Check:
+    """A gate whose scanner is absent reports SKIP — never a silent pass."""
+    return Check(tool, context, blocking, "skip", f"{tool} unavailable — {why}")
+
+
+def gate_semgrep(worktree: Path, base: str) -> Check:
+    """SAST (ratchet): semgrep ERROR-severity findings in the files this PR touches."""
+    exe = _tool("semgrep")
+    if exe is None:
+        return _missing_tool("semgrep", "SAST", True, "not installed")
+    changed = [f for f in _changed_files(worktree, base) if f.endswith(".py")]
+    if not changed:
+        return Check("semgrep", "SAST", True, "pass", "no changed python files")
+    res = _run(
+        [
+            exe,
+            "scan",
+            "--config=p/default",
+            "--severity=ERROR",
+            "--error",
+            "--json",
+            "--quiet",
+            "--timeout=60",
+            *changed,
+        ],
+        cwd=worktree,
+        timeout=1200,
+        env={"SEMGREP_SEND_METRICS": "off", "SEMGREP_ENABLE_VERSION_CHECK": "0"},
+    )
+    try:
+        data = json.loads(res.stdout or "{}")
+    except json.JSONDecodeError:
+        data = {}
+    findings = data.get("results", []) or []
+    errors = data.get("errors", []) or []
+    if findings:
+        lines = [
+            f"{f.get('path')}:{(f.get('start') or {}).get('line')} "
+            f"[{f.get('check_id')}] "
+            f"{str((f.get('extra') or {}).get('message', ''))[:140]}"
+            for f in findings[:25]
+        ]
+        return Check(
+            "semgrep",
+            "SAST",
+            True,
+            "fail",
+            f"{len(findings)} error-severity finding(s) in changed file(s)",
+            exit_code=1,
+            output=_tail("\n".join(lines)),
+        )
+    if res.returncode == 0:
+        return Check(
+            "semgrep",
+            "SAST",
+            True,
+            "pass",
+            f"0 error-severity findings in {len(changed)} changed file(s)",
+        )
+    detail = _tail(res.stderr, 500) or f"exit {res.returncode}"
+    if errors:
+        detail += f"\nrule errors: {len(errors)}"
+    return Check("semgrep", "SAST", True, "skip", f"semgrep did not complete — {detail}")
+
+
+def gate_trivy_fs(worktree: Path) -> Check:
+    """SCA + IaC misconfig: trivy filesystem scan (CRITICAL/HIGH block the merge)."""
+    exe = _tool("trivy")
+    if exe is None:
+        return _missing_tool("trivy", "Supply Chain", True, "not installed")
+    res = _run(
+        [
+            exe,
+            "fs",
+            "--quiet",
+            "--scanners",
+            "vuln,misconfig",
+            "--severity",
+            "CRITICAL,HIGH",
+            "--format",
+            "json",
+            ".",
+        ],
+        cwd=worktree,
+        timeout=1800,
+    )
+    try:
+        data = json.loads(res.stdout or "{}")
+    except json.JSONDecodeError:
+        return Check(
+            "trivy",
+            "Supply Chain",
+            True,
+            "skip",
+            f"trivy produced no JSON — {_tail(res.stderr, 400)}",
+        )
+    accepted = _accepted_risk_tokens(worktree)
+    blocking_hits: list[str] = []
+    accepted_hits: list[str] = []
+    for result in data.get("Results") or []:
+        target = result.get("Target", "?")
+        for v in result.get("Vulnerabilities") or []:
+            vid = (v.get("VulnerabilityID") or "").upper()
+            pkg = (v.get("PkgName") or "").lower()
+            line = (
+                f"{target}: {vid} {v.get('PkgName')} "
+                f"{v.get('InstalledVersion')} -> {v.get('FixedVersion') or 'no fix'} "
+                f"[{v.get('Severity')}]"
+            )
+            if vid in accepted or pkg in accepted:
+                accepted_hits.append(line)
+            else:
+                blocking_hits.append(line)
+        for m in result.get("Misconfigurations") or []:
+            if (m.get("Severity") or "").upper() in ("CRITICAL", "HIGH"):
+                blocking_hits.append(
+                    f"{target}: [{m.get('Severity')}] {m.get('ID')} {m.get('Title')}"
+                )
+    if blocking_hits:
+        body = "\n".join(blocking_hits[:25])
+        if accepted_hits:
+            body += "\n\n(acknowledged in ACCEPTED_RISKS.md, not blocking:)\n" + "\n".join(
+                accepted_hits[:10]
+            )
+        return Check(
+            "trivy",
+            "Supply Chain",
+            True,
+            "fail",
+            f"{len(blocking_hits)} CRITICAL/HIGH finding(s)",
+            exit_code=1,
+            output=_tail(body),
+        )
+    note = f"0 blocking CRITICAL/HIGH (accepted: {len(accepted_hits)})"
+    return Check("trivy", "Supply Chain", True, "pass", note)
+
+
+def gate_licenses(worktree: Path) -> Check:
+    """License compliance: deny copyleft licenses unless reviewed in the risk register."""
+    exe = _tool("pip-licenses")
+    if exe is None:
+        return _missing_tool("licenses", "Supply Chain", True, "pip-licenses not installed")
+    res = _run(
+        [str(PYTHON), str(exe), "--format=json", "--with-urls", "--with-license-file=no"],
+        cwd=worktree,
+        timeout=600,
+    )
+    try:
+        pkgs = json.loads(res.stdout or "[]")
+    except json.JSONDecodeError:
+        return Check(
+            "licenses",
+            "Supply Chain",
+            True,
+            "skip",
+            f"pip-licenses produced no JSON — {_tail(res.stderr, 300)}",
+        )
+    accepted = _accepted_risk_tokens(worktree)
+    offenders: list[str] = []
+    acknowledged: list[str] = []
+    for p in pkgs:
+        lic = str(p.get("License") or "")
+        name = str(p.get("Name") or "")
+        if not any(marker in lic.upper() for marker in DENIED_LICENSE_MARKERS):
+            continue
+        entry = f"{name} {p.get('Version')} — {lic}"
+        if name.lower() in accepted:
+            acknowledged.append(entry)
+        else:
+            offenders.append(entry)
+    if offenders:
+        body = "\n".join(offenders[:25])
+        if acknowledged:
+            body += "\n\n(acknowledged in ACCEPTED_RISKS.md, not blocking:)\n" + "\n".join(
+                acknowledged[:10]
+            )
+        return Check(
+            "licenses",
+            "Supply Chain",
+            True,
+            "fail",
+            f"{len(offenders)} unreviewed copyleft dependency(ies)",
+            exit_code=1,
+            output=_tail(body),
+        )
+    return Check(
+        "licenses",
+        "Supply Chain",
+        True,
+        "pass",
+        f"{len(pkgs)} package(s) scanned; {len(acknowledged)} acknowledged",
+    )
+
+
+def gate_trufflehog(worktree: Path) -> Check:
+    """Verified secret detection (second detector beside gitleaks)."""
+    exe = _tool("trufflehog")
+    if exe is None:
+        return _missing_tool("trufflehog", "Security Scan", True, "not installed")
+    res = _run(
+        [
+            exe,
+            "git",
+            f"file://{worktree}",
+            "--results=verified",
+            "--json",
+            "--no-update",
+            "--log-level=-1",
+        ],
+        cwd=worktree,
+        timeout=900,
+    )
+    verified: list[str] = []
+    for line in (res.stdout or "").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if obj.get("Verified"):
+            src = obj.get("SourceMetadata", {}).get("Data", {}).get("Git", {})
+            verified.append(
+                f"{src.get('file', '?')}:{src.get('line', '?')} "
+                f"{obj.get('DetectorName', '?')} ({obj.get('DetectorType')})"
+            )
+    if verified:
+        return Check(
+            "trufflehog",
+            "Security Scan",
+            True,
+            "fail",
+            f"{len(verified)} VERIFIED secret(s) in git history",
+            exit_code=1,
+            output=_tail("\n".join(verified[:25])),
+        )
+    if res.returncode not in (0, 183):
+        return Check(
+            "trufflehog",
+            "Security Scan",
+            True,
+            "skip",
+            f"trufflehog did not complete — {_tail(res.stderr, 300)}",
+        )
+    return Check("trufflehog", "Security Scan", True, "pass", "no verified secrets")
+
+
+def gate_osv(worktree: Path) -> Check:
+    """OSV dependency scan (reported: pip-audit+trivy are the blocking SCA gates)."""
+    exe = _tool("osv-scanner")
+    if exe is None:
+        return _missing_tool("osv", "Supply Chain", False, "not installed")
+    res = _run([exe, "--format", "json", "--recursive", "."], cwd=worktree, timeout=1200)
+    try:
+        data = json.loads(res.stdout or "{}")
+    except json.JSONDecodeError:
+        return Check(
+            "osv",
+            "Supply Chain",
+            False,
+            "skip",
+            f"osv-scanner produced no JSON — {_tail(res.stderr, 300)}",
+        )
+    accepted = _accepted_risk_tokens(worktree)
+    hits: list[str] = []
+    for result in data.get("results") or []:
+        for pkg in result.get("packages") or []:
+            name = (pkg.get("package") or {}).get("name") or "?"
+            for v in pkg.get("vulnerabilities") or []:
+                vid = str(v.get("id") or "").upper()
+                if vid in accepted or name.lower() in accepted:
+                    continue
+                hits.append(f"{name}: {vid} {str(v.get('summary') or '')[:100]}")
+    status = "fail" if hits else "pass"
+    return Check(
+        "osv",
+        "Supply Chain",
+        False,
+        status,
+        f"{len(hits)} unreviewed OSV advisory(ies)" if hits else "no unreviewed advisories",
+        exit_code=1 if hits else 0,
+        output=_tail("\n".join(hits[:25])),
+    )
+
+
+def gate_sbom(worktree: Path) -> Check:
+    """CycloneDX SBOM generation (evidence artifact; closes RISK-003)."""
+    ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+    out = ARTIFACT_DIR / f"sbom-{worktree.name}.cdx.json"
+    exe = _tool("syft") or _tool("cyclonedx-py")
+    if exe is None:
+        return _missing_tool("sbom", "Supply Chain", False, "syft/cyclonedx not installed")
+    if Path(exe).name.startswith("syft"):
+        cmd = [exe, "dir:.", "-o", f"cyclonedx-json={out}", "--quiet"]
+    else:
+        cmd = [str(PYTHON), exe, "requirements", "--output-format", "JSON", "-o", str(out)]
+    res = _run(cmd, cwd=worktree, timeout=900)
+    if res.returncode != 0 or not out.is_file():
+        return Check(
+            "sbom",
+            "Supply Chain",
+            False,
+            "skip",
+            f"SBOM generation failed — {_tail(res.stderr or res.stdout, 300)}",
+        )
+    size = out.stat().st_size
+    return Check(
+        "sbom", "Supply Chain", False, "pass", f"CycloneDX SBOM written ({size} bytes) -> {out}"
+    )
+
+
+def gate_provenance(worktree: Path, sha: str) -> Check:
+    """SLSA-style provenance: build an in-toto statement and sign+verify it (cosign)."""
+    cosign = _tool("cosign")
+    if cosign is None:
+        return _missing_tool(
+            "provenance", "Supply Chain", False, "cosign not installed (no signing material)"
+        )
+    ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+    key = TOOLS_HOME / "cosign.key"
+    pub = TOOLS_HOME / "cosign.pub"
+    pw = _signing_password()
+    if not key.exists() or not pub.exists():
+        return Check(
+            "provenance",
+            "Supply Chain",
+            False,
+            "skip",
+            "no cosign keypair — run scripts/ci_gate.py --init-signing",
+        )
+    statement = {
+        "_type": "https://in-toto.io/Statement/v1",
+        "subject": [{"name": "jarvis", "digest": {"gitCommit": sha}}],
+        "predicateType": "https://slsa.dev/provenance/v1",
+        "predicate": {
+            "buildDefinition": {
+                "buildType": "https://jarvis.local/ci-gate@v1",
+                "externalParameters": {"base": worktree.name, "sha": sha},
+            },
+            "runDetails": {
+                "builder": {"id": "local://jarvis-ci-gate"},
+                "metadata": {"invocationId": sha[:12]},
+            },
+        },
+    }
+    stmt_path = ARTIFACT_DIR / f"provenance-{sha[:12]}.intoto.json"
+    stmt_path.write_text(json.dumps(statement, indent=2))
+    sig_path = ARTIFACT_DIR / f"provenance-{sha[:12]}.sig"
+    sign_res = _run(
+        [
+            cosign,
+            "sign-blob",
+            "--yes",
+            "--key",
+            str(key),
+            "--output-signature",
+            str(sig_path),
+            str(stmt_path),
+        ],
+        cwd=worktree,
+        timeout=300,
+        env={"COSIGN_PASSWORD": pw},
+    )
+    if sign_res.returncode != 0:
+        return Check(
+            "provenance",
+            "Supply Chain",
+            False,
+            "fail",
+            f"cosign sign-blob failed — {_tail(sign_res.stderr, 300)}",
+            exit_code=sign_res.returncode,
+        )
+    verify_res = _run(
+        [cosign, "verify-blob", "--key", str(pub), "--signature", str(sig_path), str(stmt_path)],
+        cwd=worktree,
+        timeout=300,
+    )
+    if verify_res.returncode != 0:
+        return Check(
+            "provenance",
+            "Supply Chain",
+            False,
+            "fail",
+            f"signature verification FAILED — {_tail(verify_res.stderr, 300)}",
+            exit_code=verify_res.returncode,
+        )
+    return Check(
+        "provenance",
+        "Supply Chain",
+        False,
+        "pass",
+        f"SLSA provenance signed + verified -> {stmt_path.name}",
+    )
+
+
+def gate_hadolint(worktree: Path) -> Check:
+    """Dockerfile best-practice lint (blocks when a Dockerfile is present)."""
+    dockerfile = worktree / "Dockerfile"
+    if not dockerfile.is_file():
+        return Check("hadolint", "Build", True, "skip", "no Dockerfile in tree")
+    exe = _tool("hadolint")
+    if exe is None:
+        return _missing_tool("hadolint", "Build", True, "not installed")
+    res = _run([exe, "--format", "json", "Dockerfile"], cwd=worktree, timeout=300)
+    try:
+        issues = json.loads(res.stdout or "[]")
+    except json.JSONDecodeError:
+        issues = []
+    if issues:
+        lines = [f"{i.get('line')}: {i.get('code')} {i.get('message')}" for i in issues[:25]]
+        return Check(
+            "hadolint",
+            "Build",
+            True,
+            "fail",
+            f"{len(issues)} Dockerfile issue(s)",
+            exit_code=1,
+            output=_tail("\n".join(lines)),
+        )
+    return Check("hadolint", "Build", True, "pass", "Dockerfile clean")
+
+
+def gate_contract(worktree: Path) -> Check:
+    """Contract tests as a first-class blocking gate (interface stability)."""
+    tests_dir = worktree / "tests" / "contract"
+    if not tests_dir.is_dir():
+        return Check("contract", "Tests", True, "skip", "no tests/contract directory")
+    res = _run(
+        [str(PYTHON), "-m", "pytest", "tests/contract", "-q", "-p", "no:cacheprovider"],
+        cwd=worktree,
+        timeout=1800,
+        env={"PYTHONPATH": str(worktree)},
+    )
+    tail = (res.stdout or "").strip().splitlines()
+    summary = tail[-1] if tail else f"exit {res.returncode}"
+    if res.returncode != 0:
+        return Check(
+            "contract",
+            "Tests",
+            True,
+            "fail",
+            f"contract tests failed — {summary[:160]}",
+            exit_code=res.returncode,
+            output=_tail(res.stdout + res.stderr),
+        )
+    return Check("contract", "Tests", True, "pass", summary[:160])
+
+
+def gate_mutation(worktree: Path) -> Check:
+    """Mutation testing (opt-in `--with-mutation`): reported, and slow by design."""
+    exe = _tool("mutmut")
+    if exe is None:
+        return _missing_tool("mutation", "Mutation Testing", False, "mutmut not installed")
+    res = _run(
+        [str(PYTHON), str(exe), "run", "--paths-to-mutate", "app/domain"],
+        cwd=worktree,
+        timeout=3600,
+    )
+    out = (res.stdout or "") + (res.stderr or "")
+    killed = survived = None
+    m = re.search(r"killed\s+(\d+).*?survived\s+(\d+)", out, re.S | re.I)
+    if m:
+        killed, survived = int(m.group(1)), int(m.group(2))
+    if res.returncode != 0 and killed is None:
+        return Check(
+            "mutation",
+            "Mutation Testing",
+            False,
+            "skip",
+            f"mutmut did not complete — {_tail(out, 300)}",
+        )
+    if killed is not None and survived is not None:
+        total = killed + survived
+        score = 100.0 * killed / total if total else 0.0
+        return Check(
+            "mutation",
+            "Mutation Testing",
+            False,
+            "pass",
+            f"mutation score {score:.1f}% ({killed} killed / {survived} survived)",
+        )
+    return Check("mutation", "Mutation Testing", False, "pass", "mutmut completed")
+
+
+def gate_checkov(worktree: Path) -> Check:
+    """IaC / config misconfiguration scan (reported). Skips when there is no IaC."""
+    iac_globs = ("*.tf", "*.yaml", "*.yml", "Dockerfile", "docker-compose*.yml")
+    candidates: list[str] = []
+    for glob in iac_globs:
+        for p in sorted(worktree.glob(glob)):
+            rel = str(p.relative_to(worktree))
+            if rel.startswith((".git/", ".venv/", "node_modules/")):
+                continue
+            candidates.append(rel)
+    if not candidates:
+        return Check("checkov", "Supply Chain", False, "skip", "no IaC files in tree")
+    exe = _tool("checkov")
+    if exe is None:
+        return _missing_tool("checkov", "Supply Chain", False, "not installed")
+    res = _run(
+        [str(PYTHON), str(exe), "-d", ".", "--compact", "--quiet", "--output", "json"],
+        cwd=worktree,
+        timeout=1800,
+    )
+    try:
+        data = json.loads(res.stdout or "{}")
+    except json.JSONDecodeError:
+        return Check(
+            "checkov",
+            "Supply Chain",
+            False,
+            "skip",
+            f"checkov produced no JSON — {_tail(res.stderr, 300)}",
+        )
+    failed = 0
+    if isinstance(data, dict):
+        summary = data.get("summary", {}) or {}
+        failed = int(summary.get("failed", 0) or 0)
+    elif isinstance(data, list):
+        for entry in data:
+            failed += int((entry.get("summary") or {}).get("failed", 0) or 0)
+    status = "fail" if failed else "pass"
+    return Check(
+        "checkov",
+        "Supply Chain",
+        False,
+        status,
+        f"{failed} IaC check(s) failed" if failed else "no IaC misconfigurations",
+        exit_code=1 if failed else 0,
+    )
+
+
+def _signing_password() -> str:
+    """Password for the local cosign key: env var, else the 0600 file beside the key."""
+    pw = os.environ.get("COSIGN_PASSWORD", "")
+    if pw:
+        return pw
+    path = TOOLS_HOME / "cosign.password"
+    if path.is_file():
+        return path.read_text(encoding="utf-8").strip()
+    return ""
+
+
+def _init_signing() -> int:
+    """Create the local cosign keypair (private material stays OUTSIDE the repo)."""
+    cosign = _tool("cosign")
+    if cosign is None:
+        print("FATAL: cosign not installed", file=sys.stderr)
+        return 2
+    TOOLS_HOME.mkdir(parents=True, exist_ok=True)
+    key = TOOLS_HOME / "cosign.key"
+    pub = TOOLS_HOME / "cosign.pub"
+    if key.exists() and pub.exists():
+        print(f"keypair already present: {pub}")
+        return 0
+    pw = os.environ.get("COSIGN_PASSWORD") or secrets.token_urlsafe(24)
+    res = _run(
+        [cosign, "generate-key-pair", "--output-key-prefix", str(TOOLS_HOME / "cosign")],
+        cwd=REPO_ROOT,
+        timeout=180,
+        env={"COSIGN_PASSWORD": pw},
+    )
+    if res.returncode != 0 or not key.exists():
+        print(
+            f"FATAL: key generation failed — {_tail(res.stderr or res.stdout, 400)}",
+            file=sys.stderr,
+        )
+        return 2
+    pw_file = TOOLS_HOME / "cosign.password"
+    pw_file.write_text(pw)
+    pw_file.chmod(0o600)
+    print(
+        f"created {key}\n        {pub}\npassword stored in {pw_file} (mode 0600, outside the repo)"
+    )
+    return 0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -421,20 +1293,34 @@ def gate_coverage(worktree: Path) -> Check:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def run_gates(sha: str, base: str, keep: bool = False,
-              with_coverage: bool = False) -> GateReport:
+def run_gates(
+    sha: str,
+    base: str,
+    keep: bool = False,
+    with_coverage: bool = False,
+    with_docker: bool = False,
+    with_mutation: bool = False,
+) -> GateReport:
     started = time.time()
     report = GateReport(
-        sha=sha, base=base,
+        sha=sha,
+        base=base,
         repo="Er-Sajan-PLG/JARVIS",
         started_at=time.strftime("%Y-%m-%dT%H:%M:%S%z"),
     )
 
     worktree, err = _prepare_worktree(sha)
     if worktree is None:
-        report.checks.append(Check(
-            "worktree", "Build", True, "error", err, exit_code=1,
-        ))
+        report.checks.append(
+            Check(
+                "worktree",
+                "Build",
+                True,
+                "error",
+                err,
+                exit_code=1,
+            )
+        )
         report.duration_ms = int((time.time() - started) * 1000)
         return report
 
@@ -443,16 +1329,37 @@ def run_gates(sha: str, base: str, keep: bool = False,
         report.app_resolved_to = _resolve_app(worktree)
         report.merge_base = _resolve_merge_base(worktree, base)
 
+        # ── static analysis & types ──────────────────────────────────────────
         report.checks.append(gate_ruff_ratchet(worktree, report.merge_base))
+        report.checks.append(gate_semgrep(worktree, report.merge_base))
+        report.checks.append(gate_mypy(worktree))
+        # ── tests ────────────────────────────────────────────────────────────
         report.checks.append(gate_pytest(worktree))
+        report.checks.append(gate_contract(worktree))
+        # ── secrets & application security ───────────────────────────────────
         report.checks.append(gate_gitleaks(worktree))
+        report.checks.append(gate_trufflehog(worktree))
+        report.checks.append(gate_bandit(worktree))
+        # ── supply chain (SCA / SBOM / licences / provenance) ────────────────
+        report.checks.append(gate_pip_audit(worktree))
+        report.checks.append(gate_trivy_fs(worktree))
+        report.checks.append(gate_osv(worktree))
+        report.checks.append(gate_licenses(worktree))
+        report.checks.append(gate_sbom(worktree))
+        report.checks.append(gate_provenance(worktree, sha))
+        # ── governance & build ──────────────────────────────────────────────
         report.checks.append(gate_board(worktree))
         report.checks.append(gate_compileall(worktree))
-        report.checks.append(gate_mypy(worktree))
-        report.checks.append(gate_bandit(worktree))
-        report.checks.append(gate_pip_audit(worktree))
+        report.checks.append(gate_hadolint(worktree))
+        report.checks.append(gate_checkov(worktree))
+        report.checks.append(gate_commitlint(worktree, report.merge_base))
+        # ── opt-in (heavy / ratcheted) ───────────────────────────────────────
         if with_coverage:
             report.checks.append(gate_coverage(worktree))
+        if with_docker:
+            report.checks.append(gate_docker_build(worktree))
+        if with_mutation:
+            report.checks.append(gate_mutation(worktree))
     finally:
         if not keep:
             _teardown_worktree(worktree)
@@ -469,33 +1376,57 @@ def _print_human(report: GateReport) -> None:
     icons = {"pass": "PASS", "fail": "FAIL", "skip": "SKIP", "error": "ERR "}
     for c in report.checks:
         flag = "blocking" if c.blocking else "reported"
-        print(f"  {icons.get(c.status, '?'):<4} [{flag:<8}] "
-              f"{c.name:<14} {c.summary}")
+        print(f"  {icons.get(c.status, '?'):<4} [{flag:<8}] " f"{c.name:<14} {c.summary}")
     print("-" * 68)
-    print(f"conclusion: {report.concluded.upper()}  "
-          f"({len(report.blocking_failures)} blocking failure(s), "
-          f"{report.duration_ms} ms)")
+    print(
+        f"conclusion: {report.concluded.upper()}  "
+        f"({len(report.blocking_failures)} blocking failure(s), "
+        f"{report.duration_ms} ms)"
+    )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sha", required=True, help="commit SHA to verify")
-    parser.add_argument("--base", default="origin/main",
-                        help="base ref for the ruff ratchet (default origin/main)")
-    parser.add_argument("--json", action="store_true",
-                        help="emit machine JSON on stdout")
+    parser.add_argument("--sha", default="", help="commit SHA to verify")
+    parser.add_argument(
+        "--base", default="origin/main", help="base ref for the ruff ratchet (default origin/main)"
+    )
+    parser.add_argument("--json", action="store_true", help="emit machine JSON on stdout")
     parser.add_argument("--out", help="also write the JSON report to this path")
     parser.add_argument("--keep-worktree", action="store_true")
-    parser.add_argument("--with-coverage", action="store_true",
-                        help="add the (non-blocking) coverage gate")
+    parser.add_argument(
+        "--with-coverage", action="store_true", help="add the (non-blocking) coverage gate"
+    )
+    parser.add_argument(
+        "--with-docker", action="store_true", help="add the (non-blocking) docker-build gate"
+    )
+    parser.add_argument(
+        "--with-mutation", action="store_true", help="add the (non-blocking, slow) mutation gate"
+    )
+    parser.add_argument(
+        "--init-signing", action="store_true", help="create the local cosign keypair"
+    )
+
     args = parser.parse_args()
+
+    if args.init_signing:
+        return _init_signing()
+
+    if not args.sha:
+        parser.error("--sha is required (unless --init-signing is used)")
 
     if not PYTHON.exists():
         print(f"FATAL: {PYTHON} missing", file=sys.stderr)
         return 2
 
-    report = run_gates(args.sha, args.base, keep=args.keep_worktree,
-                       with_coverage=args.with_coverage)
+    report = run_gates(
+        args.sha,
+        args.base,
+        keep=args.keep_worktree,
+        with_coverage=args.with_coverage,
+        with_docker=args.with_docker,
+        with_mutation=args.with_mutation,
+    )
 
     payload = asdict(report)
     payload["conclusion"] = report.concluded
