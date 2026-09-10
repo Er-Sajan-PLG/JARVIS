@@ -5,8 +5,8 @@ Usage: python scripts/bump_version.py [patch|minor|major]
 """
 
 import re
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -57,9 +57,19 @@ def run_cmd(cmd: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
+def install_hooks() -> None:
+    """Point git at the tracked githooks/ dir (version guard + pre-push reminder)."""
+    subprocess.run(["git", "config", "core.hooksPath", "githooks"], check=True)
+    print("✅ core.hooksPath set to 'githooks' (pre-commit + pre-push hooks active).")
+
+
 def main():
+    if len(sys.argv) == 2 and sys.argv[1] == "install-hooks":
+        install_hooks()
+        return
+
     if len(sys.argv) != 2 or sys.argv[1] not in ("patch", "minor", "major"):
-        print("Usage: python scripts/bump_version.py [patch|minor|major]")
+        print("Usage: python scripts/bump_version.py [patch|minor|major|install-hooks]")
         sys.exit(1)
 
     bump_type = sys.argv[1]
@@ -80,7 +90,7 @@ def main():
 
     # Update pyproject.toml
     update_pyproject(new_version)
-    print(f"Updated pyproject.toml")
+    print("Updated pyproject.toml")
 
     # Git operations
     print("Running git operations...")

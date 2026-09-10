@@ -37,4 +37,15 @@ except Exception:
 PY
 fi
 
+# 3) Run the pre-commit framework on STAGED files (ratchet): new/changed code must
+#    be clean even while legacy debt is burned down. mypy is excluded here until the
+#    legacy type backlog is cleared — tracked as RISK-005 in docs/ACCEPTED_RISKS.md.
+if [ -x "$REPO_ROOT/.venv/bin/pre-commit" ]; then
+  echo "🔍 Running pre-commit framework (staged files)…"
+  SKIP=mypy "$REPO_ROOT/.venv/bin/pre-commit" run || {
+    echo "❌ pre-commit failed. Re-stage auto-fixes or fix the reported issues."
+    exit 1
+  }
+fi
+
 exit 0
