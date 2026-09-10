@@ -3,97 +3,113 @@
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "hitl",
-        "responseMode": "responseNode",
-        "options": {}
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
       },
-      "id": "webhook-hitl",
-      "name": "HITL Webhook",
-      "type": "n8n-nodes-base.webhook",
+      "id": "fb3a1f1a-8154-4b5c-a500-2d8396c27641",
+      "name": "Poll Pending",
+      "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
       "position": [
-        250,
-        300
+        -200,
+        0
       ],
-      "webhookId": "jarvis-hitl"
+      "disabled": false,
+      "credentials": {}
     },
     {
       "parameters": {
-        "functionCode": "const payload = items[0].json;\n\nconst planId = payload.plan_id || payload.planId;\nconst stepId = payload.step_id || payload.stepId;\nconst tool = payload.tool_name || payload.tool || 'unknown';\nconst tier = payload.safety_tier || 'destructive';\nconst reason = payload.description || payload.reason || 'No reason provided';\n\nif (!planId || !stepId) {\n  throw new Error('HITL payload must include plan_id and step_id');\n}\n\nconst message = `JARVIS HITL Request\n\nPlan: ${planId}\nStep: ${stepId}\nTool: ${tool}\nTier: ${tier}\nReason: ${reason}\n\nAction required: Approve or Deny within 30 minutes.`;\n\nreturn [{\n  json: { planId, stepId, tool, tier, reason, message, timestamp: new Date().toISOString() }\n}];"
-      },
-      "id": "format-notification",
-      "name": "Format Notification",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
-      "position": [
-        500,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "text": "={{ $json.message }}",
-        "blocksUi": {
-          "blocks": [
+        "url": "http://127.0.0.1:8000/api/v1/hitl/pending",
+        "method": "GET",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "type": "section",
-              "text": {
-                "type": "mrkdwn",
-                "text": "={{ $json.message }}"
-              }
-            },
-            {
-              "type": "actions",
-              "elements": [
-                {
-                  "type": "button",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "Approve",
-                    "emoji": true
-                  },
-                  "style": "primary",
-                  "value": "approve",
-                  "action_id": "hitl_approve"
-                },
-                {
-                  "type": "button",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "Deny",
-                    "emoji": true
-                  },
-                  "style": "danger",
-                  "value": "deny",
-                  "action_id": "hitl_deny"
-                }
-              ]
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
-        "options": {},
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "C0C0UPLGY12",
-          "mode": "id"
+        "options": {}
+      },
+      "id": "df552670-74d2-478f-9d7e-e776275d56ec",
+      "name": "Fetch Pending",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ],
+      "disabled": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Kc1CtJNNwhWnTeP0",
+          "name": "jarvis-api-auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = items[0].json;\nconst pendings = response.pending || [];\nconst out = [];\n\nfor (const p of pendings) {\n  // notified_at is owned by JARVIS, so a re-poll cannot re-announce (and it survives\n  // n8n restarts, unlike workflow static data).\n  if (p.notified_at) continue;\n  out.push({ json: {\n    planId: p.plan_id,\n    stepId: p.step_id,\n    tool: p.tool_name,\n    tier: p.safety_tier,\n    reason: p.description || 'No reason provided'\n  }});\n}\n\nreturn out;"
+      },
+      "id": "41f742db-c671-49f1-9ea7-6f5068100b8f",
+      "name": "Split New Pendings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ],
+      "disabled": false,
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({channel: 'C0C0UPLGY12', text: `JARVIS HITL Request\\n\\nPlan: ${$json.planId}\\nStep: ${$json.stepId}\\nTool: ${$json.tool}\\nTier: ${$json.tier}\\n\\n${$json.reason}\\n\\nTo approve:\\ncurl -X POST http://127.0.0.1:8000/api/v1/hitl/approve -H \\\"Authorization: Bearer $JARVIS_API_KEY\\\" -d '{\\\"plan_id\\\":\\\"${$json.planId}\\\",\\\"step_id\\\":\\\"${$json.stepId}\\\",\\\"decision\\\":\\\"approve\\\"}'` }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
         }
       },
       "id": "slack-notify",
-      "name": "Send to Slack",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.1,
+      "name": "Notify Slack (HTTP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        750,
-        200
+        600,
+        -80
       ],
       "credentials": {
-        "slackApi": {
-          "id": "lMrhAP6nzQjAyQVF",
-          "name": "slack-credentials"
+        "httpHeaderAuth": {
+          "id": "82c4yvpRwbN8MMCM",
+          "name": "slack-bot-auth"
         }
       }
     },
@@ -108,11 +124,11 @@
             [
               {
                 "text": "Approve",
-                "callbackData": "hitl_approve_{{ $json.approvalId }}"
+                "callbackData": "hitl_approve_{{ $json.planId }}"
               },
               {
                 "text": "Deny",
-                "callbackData": "hitl_deny_{{ $json.approvalId }}"
+                "callbackData": "hitl_deny_{{ $json.planId }}"
               }
             ]
           ]
@@ -126,56 +142,47 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        750,
-        400
+        600,
+        100
       ],
       "credentials": {
         "telegramApi": {
           "id": "Lp7660U6W0ypdKBc",
           "name": "telegram-credentials"
         }
-      }
-    },
-    {
-      "parameters": {
-        "functionCode": "return items;"
       },
-      "id": "wait-approval",
-      "name": "Wait for Approval",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
-      "position": [
-        1000,
-        300
-      ]
+      "disabled": true
     },
     {
       "parameters": {
-        "httpMethod": "POST",
         "path": "hitl/callback",
+        "httpMethod": "POST",
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-callback",
+      "id": "d68bd735-f711-40f3-bc71-c05e7c068c83",
       "name": "Approval Callback",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
-        1250,
+        -200,
         300
       ],
-      "webhookId": "jarvis-hitl-callback"
+      "disabled": false,
+      "credentials": {},
+      "webhookId": "41535a7b-ca77-4017-a2cb-37ecaaf88109"
     },
     {
       "parameters": {
-        "functionCode": "const callback = items[0].json;\n\nconst planId = callback.plan_id || callback.planId;\nconst stepId = callback.step_id || callback.stepId;\nconst raw = callback.decision !== undefined\n  ? callback.decision\n  : (callback.approved === true ? 'approve' : 'deny');\nconst decision = String(raw).toLowerCase();\n\nif (!planId || !stepId) {\n  throw new Error('Invalid callback: missing plan_id or step_id');\n}\nif (decision !== 'approve' && decision !== 'deny') {\n  throw new Error(\"Invalid callback: decision must be 'approve' or 'deny'\");\n}\n\nreturn [{\n  json: {\n    planId,\n    stepId,\n    decision,\n    approver: callback.approver || 'n8n:callback',\n    decidedAt: new Date().toISOString()\n  }\n}];"
+        "jsCode": "const raw = items[0].json;\n// Webhook nodes wrap the payload: { headers, params, query, body }\nconst callback = raw.body || raw;\n\nconst planId = callback.plan_id || callback.planId;\nconst stepId = callback.step_id || callback.stepId;\nconst decisionRaw = callback.decision !== undefined\n  ? callback.decision\n  : (callback.approved === true ? 'approve' : 'deny');\nconst decision = String(decisionRaw).toLowerCase();\n\nif (!planId || !stepId) {\n  throw new Error(`Invalid callback: missing plan_id or step_id (keys: ${Object.keys(callback)})`);\n}\nif (decision !== 'approve' && decision !== 'deny') {\n  throw new Error(`Invalid callback: decision must be 'approve' or 'deny', got '${decision}'`);\n}\n\nreturn [{\n  json: {\n    planId,\n    stepId,\n    decision,\n    approver: callback.approver || 'n8n:callback',\n    decidedAt: new Date().toISOString()\n  }\n}];",
+        "mode": "runOnceForAllItems"
       },
       "id": "parse-callback",
       "name": "Parse Callback",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        1500,
+        0,
         300
       ]
     },
@@ -183,26 +190,35 @@
       "parameters": {
         "url": "http://127.0.0.1:8000/api/v1/hitl/approve",
         "method": "POST",
-        "jsonParameters": true,
-        "options": {},
-        "headerParametersUi": {
-          "parameter": [
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
               "name": "Content-Type",
               "value": "application/json"
             }
           ]
         },
-        "bodyParametersJson": "{\n  \"plan_id\": \"={{ $json.planId }}\",\n  \"step_id\": \"={{ $json.stepId }}\",\n  \"decision\": \"={{ $json.decision }}\",\n  \"approver\": \"={{ $json.approver }}\"\n}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth"
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({plan_id: $json.planId, step_id: $json.stepId, decision: $json.decision, approver: $json.approver }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
       },
       "id": "jarvis-callback",
       "name": "Callback to JARVIS",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "typeVersion": 4.2,
       "position": [
-        1750,
+        200,
         300
       ],
       "credentials": {
@@ -211,19 +227,6 @@
           "name": "jarvis-api-auth"
         }
       }
-    },
-    {
-      "parameters": {
-        "functionCode": "const result = items[0].json;\n\nreturn [{\n  json: {\n    plan_id: result.planId,\n    step_id: result.stepId,\n    decision: result.decision,\n    message: result.decision === 'approve'\n      ? 'Approved - execution resumed'\n      : 'Denied - execution halted',\n    decided_at: result.decidedAt\n  }\n}];"
-      },
-      "id": "format-response",
-      "name": "Format Response",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
-      "position": [
-        2000,
-        300
-      ]
     },
     {
       "parameters": {
@@ -235,48 +238,114 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        2250,
+        400,
         300
       ]
     },
     {
       "parameters": {
-        "functionCode": "const formatted = $('Format Notification').item.json;\n\nreturn [{\n  json: {\n    planId: formatted.planId,\n    stepId: formatted.stepId,\n    decision: 'deny',\n    approver: 'n8n:timeout',\n    reason: 'Timeout - auto-denied after 30 minutes',\n    decidedAt: new Date().toISOString()\n  }\n}];"
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
       },
-      "id": "auto-deny",
-      "name": "Auto-Deny (Timeout)",
-      "type": "n8n-nodes-base.function",
+      "id": "d7489499-8479-49c2-8152-155c867ec30b",
+      "name": "Timeout Sweep",
+      "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
       "position": [
-        1000,
-        500
-      ]
+        -200,
+        600
+      ],
+      "disabled": false,
+      "credentials": {}
     },
     {
       "parameters": {
-        "url": "http://127.0.0.1:8000/api/v1/hitl/approve",
-        "method": "POST",
-        "jsonParameters": true,
-        "options": {},
-        "headerParametersUi": {
-          "parameter": [
+        "url": "http://127.0.0.1:8000/api/v1/hitl/pending",
+        "method": "GET",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
               "name": "Content-Type",
               "value": "application/json"
             }
           ]
         },
-        "bodyParametersJson": "{\n  \"plan_id\": \"={{ $json.planId }}\",\n  \"step_id\": \"={{ $json.stepId }}\",\n  \"decision\": \"deny\",\n  \"approver\": \"n8n:timeout\",\n  \"reason\": \"Timeout - auto-denied after 30 minutes\"\n}",
+        "options": {}
+      },
+      "id": "e825151c-b96d-4e17-8f1a-899914322650",
+      "name": "Fetch Pending (Timeout)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        600
+      ],
+      "disabled": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Kc1CtJNNwhWnTeP0",
+          "name": "jarvis-api-auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cutoffMs = 30 * 60 * 1000;\nconst now = Date.now();\nconst response = items[0].json;\nconst out = [];\n\nfor (const p of (response.pending || [])) {\n  const requested = Date.parse(p.requested_at);\n  if (!Number.isNaN(requested) && now - requested > cutoffMs) {\n    out.push({ json: { planId: p.plan_id, stepId: p.step_id } });\n  }\n}\n\nreturn out;"
+      },
+      "id": "2fce312b-0b35-483a-9476-751e7a9f91b4",
+      "name": "Filter Expired",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        200,
+        600
+      ],
+      "disabled": false,
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "url": "http://127.0.0.1:8000/api/v1/hitl/approve",
+        "method": "POST",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth"
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({plan_id: $json.planId, step_id: $json.stepId, decision: 'deny', approver: 'n8n:timeout', reason: 'Timeout - auto-denied after 30 minutes' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
       },
       "id": "timeout-callback",
       "name": "Timeout Callback to JARVIS",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "typeVersion": 4.2,
       "position": [
-        1250,
-        500
+        400,
+        600
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -287,97 +356,64 @@
     },
     {
       "parameters": {
-        "functionCode": "return [{\n  json: {\n    approval_id: \"={{ $('Format Notification').item.json.approvalId }}\",\n    approved: false,\n    message: 'Auto-denied after 30 minutes timeout',\n    decided_at: new Date().toISOString()\n  }\n}];"
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/api/v1/hitl/notified",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({plan_id: $('Split New Pendings').item.json.planId, step_id: $('Split New Pendings').item.json.stepId }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
       },
-      "id": "timeout-response",
-      "name": "Timeout Response",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
+      "id": "baadfd81-6511-4e8f-82c3-84af7341516b",
+      "name": "Mark Notified (JARVIS)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        1500,
-        500
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "options": {}
-      },
-      "id": "timeout-webhook-response",
-      "name": "Timeout Webhook Response",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        1750,
-        500
-      ]
+        800,
+        -80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Kc1CtJNNwhWnTeP0",
+          "name": "jarvis-api-auth"
+        }
+      }
     }
   ],
   "connections": {
-    "HITL Webhook": {
+    "Poll Pending": {
       "main": [
         [
           {
-            "node": "Format Notification",
+            "node": "Fetch Pending",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Format Notification": {
+    "Fetch Pending": {
       "main": [
         [
           {
-            "node": "Send to Slack",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Send to Telegram",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Wait for Approval",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send to Slack": {
-      "main": [
-        [
-          {
-            "node": "Wait for Approval",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send to Telegram": {
-      "main": [
-        [
-          {
-            "node": "Wait for Approval",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait for Approval": {
-      "main": [
-        [
-          {
-            "node": "Approval Callback",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Auto-Deny (Timeout)",
+            "node": "Split New Pendings",
             "type": "main",
             "index": 0
           }
@@ -410,17 +446,6 @@
       "main": [
         [
           {
-            "node": "Format Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Format Response": {
-      "main": [
-        [
-          {
             "node": "Respond to Callback",
             "type": "main",
             "index": 0
@@ -428,27 +453,55 @@
         ]
       ]
     },
-    "Auto-Deny (Timeout)": {
+    "Timeout Sweep": {
       "main": [
         [
           {
-            "node": "Timeout Callback to JARVIS",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Timeout Response",
+            "node": "Fetch Pending (Timeout)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Timeout Callback to JARVIS": {
+    "Fetch Pending (Timeout)": {
       "main": [
         [
           {
-            "node": "Timeout Webhook Response",
+            "node": "Filter Expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Expired": {
+      "main": [
+        [
+          {
+            "node": "Timeout Callback to JARVIS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split New Pendings": {
+      "main": [
+        [
+          {
+            "node": "Notify Slack (HTTP)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Slack (HTTP)": {
+      "main": [
+        [
+          {
+            "node": "Mark Notified (JARVIS)",
             "type": "main",
             "index": 0
           }
@@ -458,8 +511,12 @@
   },
   "active": false,
   "settings": {
-    "executionTimeout": 1800,
-    "errorWorkflow": "JARVIS-Error-Handler"
+    "executionTimeout": 1800
   },
-  "id": "e0f3e292-55ad-488d-927f-1417655fcabd"
+  "versionId": "7f0a1ff8-f752-4395-8205-9c3e48b9c2be",
+  "id": "e0f3e292-55ad-488d-927f-1417655fcabd",
+  "meta": {
+    "instanceId": ""
+  },
+  "tags": []
 }
