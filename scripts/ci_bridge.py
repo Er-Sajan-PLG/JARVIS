@@ -25,11 +25,19 @@ private free-tier repo, so nothing here can gate a merge regardless.)
 
 Auth
 ----
-Reads the token from config, never from the command line (avoids leaking it
+Reads the credential from config, never from the command line (avoids leaking it
 into shell history or process listings). Resolution order:
-  env GITHUB_MCP_PAT / GITHUB_TOKEN / GH_TOKEN / GITHUB_PAT
-  then the first KEY=value match in ~/Projects/.env, ~/.hermes/.env, ./.env
-  then `gh auth token`
+
+  1. a GitHub App installation token, when the App is configured (ADR-012) --
+     minted by scripts/github_app_token.py, 1-hour lifetime, cached on disk
+  2. JARVIS_CI_TOKEN / GITHUB_MCP_PAT / GITHUB_TOKEN / GH_TOKEN / GITHUB_PAT
+     from the environment, then from the first KEY=value match in
+     ~/Projects/.env, ~/.hermes/.env, ./.env
+  3. `gh auth token`
+
+The App path returns an empty token when it is not configured, which is how the
+PAT keeps working during the migration. A *configured but broken* App raises
+instead of falling back -- a silent fallback would hide a permission regression.
 Use --check-auth to print which source won (the token itself is never echoed).
 
 Usage
@@ -163,13 +171,50 @@ def _usable(value: str) -> bool:
     return not any(marker in upper for marker in _TOKEN_PLACEHOLDER_MARKERS)
 
 
+def _app_token() -> tuple[str, str]:
+    """Mint a GitHub App installation token when the App is configured (ADR-012).
+
+    Returns ("", "") when the App is not set up yet, which is what keeps the PAT
+    path alive during the migration. A *configured but broken* App raises on
+    purpose: silently falling back to a personal token is exactly how a
+    permission regression hides for weeks (RISK-015).
+    """
+    try:
+        from github_app_token import get_installation_token
+    except ImportError:
+        # ci_bridge.py is run both as a script (scripts/ on sys.path) and loaded
+        # by tests via importlib, so fall back to loading the sibling by path.
+        import importlib.util
+
+        sibling = Path(__file__).resolve().parent / "github_app_token.py"
+        if not sibling.is_file():
+            return "", ""
+        spec = importlib.util.spec_from_file_location("github_app_token", sibling)
+        if spec is None or spec.loader is None:
+            return "", ""
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["github_app_token"] = module
+        spec.loader.exec_module(module)
+        get_installation_token = module.get_installation_token
+
+    return get_installation_token()
+
+
 def load_token() -> tuple[str, str]:
     """Return (token, source_description). Never logs the token value.
+
+    A GitHub App installation token wins when the App is configured (ADR-012):
+    1-hour lifetime, not tied to a person, attributed to the App in the audit
+    log. Falls through to the fine-grained PAT during the migration.
 
     Placeholders are skipped rather than returned: a placeholder reaches the API
     as a bare 401 "Bad credentials", which reads like a network fault and hides
     the real problem (a missing credential).
     """
+    app_token, app_source = _app_token()
+    if app_token:
+        return app_token, app_source
+
     for var in TOKEN_VARS:
         value = os.environ.get(var, "").strip()
         if _usable(value):
