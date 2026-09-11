@@ -8,6 +8,7 @@ import logging
 import os
 import time
 import uuid
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.adapters import http_router, ws_router
 from app.bootstrap import bootstrap_system
+from app.config.version import VERSION as __version__
 
 # Structured logging setup
 logging.basicConfig(
@@ -30,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager."""
     logger.info("Starting JARVIS v3.0")
     bootstrap_system()
@@ -40,7 +42,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="JARVIS Personal AI Platform",
-    version="3.0.0",
+    version=__version__,
     description=(
         "Single-tenant personal AI assistant platform with hybrid cognitive execution engine."
     ),
@@ -64,7 +66,9 @@ app.add_middleware(
 
 # 2. Request/Response logging middleware with correlation IDs
 @app.middleware("http")
-async def logging_middleware(request: Request, call_next):
+async def logging_middleware(
+    request: Request, call_next: Callable[[Request], Response]
+) -> Response:
     correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
     start_time = time.time()
 
@@ -99,13 +103,13 @@ if FRONTEND_DIR.exists():
 
 # Health and readiness endpoints
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, object]:
     """Liveness probe - always returns 200 if app is running."""
     return {"status": "healthy", "system": "JARVIS v3.0"}
 
 
 @app.get("/ready")
-async def readiness_check():
+async def readiness_check() -> Response:
     """Readiness probe - checks if all subsystems are initialized."""
     import json as _json
 
@@ -134,7 +138,7 @@ async def readiness_check():
 
 # Metrics endpoint (Prometheus format)
 @app.get("/metrics")
-async def metrics_endpoint():
+async def metrics_endpoint() -> Response:
     """Prometheus metrics endpoint."""
     container = bootstrap_system()
     metrics = container.metrics if hasattr(container, "metrics") else None

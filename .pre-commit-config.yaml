@@ -33,12 +33,18 @@ repos:
     rev: v1.11.2
     hooks:
       - id: mypy
-        # Scope to STAGED files. `args: [--strict, app/]` made pre-commit run a
-        # full strict scan of app/ on any commit touching one .py file, which
-        # can never pass (465+ pre-existing errors) -- so every Python commit
-        # was blocked and people reached for --no-verify. The repo-wide ceiling
-        # is enforced by gate_mypy against .governance/mypy_baseline.txt instead.
-        # --ignore-missing-imports: this hook's isolated venv has no project deps
-        # (uvicorn etc.), so without it every file reports phantom import errors.
-        args: [--strict, --ignore-missing-imports]
+        # Scope to STAGED files only (not their transitive imports). The repo-wide
+        # ceiling is enforced by gate_mypy against .governance/mypy_baseline.txt in
+        # CI; this hook catches NEW strict-mode errors in the exact files a commit
+        # touches.
+        #   --follow-imports=skip  : don't pull app/tools, app/memory, ... debt in
+        #   --ignore-missing-imports : hook venv lacks project deps (uvicorn, yaml)
+        #   --disable-error-code=misc: FastAPI's @app.* decorators are untyped to
+        #     mypy, producing "Untyped decorator makes fn untyped" false positives
+        #     that are not real defects.
+        args:
+          - --strict
+          - --ignore-missing-imports
+          - --follow-imports=skip
+          - --disable-error-code=misc
         additional_dependencies: [types-requests]

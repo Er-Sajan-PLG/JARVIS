@@ -1,8 +1,8 @@
 # JARVIS Governance — Living Document v3.0.0
 
-**Status**: ACTIVE  
-**Authority**: This document governs all changes to JARVIS repository  
-**Workflow Orchestration**: n8n (external) — all CI/CD, automation, approval flows run in n8n  
+**Status**: ACTIVE
+**Authority**: This document governs all changes to JARVIS repository
+**Workflow Orchestration**: n8n (external) — all CI/CD, automation, approval flows run in n8n
 **Last Updated**: 2026-09-10
 
 ---
@@ -19,6 +19,10 @@
 | **Release** | Automated (n8n + semantic-release) | Conventional commits → auto-version → tag |
 
 **No direct pushes to `main`** — all changes via PR with n8n-enforced gates.
+
+> **Versioning note**: the version number is **derived from git tags**, not
+> from a file — see `docs/VERSIONING.md`. `pyproject.toml` `project.version` is
+> metadata kept in sync by `scripts/bump_version.py`, never the authority.
 
 ---
 

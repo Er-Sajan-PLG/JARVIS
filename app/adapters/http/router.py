@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.bootstrap import ApplicationContainer, bootstrap_system
+from app.config.version import VERSION as __version__
 from app.domain import ExecutionPlan
 
 # NB: app.adapters may only depend on app.bootstrap / app.brain (enforced by
@@ -65,7 +66,7 @@ async def health_check() -> dict[str, Any]:
     return {
         "status": "healthy",
         "service": "JARVIS",
-        "version": "3.0.0",
+        "version": __version__,
         "tools_registered": len(container.execution_runner._tool_registry),
     }
 

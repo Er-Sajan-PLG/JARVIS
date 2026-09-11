@@ -134,9 +134,11 @@ main (protected)
 
 ### 4.4 Versioning
 - **Scheme**: Semantic Versioning (MAJOR.MINOR.PATCH)
-- **Source**: `pyproject.toml` → `project.version`
-- **Release**: Tag `vX.Y.Z` triggers release workflow
-- **Bump Script**: `scripts/bump_version.py [patch|minor|major]`
+- **Source**: **git tags** — the version is *derived* from them at import time
+  (see `app/config/version.py` and `docs/VERSIONING.md`).
+- **Release**: Tag `vX.Y.Z` is the version bump
+- **Bump Script**: `scripts/bump_version.py [patch|minor|major]` (tags first;
+  `pyproject.toml` is metadata, not the authority)
 
 ---
 

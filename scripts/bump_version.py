@@ -44,17 +44,13 @@ def bump_version(version: str, bump_type: str) -> str:
 def update_pyproject(new_version: str) -> None:
     """Update version in pyproject.toml."""
     content = PYPROJECT.read_text()
-    new_content = re.sub(
-        r'version\s*=\s*"[^"]+"',
-        f'version = "{new_version}"',
-        content
-    )
+    new_content = re.sub(r'version\s*=\s*"[^"]+"', f'version = "{new_version}"', content)
     PYPROJECT.write_text(new_content)
 
 
-def run_cmd(cmd: list[str]) -> subprocess.CompletedProcess:
-    """Run command and return result."""
-    return subprocess.run(cmd, capture_output=True, text=True)
+def run_cmd(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run command and return result (text mode)."""
+    return subprocess.run(cmd, check=False, capture_output=True, text=True)
 
 
 def install_hooks() -> None:
@@ -63,7 +59,7 @@ def install_hooks() -> None:
     print("✅ core.hooksPath set to 'githooks' (pre-commit + pre-push hooks active).")
 
 
-def main():
+def main() -> None:
     if len(sys.argv) == 2 and sys.argv[1] == "install-hooks":
         install_hooks()
         return
@@ -92,11 +88,17 @@ def main():
     update_pyproject(new_version)
     print("Updated pyproject.toml")
 
-    # Git operations
+    # Git operations. The TAG is the source of truth (see docs/VERSIONING.md and
+    # app/config/version.py); bumping pyproject.toml is a courtesy so the
+    # metadata stays close, never the authority.
     print("Running git operations...")
     run_cmd(["git", "add", "pyproject.toml"])
     run_cmd(["git", "commit", "-m", f"chore(release): bump version to {new_version}"])
-    run_cmd(["git", "tag", "-s", f"v{new_version}", "-m", f"Release v{new_version}"])
+    try:
+        run_cmd(["git", "tag", "-s", f"v{new_version}", "-m", f"Release v{new_version}"])
+    except Exception:
+        print("⚠️  No GPG key found — creating an unsigned (annotated) tag instead.")
+        run_cmd(["git", "tag", "-a", f"v{new_version}", "-m", f"Release v{new_version}"])
     run_cmd(["git", "push", "origin", "main"])
     run_cmd(["git", "push", "origin", f"v{new_version}"])
 
