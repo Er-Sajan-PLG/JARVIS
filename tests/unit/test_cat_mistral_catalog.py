@@ -42,11 +42,11 @@ def test_fetch_mistral_models_success():
         mock_resp.json.return_value = raw_data
         mock_get.return_value = mock_resp
 
-        models = fetch_mistral_models(api_key="mistral_sec_123", force=True)
+        models = fetch_mistral_models(api_key="dev-test-key-mistral", force=True)
 
         mock_get.assert_called_once_with(
             CATALOG_URL,
-            headers={"Authorization": "Bearer mistral_sec_123"},
+            headers={"Authorization": "Bearer dev-test-key-mistral"},
             timeout=10,
         )
         assert len(models) == 2
