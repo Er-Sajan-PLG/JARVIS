@@ -17,7 +17,7 @@ from app.models.zhipu_client import ZhipuClient
 def test_constructor_success():
     client = ZhipuClient(
         model="glm-4",
-        api_key="zhipu-key-123",
+        api_key="dev-test-key-zhipu",
         role="coder",
     )
     assert client.model_name == "glm-4"
