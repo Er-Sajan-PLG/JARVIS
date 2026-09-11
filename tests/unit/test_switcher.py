@@ -371,8 +371,355 @@ def test_is_usable_static_method():
     router2.default_model = None
     assert ModelSwitcher._is_usable(router2) is True
 
-    # Router with default_model but no models
     router3 = MagicMock()
     router3.models = {}
     router3.default_model = MagicMock()
     assert ModelSwitcher._is_usable(router3) is True
+
+
+def test_ollama_model_size_additional_units():
+    """Test _ollama_model_size with 'k', 'm', and 'g' units."""
+    mock_settings = MagicMock()
+    mock_settings.models = {}
+
+    with patch("app.models.switcher.create_client"), patch("app.models.switcher.ModelRouter"):
+        switcher = ModelSwitcher(mock_settings)
+
+    assert switcher._ollama_model_size("model-500k") == 0.5
+    assert switcher._ollama_model_size("model-350m") == 350.0
+    assert switcher._ollama_model_size("model-2g") == 2000.0
+
+
+def test_build_router_comprehensive():
+    """Test _build_router registers clients and handles unknown roles and missing defaults."""
+    mock_settings = MagicMock()
+    mock_settings.models = {}
+
+    with patch("app.models.switcher.create_client"), patch("app.models.switcher.ModelRouter"):
+        switcher = ModelSwitcher(mock_settings)
+
+    client_gen = make_mock_client("Gen-Model", "general")
+    client_code = make_mock_client("Code-Model", "code")
+    switcher._clients = {
+        "gen_key": client_gen,
+        "code_key": client_code,
+    }
+
+    mock_router_instance = MagicMock()
+    with patch("app.models.switcher.ModelRouter", return_value=mock_router_instance):
+        mapping = {
+            "general": "gen_key",
+            "code": "code_key",
+            "missing_role": "not_in_clients",
+            "unknown_role": "gen_key",
+        }
+        res_router = switcher._build_router(mapping)
+
+        assert res_router == mock_router_instance
+        mock_router_instance.register.assert_any_call(
+            switcher._build_router.__globals__["TaskType"]("general"), client_gen
+        )
+        mock_router_instance.register.assert_any_call(
+            switcher._build_router.__globals__["TaskType"]("code"), client_code
+        )
+        mock_router_instance.set_default.assert_called_once_with(client_gen)
+
+
+def test_build_router_without_general_default():
+    """Test _build_router does not set default if 'general' key is absent or not loaded."""
+    mock_settings = MagicMock()
+    mock_settings.models = {}
+
+    with patch("app.models.switcher.create_client"), patch("app.models.switcher.ModelRouter"):
+        switcher = ModelSwitcher(mock_settings)
+
+    client_code = make_mock_client("Code-Model", "code")
+    switcher._clients = {"code_key": client_code}
+
+    mock_router_instance = MagicMock()
+    with patch("app.models.switcher.ModelRouter", return_value=mock_router_instance):
+        mapping = {"code": "code_key", "general": "missing_key"}
+        switcher._build_router(mapping)
+        mock_router_instance.set_default.assert_not_called()
+
+
+def test_build_default_local_router_selects_smallest_ollama():
+    """Test _build_default_local_router selects smallest model and registers roles."""
+    mock_settings = MagicMock()
+    mock_settings.models = {
+        "m_large": make_mock_model_config("m_large", backend="ollama", name="Model-8B"),
+        "m_small": make_mock_model_config("m_small", backend="ollama", name="Model-1.5B"),
+        "m_non_ollama": make_mock_model_config("m_non_ollama", backend="google", name="Gemini"),
+    }
+
+    client_large = make_mock_client("Model-8B", "general")
+    client_small = make_mock_client("Model-1.5B", "general")
+
+    with patch("app.models.switcher.create_client"), patch("app.models.switcher.ModelRouter"):
+        switcher = ModelSwitcher(mock_settings)
+
+    switcher._clients = {
+        "m_large": client_large,
+        "m_small": client_small,
+    }
+
+    mock_local_router = MagicMock()
+    with patch("app.models.switcher.ModelRouter", return_value=mock_local_router):
+        res = switcher._build_default_local_router(mock_settings)
+        assert res == mock_local_router
+        mock_local_router.set_default.assert_called_once_with(client_small)
+        assert mock_local_router.register.call_count == 6
+
+
+def test_build_default_local_router_handles_value_error_on_task_type():
+    """Test _build_default_local_router handles ValueError when constructing TaskType."""
+    mock_settings = MagicMock()
+    mock_settings.models = {
+        "m1": make_mock_model_config("m1", backend="ollama", name="Model-8B"),
+    }
+    client = make_mock_client("Model-8B", "general")
+
+    with patch("app.models.switcher.create_client"), patch("app.models.switcher.ModelRouter"):
+        switcher = ModelSwitcher(mock_settings)
+    switcher._clients = {"m1": client}
+
+    mock_local_router = MagicMock()
+    with (
+        patch("app.models.switcher.ModelRouter", return_value=mock_local_router),
+        patch("app.models.switcher.TaskType", side_effect=ValueError("bad role")),
+    ):
+        res = switcher._build_default_local_router(mock_settings)
+        assert res == mock_local_router
+        mock_local_router.register.assert_not_called()
+        mock_local_router.set_default.assert_called_once_with(client)
+
+
+def test_switch_to_model_success():
+    """Test switch_to_model successfully builds router and sets active profile."""
+    mock_settings = MagicMock()
+    mock_settings.models = {}
+
+    with patch("app.models.switcher.create_client"), patch("app.models.switcher.ModelRouter"):
+        switcher = ModelSwitcher(mock_settings)
+
+    client = make_mock_client("Llama-3-8B", "general")
+    switcher._clients["my_model"] = client
+
+    mock_router_instance = MagicMock()
+    with patch("app.models.switcher.ModelRouter", return_value=mock_router_instance):
+        result = switcher.switch_to_model("my_model")
+        assert result is True
+        assert switcher.active_profile == "model:my_model"
+        assert switcher._routers["model:my_model"] == mock_router_instance
+        assert mock_router_instance.register.call_count == 6
+        mock_router_instance.set_default.assert_called_once_with(client)
+
+
+def test_switch_to_model_task_type_value_error():
+    """Test switch_to_model gracefully handles ValueError during TaskType conversion."""
+    mock_settings = MagicMock()
+    mock_settings.models = {}
+
+    with patch("app.models.switcher.create_client"), patch("app.models.switcher.ModelRouter"):
+        switcher = ModelSwitcher(mock_settings)
+
+    client = make_mock_client("Llama-3-8B", "general")
+    switcher._clients["my_model"] = client
+
+    mock_router_instance = MagicMock()
+    with (
+        patch("app.models.switcher.ModelRouter", return_value=mock_router_instance),
+        patch("app.models.switcher.TaskType", side_effect=ValueError("bad role")),
+    ):
+        result = switcher.switch_to_model("my_model")
+        assert result is True
+        mock_router_instance.register.assert_not_called()
+        mock_router_instance.set_default.assert_called_once_with(client)
+
+
+def test_switch_to_dynamic_model_success():
+    """Test switch_to_dynamic_model creates dynamic client and router."""
+    mock_settings = MagicMock()
+    mock_settings.models = {}
+
+    with patch("app.models.switcher.create_client"), patch("app.models.switcher.ModelRouter"):
+        switcher = ModelSwitcher(mock_settings)
+
+    mock_dyn_client = make_mock_client("dynamic-model", "general")
+    mock_router_instance = MagicMock()
+
+    with (
+        patch("app.models.switcher.resolve_env_key", return_value="resolved-api-key"),
+        patch("app.models.switcher.create_client", return_value=mock_dyn_client) as mock_create,
+        patch("app.models.switcher.ModelRouter", return_value=mock_router_instance),
+    ):
+        result = switcher.switch_to_dynamic_model(
+            "openrouter", "deepseek/deepseek-r1", "env:MY_KEY"
+        )
+        assert result is True
+        expected_key = "dyn:openrouter:deepseek/deepseek-r1"
+        assert switcher.active_profile == expected_key
+        assert switcher._routers[expected_key] == mock_router_instance
+        assert mock_router_instance.register.call_count == 6
+        mock_router_instance.set_default.assert_called_once_with(mock_dyn_client)
+        mock_create.assert_called_once()
+
+
+def test_switch_to_dynamic_model_task_type_value_error():
+    """Test switch_to_dynamic_model handles ValueError on TaskType."""
+    mock_settings = MagicMock()
+    mock_settings.models = {}
+
+    with patch("app.models.switcher.create_client"), patch("app.models.switcher.ModelRouter"):
+        switcher = ModelSwitcher(mock_settings)
+
+    mock_dyn_client = make_mock_client("dynamic-model", "general")
+    mock_router_instance = MagicMock()
+
+    with (
+        patch("app.models.switcher.resolve_env_key", return_value="resolved-api-key"),
+        patch("app.models.switcher.create_client", return_value=mock_dyn_client),
+        patch("app.models.switcher.ModelRouter", return_value=mock_router_instance),
+        patch("app.models.switcher.TaskType", side_effect=ValueError("bad role")),
+    ):
+        result = switcher.switch_to_dynamic_model(
+            "openrouter", "deepseek/deepseek-r1", "resolved-api-key"
+        )
+        assert result is True
+        mock_router_instance.register.assert_not_called()
+        mock_router_instance.set_default.assert_called_once_with(mock_dyn_client)
+
+
+def test_ollama_model_size_fallback_unit():
+    """Test _ollama_model_size returns value when unit is not k/m/g/b (line 148)."""
+    mock_settings = MagicMock()
+    mock_settings.models = {}
+
+    with patch("app.models.switcher.create_client"), patch("app.models.switcher.ModelRouter"):
+        switcher = ModelSwitcher(mock_settings)
+
+    with patch("app.models.switcher.re.search") as mock_search:
+        mock_match = MagicMock()
+        mock_match.group.side_effect = lambda idx: "42.0" if idx == 1 else "z"
+        mock_search.return_value = mock_match
+        assert switcher._ollama_model_size("custom") == 42.0
+
+
+def test_switcher_init_client_with_raising_role_attribute():
+    """Test __init__ falls back to 'general' when client.role raises an exception."""
+
+    class RaisingRoleClient(MagicMock):
+        @property
+        def role(self):
+            raise RuntimeError("role access failure")
+
+    client = RaisingRoleClient()
+    client.model_name = "ProblemClient"
+    mock_settings = make_mock_settings({"p1": make_mock_model_config("p1", backend="other")})
+
+    with (
+        patch("app.models.switcher.create_client", return_value=client),
+        patch("app.models.switcher.ModelRouter") as mock_router_cls,
+    ):
+        mock_router = MagicMock()
+        mock_router.models = {"general": client}
+        mock_router.default_model = client
+        mock_router_cls.return_value = mock_router
+        switcher = ModelSwitcher(mock_settings)
+        assert switcher.active_profile == "omni"
+
+
+def test_switcher_init_omni_router_register_exception_logged(caplog):
+    """Test __init__ catches and logs when omni_router.register fails for a role."""
+    mock_settings = make_mock_settings({"m1": make_mock_model_config("m1")})
+    client = make_mock_client("Client1", "code")
+
+    with (
+        patch("app.models.switcher.create_client", return_value=client),
+        patch("app.models.switcher.ModelRouter") as mock_router_cls,
+    ):
+        mock_router = MagicMock()
+        mock_router.register.side_effect = Exception("failed to register role")
+        mock_router.models = {}
+        mock_router.default_model = None
+        mock_router_cls.return_value = mock_router
+
+        ModelSwitcher(mock_settings)
+        assert "Could not register omni role code" in caplog.text
+
+
+def test_switcher_init_active_profile_resolution_branches():
+    """Test various active_profile selection branches in __init__."""
+    # Case 1: requested profile in _routers and usable (line 78)
+    settings_requested = make_mock_settings({"m1": make_mock_model_config("m1", backend="other")})
+    settings_requested.active_profile = "omni"
+
+    with (
+        patch("app.models.switcher.create_client", return_value=make_mock_client("M1")),
+        patch("app.models.switcher.ModelRouter") as mock_router_cls,
+    ):
+        usable_router = MagicMock()
+        usable_router.models = {"general": MagicMock()}
+        usable_router.default_model = None
+        mock_router_cls.return_value = usable_router
+
+        switcher = ModelSwitcher(settings_requested)
+        assert switcher.active_profile == "omni"
+
+    # Case 2: default is in _routers when requested is invalid (line 80)
+    mock_cfg = {"m1": make_mock_model_config("m1", backend="ollama", name="Local-3B")}
+    settings_default = make_mock_settings(mock_cfg)
+    settings_default.active_profile = "nonexistent"
+
+    with (
+        patch("app.models.switcher.create_client", return_value=make_mock_client("Local-3B")),
+        patch("app.models.switcher.ModelRouter") as mock_router_cls,
+    ):
+        mock_omni = MagicMock()
+        mock_omni.models = {}
+        mock_omni.default_model = None
+
+        mock_default = MagicMock()
+        mock_default.models = {"general": MagicMock()}
+        mock_default.default_model = make_mock_client("Local-3B")
+
+        # First call is omni_router, second call is default_local router
+        mock_router_cls.side_effect = [mock_omni, mock_default]
+
+        switcher = ModelSwitcher(settings_default)
+        assert switcher.active_profile == "default"
+
+    # Case 3: neither requested, default, nor omni, but fallback to next(iter(_routers)) (line 84)
+    settings_fallback = make_mock_settings({})
+    settings_fallback.active_profile = "missing"
+
+    def side_effect_inject(self_inner, settings_inner):
+        self_inner._routers["custom_pool"] = MagicMock()
+        return None
+
+    with (
+        patch("app.models.switcher.create_client"),
+        patch("app.models.switcher.ModelRouter") as mock_router_cls,
+        patch.object(ModelSwitcher, "_build_default_local_router", side_effect_inject),
+    ):
+        unusable_omni = MagicMock()
+        unusable_omni.models = {}
+        unusable_omni.default_model = None
+        mock_router_cls.return_value = unusable_omni
+
+        switcher = ModelSwitcher(settings_fallback)
+        assert switcher.active_profile == "custom_pool"
+
+
+def test_switcher_init_fatal_exception_handling(caplog):
+    """Test __init__ sets active_profile = '' when router building raises a fatal exception."""
+    settings = make_mock_settings({})
+
+    with patch.object(
+        ModelSwitcher,
+        "_build_default_local_router",
+        side_effect=RuntimeError("Fatal build error"),
+    ):
+        switcher = ModelSwitcher(settings)
+        assert switcher.active_profile == ""
+        assert "Failed to build omni router" in caplog.text
