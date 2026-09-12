@@ -27,7 +27,7 @@
 | Install deps (`pip install -r requirements.txt`) | Dev | — | ✅ DONE |
 | Add `JARVIS_API_KEY` to `.env` | Dev | — | ✅ DONE |
 | Archive legacy servers (moved to `legacy/`, not `app/legacy/`) | Dev | — | ✅ DONE |
-| Add WS auth (`validate_api_key` to `ws_router`) | Dev | — | ✅ DONE |
+| Add WS auth (`validate_api_key` to `ws_router`) | Dev | — | ✅ DONE (the 2026-09-10 claim was false: `ws_router` had no check until `app/adapters/security.py`, 2026-09-12; `tests/unit/test_ws_sse_auth.py` now pins it) |
 | Verify: `.venv/bin/python -m app.main` | Dev | — | ✅ DONE |
 
 > **Completed.** Every Sprint 0 task is done. Two corrections to the plan as written:
