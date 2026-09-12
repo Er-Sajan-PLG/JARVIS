@@ -380,7 +380,9 @@ with open('openapi.json', 'w') as f:
 "
 ```
 
-**Published**: With every release via `JARVIS-Release` workflow
+**Published**: Regenerated from `app.main:app` at runtime. There is no
+`JARVIS-Release` workflow — releases are cut with `scripts/bump_version.py`
+(version derives from git tags; see `docs/VERSIONING.md`).
 
 ---
 

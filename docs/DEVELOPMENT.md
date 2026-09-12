@@ -1,14 +1,16 @@
 # JARVIS Development Workflow — Living Document v3.0.0
 
-**Status**: ACTIVE — Daily workflow standards  
-**Orchestration**: n8n (all automation)  
+**Status**: ACTIVE — Daily workflow standards
+**Orchestration**: JARVIS decides, n8n schedules (ADR-013)
 **Last Updated**: 2026-09-10
 
 ---
 
 ## 1. Local Development Setup
 
-### 1.1 One-Command Setup (n8n Workflow: `JARVIS-Setup-Env`)
+### 1.1 One-Command Setup
+
+> There is no `JARVIS-Setup-Env` n8n workflow. This is a repo shell script.
 
 ```bash
 # Run once per machine
@@ -119,15 +121,17 @@ All n8n workflows live in `n8n/workflows/` as JSON exports:
 ```
 n8n/
 ├── workflows/
-│   ├── JARVIS-CI.json
-│   ├── JARVIS-Deploy.json
-│   ├── JARVIS-Release.json
-│   ├── JARVIS-Security.json
-│   ├── JARVIS-HITL.json
-│   └── JARVIS-Setup-Env.json
+│   ├── JARVIS-Local-CI.json   # polls scripts/ci_bridge.py -> scripts/ci_gate.py
+│   ├── JARVIS-HITL.json       # polls GET /api/v1/hitl/pending, calls decision webhook
+│   └── JARVIS-Cleanup.json    # weekly: merged branches + stale workflow runs
 ├── credentials/          # NOT committed (encrypted in n8n)
 └── README.md            # Workflow documentation
 ```
+
+**Only three workflows exist.** There is no `JARVIS-CI`, `JARVIS-Deploy`,
+`JARVIS-Release`, `JARVIS-Security`, or `JARVIS-Setup-Env` — those were planned
+names in an earlier draft. The CI decision lives in `scripts/ci_gate.py`; n8n
+schedules the poll that invokes it (ADR-013).
 
 ### 3.2 Workflow Development Process
 
@@ -141,10 +145,13 @@ n8n/
 
 | n8n Workflow | JARVIS Endpoint | Purpose |
 |--------------|-----------------|---------|
-| `JARVIS-CI` | `POST /api/v1/chat/completions` | Test chat completion |
-| `JARVIS-Deploy` | `GET /api/v1/health` | Health check before/after deploy |
-| `JARVIS-HITL` | `WS /ws/chat` | Human approval for DESTRUCTIVE tools |
-| `JARVIS-Security` | `GET /api/v1/health` | Security scan trigger |
+| `JARVIS-HITL` | `GET /api/v1/hitl/pending` + decision webhook | Human approval for DESTRUCTIVE tools |
+| `JARVIS-CI-Local` | `POST localhost:8770/run` (bridge) | Triggers `ci_bridge.py`, which gates PR heads |
+| `JARVIS-Cleanup` | GitHub API | Deletes merged branches and stale runs |
+
+`WS /ws/chat` now requires the same `JARVIS_API_KEY` bearer credential as the
+REST surface (Phase 0 F4) — a browser cannot set that header, so an n8n workflow
+is not the right client for it.
 
 ---
 
@@ -293,11 +300,16 @@ JARVIS_LOG_LEVEL=DEBUG .venv/bin/python -m app.main
 ### 7.3 n8n Debugging
 
 ```bash
-# View n8n workflow execution logs
-n8n exec:logs <execution-id>
+# n8n execution logs
+sqlite3 ~/.n8n/database.sqlite \
+  "select id,status,startedAt from execution_entity order by id desc limit 10;"
 
-# Test workflow locally
-n8n workflow:run JARVIS-CI --data '{"pr_number": 123}'
+# Drive the CI bridge directly (what JARVIS-CI-Local does on a schedule)
+curl -s -X POST localhost:8770/run -H 'Content-Type: application/json' \
+     -d '{"pr": 57}'
+
+# Or run the gate itself against a commit
+.venv/bin/python scripts/ci_gate.py --sha <sha> --base main
 ```
 
 ---
@@ -326,11 +338,15 @@ git checkout main && git pull
 # 2. Create release branch
 git checkout -b release/v3.1.0
 
-# 3. Update version if needed (auto via semantic-release)
-# 4. PR → n8n CI → merge → tag → n8n Release workflow
+# 3. Bump the version (no semantic-release; version derives from git tags)
+.venv/bin/python scripts/bump_version.py patch   # or minor | major
 
-# 5. Verify deployment
-curl https://jarvis.yourdomain.com/api/v1/health
+# 4. PR -> gate -> squash merge -> tag
+git tag -a v3.1.0 -m "Release v3.1.0"           # not GPG-signed (RISK-011)
+git push origin v3.1.0
+
+# 5. There is no deploy target yet (TD-009). Verify locally:
+curl -H "Authorization: Bearer $JARVIS_API_KEY" http://localhost:8000/api/v1/health
 ```
 
 ---
@@ -359,16 +375,16 @@ pytest tests/ -v
 mypy app/
 ruff check app/ && ruff format app/
 
-# n8n
-n8n start --tunnel
-n8n workflow:export JARVIS-CI --output n8n/workflows/JARVIS-CI.json
+# n8n (workflows: JARVIS-CI-Local, JARVIS-HITL, JARVIS-Cleanup)
+N8N_USER_FOLDER=/home/sajan n8n export:workflow --id=<workflow-id> \
+  --output=n8n/workflows/JARVIS-Local-CI.json --pretty
 
 # Docker
 docker build -t jarvis:dev .
 docker compose up -d
 
-# Release
-git tag -s v3.1.0 -m "Release v3.1.0"
+# Release (no GPG signing key configured - RISK-011)
+git tag -a v3.1.0 -m "Release v3.1.0"
 git push origin v3.1.0
 ```
 
