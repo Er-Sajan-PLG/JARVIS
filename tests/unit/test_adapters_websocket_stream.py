@@ -106,6 +106,9 @@ async def test_websocket_endpoint_handles_immediate_disconnect():
     """Directly test websocket_endpoint handling WebSocketDisconnect upon receive."""
     mock_ws = AsyncMock()
     mock_ws.accept = AsyncMock()
+    # Real WebSocket.headers / .query_params are mapping-like, not coroutines.
+    mock_ws.headers = {}
+    mock_ws.query_params = {}
     mock_ws.receive_text.side_effect = WebSocketDisconnect(code=1000)
 
     with patch("app.adapters.websocket.stream.bootstrap_system") as mock_boot:

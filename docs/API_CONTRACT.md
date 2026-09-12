@@ -1,9 +1,9 @@
 # JARVIS API Contract — Living Document v3.0.0
 
-**Status**: IMPLEMENTED (forensic-verified)  
-**Source**: `app/main.py`, `app/adapters/http/router.py`, `app/adapters/websocket/stream.py`  
-**Authentication**: Bearer Token (`JARVIS_API_KEY`) + X-API-Key header  
-**Workflow Orchestration**: n8n (external)  
+**Status**: IMPLEMENTED (forensic-verified)
+**Source**: `app/main.py`, `app/adapters/http/router.py`, `app/adapters/websocket/stream.py`
+**Authentication**: Bearer Token (`JARVIS_API_KEY`) + X-API-Key header
+**Workflow Orchestration**: n8n (external)
 **Last Updated**: 2026-09-10
 
 ---
@@ -36,19 +36,40 @@ Authorization: Bearer <JARVIS_API_KEY>
 X-API-Key: <JARVIS_API_KEY>
 ```
 
-### 2.3 Validation Logic (`app/adapters/http/router.py:validate_api_key`)
+### 2.3 Validation Logic
+
+The credential decision is shared by every surface through
+`app/adapters/security.py:is_authorized`; `validate_api_key`
+(`app/adapters/http/router.py`) raises `HTTPException(401)` when it returns false.
 
 ```python
-expected_key = os.getenv("JARVIS_API_KEY")
-if not expected_key:
-    return "development"  # Dev fallback — REMOVE IN PRODUCTION
+expected = os.environ.get("JARVIS_API_KEY", "").strip()
+if not expected:
+    return True  # Dev fallback — no key configured, all requests allowed
 
-provided_key = credentials.credentials or x_api_key
-if not provided_key or provided_key != expected_key:
-    raise HTTPException(401, "Invalid or missing JARVIS_API_KEY")
+presented = bearer_token or x_api_key          # header forms
+if not presented or not hmac.compare_digest(presented, expected):
+    raise HTTPException(401, "Unauthorized")
 ```
 
-### 2.4 n8n Integration
+Credentials are compared with `hmac.compare_digest`, so a wrong key cannot be
+recovered byte-by-byte from response timing.
+
+### 2.4 Streaming Surfaces (WebSocket / SSE)
+
+A browser cannot attach request headers to a `WebSocket` or an `EventSource`, so
+the two streaming endpoints additionally accept the key as an `api_key` **query
+parameter**:
+
+```http
+GET /ws/stream?prompt=hello&api_key=<JARVIS_API_KEY>
+```
+
+Query-string credentials can be captured by access logs and browser history, so
+this form is opt-in and used **only** by the streaming surfaces; the REST surface
+does not accept it. Header forms still work for non-browser clients (n8n, curl).
+
+### 2.5 n8n Integration
 
 - n8n stores `JARVIS_API_KEY` in **encrypted credentials**
 - All n8n → JARVIS calls use Bearer header
@@ -138,7 +159,10 @@ Upgrade: websocket
 Authorization: Bearer <JARVIS_API_KEY>
 ```
 
-**⚠️ CURRENT GAP**: WebSocket auth NOT implemented — must add `validate_api_key` dependency
+**Auth**: Required — `Authorization: Bearer <key>`, `X-API-Key: <key>`, or
+`?api_key=<key>` on the connect URL (browsers cannot set headers on a WebSocket).
+An unauthenticated or wrongly-keyed upgrade is closed with **1008 Policy
+Violation** before any application message is sent.
 
 **Protocol**: Bidirectional JSON streaming
 
@@ -181,9 +205,12 @@ Authorization: Bearer <JARVIS_API_KEY>
 ### 4.2 SSE Stream (`/ws/stream`)
 
 ```http
-GET /ws/stream?prompt=hello
-Authorization: Bearer <JARVIS_API_KEY>
+GET /ws/stream?prompt=hello&api_key=<JARVIS_API_KEY>
+Authorization: Bearer <JARVIS_API_KEY>   # alternative, for non-browser clients
+X-API-Key: <JARVIS_API_KEY>              # alternative, for non-browser clients
 ```
+
+**Auth**: Required — missing or wrong credential returns **401**.
 
 **Response**: Server-Sent Events (text/event-stream)
 
@@ -332,7 +359,7 @@ When JARVIS emits `HITLRequestEvent` (DESTRUCTIVE tool), n8n `JARVIS-HITL` workf
 | v1 | **CURRENT** | N/A |
 | v0 | DEPRECATED | 2026-07-28 (removed) |
 
-**Policy**: 
+**Policy**:
 - Breaking changes → MAJOR version → new URL prefix (`/api/v2/`)
 - 90-day deprecation window for MINOR removals
 - All changes announced in CHANGELOG.md

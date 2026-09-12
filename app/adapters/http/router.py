@@ -5,11 +5,11 @@ authentication (``JARVIS_API_KEY``), delegating execution to the app.bootstrap
 Composition Root and the app.brain Cognitive Engine.
 """
 
-import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
+from app.adapters.security import is_authorized
 from app.bootstrap import ApplicationContainer, bootstrap_system
 from app.config.version import VERSION as __version__
 from app.domain import ExecutionPlan
@@ -43,20 +43,9 @@ async def validate_api_key(
     `Authorization: Bearer <key>` or `X-API-Key: <key>`. If `JARVIS_API_KEY` is
     unset (local development), auth is disabled and all requests are allowed.
     """
-    expected = os.environ.get("JARVIS_API_KEY", "").strip()
-    if not expected:
+    if is_authorized(authorization=authorization, x_api_key=x_api_key):
         return True
-
-    presented = ""
-    if authorization and authorization.lower().startswith("bearer "):
-        presented = authorization[7:].strip()
-    elif x_api_key:
-        presented = x_api_key.strip()
-
-    if presented != expected:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-
-    return True
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 @http_router.get("/health", tags=["System"])
