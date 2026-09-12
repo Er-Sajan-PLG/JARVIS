@@ -123,14 +123,19 @@ main (protected)
   └── release/*     → PR → CI → tag → deploy
 ```
 
-### 4.3 Branch Protection (Required)
-- ✅ Required PR from feature branch
-- ✅ Required CI passes (all 6 jobs)
-- ✅ Required 1 approval (0 for solo repo)
-- ✅ No force push
-- ✅ Linear history (squash merge)
-- ✅ Signed commits
-- ✅ Dismiss stale approvals
+### 4.3 Branch Protection
+**NOT available on this repository.** `GET /repos/Er-Sajan-PLG/JARVIS/branches/main/protection`
+returns **HTTP 403** ("Upgrade to GitHub Pro or make this repository public"), so
+none of the following are enforced by GitHub. They hold as *convention* only:
+- Required PR from a feature branch — **convention** (a direct push to `main` is not blocked)
+- Required CI passes — **published as commit statuses, cannot block merge** (RISK-012)
+- 1 approval — **0 for solo repo** (GitHub forbids self-approval)
+- No force push / linear history — **convention** (squash merge is the practice)
+- Signed commits — **not enforced**; commits report `N`/`E` (RISK-011)
+
+Enforcement is *process, not policy*: the gate publishes statuses, the pipeline
+stops on red, and a human does not press merge. See `docs/ACCEPTED_RISKS.md`
+(RISK-012, RISK-011) and `docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md`.
 
 ### 4.4 Versioning
 - **Scheme**: Semantic Versioning (MAJOR.MINOR.PATCH)
