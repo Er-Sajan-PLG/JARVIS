@@ -11,13 +11,6 @@ from app.tools.executor import (
     ParsedCall,
     ToolExecutor,
 )
-from app.tools.file_tools import (
-    append_file,
-    create_directory,
-    list_dir,
-    read_file,
-    write_file,
-)
 from app.tools.git_tools import (
     DIFF_MAX_CHARS,
     _run_git,
@@ -27,6 +20,13 @@ from app.tools.git_tools import (
     git_show,
     git_status,
     git_tags,
+)
+from app.tools.workspace_tools import (
+    workspace_append_file as append_file,
+    workspace_create_directory as create_directory,
+    workspace_list_dir as list_dir,
+    workspace_read_file as read_file,
+    workspace_write_file as write_file,
 )
 
 # --- Base Tools Tests ---
