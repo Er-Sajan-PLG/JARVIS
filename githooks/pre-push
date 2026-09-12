@@ -1,17 +1,37 @@
 #!/usr/bin/env bash
-# JARVIS pre-push hook — remind to cut a release tag when pushing main ahead
-# of the latest vA.B.C tag. Informational only (never blocks the push).
+# JARVIS pre-push hook — cut a SemVer release tag automatically.
+#
+# Previously this hook only PRINTED a reminder ("To cut a release: ...") and
+# exited 0, so no tag was ever created and the version drifted (v3.0.1+dev.148).
+# Now it computes the bump from conventional commits since the latest vA.B.C tag
+# (scripts/version_bump.py) and creates the tag when pushing the default branch
+# WITH genuinely bump-worthy commits already committed.
 #
 # Installed via:  python scripts/bump_version.py install-hooks
+#
+# Safety / rationale:
+#   * The tag is created from an already-committed bump (the hook does NOT commit
+#     on your behalf mid-push); it just materialises the release marker for the
+#     commits you are about to push.
+#   * version_bump.py --apply commits the pyproject metadata bump and tags, so
+#     the derived version (git describe) and the metadata agree.
+#   * The hook never blocks the push on failure: if the version bump cannot be
+#     computed, it warns and lets the push proceed (same "informational" posture
+#     as before, but now WITH an automatic tag when it can).
 set -uo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+PY="$(command -v python3 || true)"
 DEFAULT_BRANCH="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
   | sed 's@^refs/remotes/origin/@@' || echo main)"
 
+# Is the venv python available? Prefer it so the module's cwd maths hold.
+if [ -x "$REPO_ROOT/.venv/bin/python" ]; then
+  PY="$REPO_ROOT/.venv/bin/python"
+fi
+
 while read -r local_ref local_sha remote_ref remote_sha || [ -n "$local_ref" ]; do
   branch="${local_ref#refs/heads/}"
-  # Only warn for the default (main) branch.
   [ "$branch" = "$DEFAULT_BRANCH" ] || continue
 
   latest="$(git -C "$REPO_ROOT" describe --tags --abbrev=0 \
@@ -19,14 +39,14 @@ while read -r local_ref local_sha remote_ref remote_sha || [ -n "$local_ref" ]; 
   [ -n "$latest" ] || continue
 
   ahead="$(git -C "$REPO_ROOT" rev-list --count "${latest}..HEAD" 2>/dev/null || echo 0)"
-  dirty="$(git -C "$REPO_ROOT" status --porcelain | head -n1)"
 
-  if [ "$ahead" -gt 0 ] || [ -n "$dirty" ]; then
-    echo "⚠️  Pushing '$branch', which is $ahead commit(s) ahead of release tag '$latest'."
-    if [ -n "$dirty" ]; then
-      echo "    Working tree is dirty — the derived version will be flagged '.dirty'."
+  if [ "$ahead" -gt 0 ] && [ -n "$PY" ]; then
+    echo "🔖 Pushing '$branch', $ahead commit(s) ahead of '$latest' — auto-tagging…"
+    if (cd "$REPO_ROOT" && "$PY" scripts/version_bump.py --apply --tag-only); then
+      echo "   ✅ release tag created (see git tag)."
+    else
+      echo "   ⚠️  could not auto-tag (see above); push continues untagged."
     fi
-    echo "    To cut a release:  python scripts/bump_version.py patch|minor|major"
   fi
 done
 
