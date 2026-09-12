@@ -26,7 +26,7 @@ Status: 11 checklist items evaluated. Verified complete: 7. Partial: 2. Blocked 
 
 ## Sprint 2 — Hardening (verified from disk / code / endpoints)
 
-Status: 10 checklist items evaluated. Verified complete: 5. Partial: 4. Blocked: 0. Missing: 1.
+Status: 10 checklist items evaluated. Verified complete: 7. Partial: 2. Blocked: 0. Missing: 1.
 
 - ✅ VERIFIED Multi-stage Dockerfile (Dockerfile + .dockerignore + docker-compose.yml all present; multi-stage structure verified by file read)
 - ✅ VERIFIED .dockerignore (present)
@@ -37,8 +37,8 @@ Status: 10 checklist items evaluated. Verified complete: 5. Partial: 4. Blocked:
 - 🟠 PARTIAL JARVIS-Release workflow (release.yml present; workflow_dispatch-only; scripts/bump_version.py handles tag-based release; full semantic-release automation BLOCKED by Actions disabled — TD-009; 17 tags present v0.1.0 ... v3.0.1)
 - 🟡 PARTIAL Conventional commits enforcement (commitlint v9.26.0 + conventional config in .pre-commit-config.yaml; scripts/commit.sh two-pass; enforcement verified at pre-commit layer; no separate GitHub Actions check due to Actions block)
 - ❌ MISSING SBOM (CycloneDX): no file/workflow; 22-check gate includes `sbom` check — covered at gate level, not dedicated artifact
-- 🟡 PARTIAL 80% coverage (153 tests pass; coverage % unknown; .venv/bin/pytest -q verified 153 passed, 5.89s; `pytest --cov` NOT executed; target not verified)
-- 🟡 PARTIAL Integration tests for critical paths (tests/unit verified; tests/integration/ + tests/e2e/ directory structures present per AGENTS.md §2; dedicated CI-bridge / n8n-loop end-to-end integration test NOT verified in this session)
+- ✅ VERIFIED 80% coverage (measured 2026-09-13: `pytest tests/ -q --cov=app` → `TOTAL 6215 141 98%`, 1028 passed; floor 80% exceeded by 18 points. The earlier "coverage % unknown / 153 tests" note was stale. RISK-004 closed)
+- ✅ VERIFIED Integration tests for critical paths (`tests/integration/test_ci_bridge_gate_loop.py`, 12 tests, 2026-09-13 — pins blocking-vs-reported-only status semantics, gate→context mapping, publish-failure detection, gate JSON parsing, and bridge-state round-trip; mutation-checked. `tests/e2e/` is still empty: no live-instance DAST, which remains RISK-006)
 
 ---
 

@@ -87,8 +87,8 @@
 | Configure conventional commits enforcement | Dev | *(pre-commit hook)* | 🟡 PARTIAL (`.pre-commit-config.yaml`: `commitlint` v9.26.0 + conventional config; `scripts/commit.sh` handles two-pass commit; enforcement is pre-commit layer, verified working — no separate GitHub Actions check due to Actions block) |
 | Add SBOM generation (CycloneDX) | Dev | *(in `ci_gate.py`)* | ❌ MISSING (no `cyclonedx` file/workflow; `sbom` gate check exists in 22-check CI pipeline — partial via gate) |
 | **Testing** | | | |
-| Achieve 80% coverage threshold | Dev | *(in `ci_gate.py`)* | 🟡 PARTIAL (153 tests pass; no `pytest --cov` run tracked; `tests/unit/` + `tests/sprint3/` + `tests/integration/` directory structure present — coverage % unknown, target not verified) |
-| Add integration tests for critical paths | Dev | *(in `ci_gate.py`)* | 🟡 PARTIAL (`tests/unit/` verified; `tests/integration/` and `tests/contract/` directories exist per AGENTS.md; no end-to-end CI-bridge/n8n integration test verified in this session) |
+| Achieve 80% coverage threshold | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — **98%** measured 2026-09-13 (`pytest tests/ -q --cov=app --cov-report=term` → `TOTAL 6215 141 98%`, 1028 passed); floor 80% exceeded. RISK-004's "~36%" figure was stale and has been corrected |
+| Add integration tests for critical paths | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — `tests/integration/test_ci_bridge_gate_loop.py` (12 tests, 2026-09-13) pins the CI-bridge → `ci_gate` → status-publish contract: blocking failures redden their context, reported-only failures (mypy/RISK-005, coverage/RISK-004) stay green but visible in the description, every gate maps to a published context, a 403'd publish is reported as `publish-failed` rather than announced as success, gate JSON is parsed, and bridge state round-trips + degrades on corruption. Mutation-checked: reverting the reported-only rule fails 2 of them. `tests/e2e/` remains empty (no live-instance DAST — that is RISK-006, still open) |
 
 **Exit Criteria**: Docker image builds, deploys to staging; release automation works; 80% coverage
 
