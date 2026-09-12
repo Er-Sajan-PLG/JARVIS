@@ -100,7 +100,9 @@ def bootstrap_system(
     # 6. Safety Policy & Guardrails
     safety_policy = ToolSafetyPolicy(auto_approve_sensitive=True)
     set_global_policy(safety_policy)
-    approval_registry = ApprovalRegistry()
+    # F5: persisted so a restart between a DESTRUCTIVE step pausing and a human
+    # deciding cannot silently drop the pending approval and its paused plan.
+    approval_registry = ApprovalRegistry(store_path=Path(data_dir) / "approvals.json")
 
     # 7. Cognitive Engine (Brain)
     intent_analyzer = IntentAnalyzer()
