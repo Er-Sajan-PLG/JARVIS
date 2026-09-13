@@ -10,8 +10,10 @@ from __future__ import annotations
 
 from typing import Any, Literal, TypedDict
 
-from app.domain import IntentAnalysis, SafetyFlag, ToolResult
+from app.domain.intent import IntentAnalysis
 from app.domain.plan import ExecutionPlan
+from app.domain.safety_flag import SafetyFlag
+from app.domain.tool_result import ToolResult
 
 
 class CognitiveState(TypedDict, total=False):
