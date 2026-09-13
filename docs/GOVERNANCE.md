@@ -127,7 +127,7 @@ commit, grouped into **8 published commit-status contexts**:
 |---|---|
 | `Lint & Typecheck` | `ruff_ratchet` (changed files only), `mypy` (ratcheted at `.governance/mypy_baseline.txt`) |
 | `SAST` | `semgrep` |
-| `Tests` | `pytest` (<!--fact:test_count-->1151<!--/fact--> tests), `contract`, `coverage` |
+| `Tests` | `pytest` (<!--fact:test_count-->1154<!--/fact--> tests), `contract`, `coverage` |
 | `Security Scan` | `gitleaks`, `trufflehog`, `bandit`, `pip_audit` |
 | `Supply Chain` | `trivy`, `osv`, `licenses`, `sbom`, `provenance`, `checkov` |
 | `Virtual Board Governance` | `board` (8 AST checks in `scripts/board/review.py`) |
