@@ -1,6 +1,8 @@
 # JARVIS Memory System
 
 **Status**: ACTIVE
+**Type**: reference
+**Source**: `app/memory/` at HEAD
 **Last Updated**: 2026-09-13
 
 This document outlines the architecture, lifecycle, and components of the JARVIS memory system, focusing on how information is stored, retrieved, and utilized.

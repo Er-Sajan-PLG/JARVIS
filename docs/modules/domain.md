@@ -1,6 +1,7 @@
 # Domain Layer Subsystem (`app/domain/`) - Version-by-Version History
 
 **Status**: ACTIVE
+**Type**: reference
 **Last Updated**: 2026-09-13
 **Source**: `app/domain/` at HEAD
 

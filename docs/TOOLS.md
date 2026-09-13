@@ -422,6 +422,8 @@ Reviewer:
 # Notes by AI:
 
 **Status**: ACTIVE
+**Type**: reference
+**Source**: `app/tools/` at HEAD
 **Last Updated**: 2026-09-13
 
 d but unused in the current code (forward-compat for v3.0).

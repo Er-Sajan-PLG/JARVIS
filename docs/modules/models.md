@@ -1,6 +1,7 @@
 # Multi-Provider Inference Subsystem (`app/models/`) - Version-by-Version History
 
 **Status**: ACTIVE
+**Type**: reference
 **Last Updated**: 2026-09-13
 **Source**: `app/models/` at HEAD
 

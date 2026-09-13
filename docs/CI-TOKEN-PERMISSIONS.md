@@ -1,6 +1,8 @@
 # JARVIS CI — GitHub token permissions
 
 **Status**: ACTIVE
+**Type**: reference
+**Source**: `scripts/ci_bridge.py`, `.ci-bridge.env` (not committed)
 **Last Updated**: 2026-09-13
 
 **Method**: every row below was measured with a live API probe against

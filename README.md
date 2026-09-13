@@ -1,6 +1,7 @@
 # 🤖 JARVIS — Modular Personal AI Platform
 
 **Status**: ACTIVE
+**Type**: guide
 **Last Updated**: 2026-09-13
 
 [![Version](https://img.shields.io/badge/version-v3.3.4-blue.svg)](docs/CHANGELOG.md)
@@ -103,7 +104,7 @@ flowchart TB
     subgraph AUTOMATION["Automation Plane (n8n :5678 + bridge :8770)"]
         N8N["n8n workflows<br/>CI-Local · HITL · Cleanup"]
         BRIDGE["ci_bridge_server.py"]
-        CGATE["ci_gate.py (<!--fact:gate_count-->24<!--/fact--> checks)"]
+        CGATE["ci_gate.py (<!--fact:gate_count-->25<!--/fact--> checks)"]
     end
 
     HTTP --> AUTH
@@ -215,7 +216,7 @@ to `127.0.0.1:8770`, token-authenticated). The bridge runs `scripts/ci_bridge.py
 which lists open PRs, gates each **merge result** in a shadow worktree, and
 publishes the outcome.
 
-**<!--fact:gate_count-->24<!--/fact--> checks** in `scripts/ci_gate.py`:
+**<!--fact:gate_count-->25<!--/fact--> checks** in `scripts/ci_gate.py`:
 
 ```
 ruff_ratchet  mypy  pytest  contract  coverage  mutation
@@ -295,7 +296,7 @@ Run the governance suite:
 
 ## 📚 Documentation
 
-Start at **[`docs/INDEX.md`](docs/INDEX.md)** — the master navigation map.
+Start at **[`docs/README.md`](docs/README.md)** — the master navigation map.
 
 | Document | Purpose |
 |---|---|
@@ -309,7 +310,7 @@ Start at **[`docs/INDEX.md`](docs/INDEX.md)** — the master navigation map.
 | [docs/ACCEPTED_RISKS.md](docs/ACCEPTED_RISKS.md) | Risk register with owners and review dates |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Sprint plan and technical debt register |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Release notes |
-| [docs/DEVLOG.md](docs/DEVLOG.md) | Why decisions were made, alternatives rejected |
+| [docs/DECISIONS-AUTONOMOUS-2026-09-10.md](docs/DECISIONS-AUTONOMOUS-2026-09-10.md) | Why decisions were made, alternatives rejected |
 | [docs/adr/](docs/adr/) | Architecture Decision Records (ADR-001 → ADR-013) |
 
 Repository: <https://github.com/Er-Sajan-PLG/JARVIS>

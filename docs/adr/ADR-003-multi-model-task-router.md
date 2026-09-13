@@ -1,6 +1,7 @@
 # ADR-003: Multi-Model Task Router & Classification
 
 **Status**: HISTORICAL
+**Type**: adr
 **Last Updated**: 2026-07-03
 
 - **Status**: Evolved into ADR-009

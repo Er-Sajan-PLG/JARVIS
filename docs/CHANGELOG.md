@@ -1,6 +1,7 @@
 # JARVIS Release Changelog
 
 **Status**: ACTIVE
+**Type**: changelog
 **Last Updated**: 2026-09-13
 
 All notable changes to the JARVIS project from the initial commit (`1999e53`) to the

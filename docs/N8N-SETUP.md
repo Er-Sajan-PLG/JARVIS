@@ -1,6 +1,7 @@
 # n8n Local Setup for JARVIS — Beginner Guide
 
 **Status**: ACTIVE
+**Type**: guide
 **Last Updated**: 2026-09-13
 
 **Status:** working and verified end-to-end (2026-09-10).

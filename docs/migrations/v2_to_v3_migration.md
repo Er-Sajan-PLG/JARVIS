@@ -1,6 +1,7 @@
 # Migration Guide: v2.x to v3.0.0 Architecture
 
 **Status**: ACTIVE
+**Type**: guide
 **Last Updated**: 2026-09-13
 
 ## Breaking Changes Summary

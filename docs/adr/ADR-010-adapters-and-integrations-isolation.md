@@ -1,6 +1,7 @@
 # ADR-010: Adapters & Integrations Boundary Isolation
 
 **Status**: ACTIVE
+**Type**: adr
 **Last Updated**: 2026-07-28
 
 - **Status**: Approved

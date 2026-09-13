@@ -1,6 +1,7 @@
 # Tiered Safety Policy Subsystem (`app/guardrails/`) - Version-by-Version History
 
 **Status**: ACTIVE
+**Type**: reference
 **Last Updated**: 2026-09-13
 **Source**: `app/guardrails/` at HEAD
 

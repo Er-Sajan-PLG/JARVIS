@@ -1,6 +1,7 @@
 # ADR-007: Domain Purity & Standard Dataclasses
 
 **Status**: ACTIVE
+**Type**: adr
 **Last Updated**: 2026-07-28
 
 - **Status**: Approved

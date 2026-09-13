@@ -138,11 +138,18 @@ PLAN: dict[str, tuple[str, str, str | None]] = {
 # "- **Status**: Approved" bullet is left alone — that is decision history, not
 # this header.
 STATUS_RE = re.compile(r"^\s*\*\*Status\*\*\s*:.*$", re.M)
+TYPE_RE = re.compile(r"^\s*\*\*Type\*\*\s*:.*$", re.M)
 UPDATED_RE = re.compile(r"^\s*\*\*(Last Updated|Last Sync|Last reviewed)\*\*\s*:.*$", re.M | re.I)
 SOURCE_RE = re.compile(r"^\s*\*\*Source( of Truth)?\*\*\s*:.*$", re.M)
 
+# The **Type** each document declares (docs/DOC-GOVERNANCE.md §10). Sourced from
+# the type contract itself so the two cannot disagree. This script is the canonical
+# header writer: re-running it must produce the same bytes, which is why it also
+# owns the Type and Source lines rather than leaving them to a second pass.
+from apply_doc_types import TYPES as DOC_TYPES  # noqa: E402
 
-def render(text: str, status: str, updated: str, source: str | None) -> str:
+
+def render(text: str, status: str, updated: str, source: str | None, rel: str = "") -> str:
     """Return `text` with exactly one canonical header, placed after the H1."""
     lines = text.splitlines()
     h1 = next((i for i, ln in enumerate(lines) if ln.startswith("# ")), None)
@@ -155,11 +162,18 @@ def render(text: str, status: str, updated: str, source: str | None) -> str:
     cleaned = [
         ln
         for ln in lines
-        if not (STATUS_RE.match(ln) or UPDATED_RE.match(ln) or SOURCE_RE.match(ln))
+        if not (
+            STATUS_RE.match(ln) or TYPE_RE.match(ln) or UPDATED_RE.match(ln) or SOURCE_RE.match(ln)
+        )
     ]
     h1 = next(i for i, ln in enumerate(cleaned) if ln.startswith("# "))
 
-    block = [f"**Status**: {status}", f"**Last Updated**: {updated}"]
+    block = [f"**Status**: {status}"]
+    type_name = DOC_TYPES.get(rel)
+    if type_name:
+        # Immediately under Status: a reader learns status and kind together.
+        block.append(f"**Type**: {type_name}")
+    block.append(f"**Last Updated**: {updated}")
     if source:
         block.append(f"**Source**: {source}")
 
@@ -190,7 +204,7 @@ def main() -> int:
             missing.append(rel)
             continue
         before = p.read_text(encoding="utf-8", errors="replace")
-        after = render(before, status, updated, source)
+        after = render(before, status, updated, source, rel)
         if before != after:
             p.write_text(after, encoding="utf-8")
             touched.append(rel)

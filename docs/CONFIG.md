@@ -1,6 +1,8 @@
 # Configuration
 
 **Status**: ACTIVE
+**Type**: reference
+**Source**: `app/config/` at HEAD
 **Last Updated**: 2026-09-13
 
 The configuration of JARVIS v2.1 is managed through a centralized system designed for clarity, modularity, and easy overrides.

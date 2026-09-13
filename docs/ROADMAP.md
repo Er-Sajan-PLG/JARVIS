@@ -1,6 +1,7 @@
 # JARVIS Roadmap
 
 **Status**: ACTIVE
+**Type**: roadmap
 **Last Updated**: 2026-09-13
 
 **Workflow Orchestration**: n8n (all CI/CD, automation, approval flows)
@@ -47,7 +48,7 @@
 | Task | Owner | n8n Workflow | Status |
 |------|-------|--------------|--------|
 | **CI Pipeline** | | | |
-|| Create the local CI plane (`JARVIS-CI-Local` -> `scripts/ci_bridge.py` -> `scripts/ci_gate.py`) | Dev | `JARVIS-CI-Local` | ✅ VERIFIED (<!--fact:gate_count-->24<!--/fact--> gates; <!--fact:context_count-->9<!--/fact-->/<!--fact:context_count-->9<!--/fact--> contexts published; Actions billing-blocked) ||
+|| Create the local CI plane (`JARVIS-CI-Local` -> `scripts/ci_bridge.py` -> `scripts/ci_gate.py`) | Dev | `JARVIS-CI-Local` | ✅ VERIFIED (<!--fact:gate_count-->25<!--/fact--> gates; <!--fact:context_count-->9<!--/fact-->/<!--fact:context_count-->9<!--/fact--> contexts published; Actions billing-blocked) ||
 || Configure branch protection via GitHub API | Dev | *(GitHub API — 403)* | ⛔ BLOCKED (GitHub 403 free-tier repo; RISK-012; `.github/workflows/release.yml` exists as dispatch fallback) ||
 || Enable Dependabot (grouped PRs, weekly) | Dev | *(GitHub, no n8n workflow)* | ✅ VERIFIED (.github/dependabot.yml; PR #23-#36 merged via SSH) ||
 | **Security** | | | |
@@ -131,7 +132,7 @@
 | TD-002 | Legacy servers in namespace (archive) | ✅ RESOLVED — moved to `legacy/` | 0 | Dev |
 | TD-003 | Missing `JARVIS_API_KEY` | ✅ RESOLVED | 0 | Dev |
 | TD-004 | WS auth bypass | ✅ RESOLVED | 0 | Dev |
-| TD-005 | No CI pipeline | ✅ RESOLVED — local n8n plane, <!--fact:gate_count-->24<!--/fact--> checks, <!--fact:context_count-->9<!--/fact--> published contexts (Actions billing-blocked) | 1 | Dev |
+| TD-005 | No CI pipeline | ✅ RESOLVED — local n8n plane, <!--fact:gate_count-->25<!--/fact--> checks, <!--fact:context_count-->9<!--/fact--> published contexts (Actions billing-blocked) | 1 | Dev |
 | TD-006 | No branch protection | ⛔ BLOCKED — GitHub returns 403 on a private free-tier repo (RISK-012) | 1 | Dev |
 | TD-007 | No security scanning | ✅ RESOLVED — gitleaks, trufflehog, bandit, semgrep, trivy, osv, pip-audit in the gate | 1 | Dev |
 | TD-008 | No container image | ✅ RESOLVED — multi-stage Dockerfile + hadolint gate | 2 | Dev |

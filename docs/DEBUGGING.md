@@ -1,6 +1,7 @@
 # JARVIS Master Diagnostic Matrix & Troubleshooting Guide
 
 **Status**: HISTORICAL
+**Type**: runbook
 **Last Updated**: 2026-07-28
 
 > **Scope: history, not current behaviour.** Everything below is a frozen record of

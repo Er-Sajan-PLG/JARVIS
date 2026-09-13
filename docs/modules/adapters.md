@@ -1,6 +1,7 @@
 # I/O Protocol Adapters Subsystem (`app/adapters/`) - Version-by-Version History
 
 **Status**: ACTIVE
+**Type**: reference
 **Last Updated**: 2026-09-13
 **Source**: `app/adapters/` at HEAD
 

@@ -1,6 +1,7 @@
 # JARVIS Public API Reference & Historical API Signature Evolution
 
 **Status**: HISTORICAL
+**Type**: snapshot
 **Last Updated**: 2026-07-28
 
 This document tracks all public API signatures, exported methods, breaking changes, and migration guides across the complete history of JARVIS from `v0.1.0` to `v3.0.0 Refactored`.

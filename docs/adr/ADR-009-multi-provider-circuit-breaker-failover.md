@@ -1,6 +1,7 @@
 # ADR-009: Multi-Provider Failover & Circuit Breaker
 
 **Status**: ACTIVE
+**Type**: adr
 **Last Updated**: 2026-07-28
 
 - **Status**: Approved

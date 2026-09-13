@@ -1,6 +1,7 @@
 # Sprint 1 (Foundation) + Sprint 2 (Hardening) — Verified Completion Record
 
-**Status**: ACTIVE
+**Status**: SNAPSHOT
+**Type**: snapshot
 **Last Updated**: 2026-09-13
 
 **Recorded**: 2026-09-11  (+05:45, session FF5D759)

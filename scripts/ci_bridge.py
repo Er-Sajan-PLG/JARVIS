@@ -128,6 +128,7 @@ CONTEXT_OF: dict[str, str] = {
     # Governance, build, commits
     "board": "Virtual Board Governance",
     "docs": "Virtual Board Governance",
+    "doc_types": "Virtual Board Governance",
     "doc_facts": "Virtual Board Governance",
     "compileall": "Build",
     "hadolint": "Build",

@@ -51,6 +51,18 @@ if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/sync_doc_fac
   echo "   $(tail -1 /tmp/jarvis_doc_facts.log)"
 fi
 
+# 3b) Keep the documented type contract identical to scripts/doc_types.py. The
+#     §10 tables in DOC-GOVERNANCE.md are generated; if an author adds or changes
+#     a type, this regenerates the documentation in the same commit so the doc can
+#     never describe a contract the code does not implement.
+if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/doc_type_table.py" ]; then
+  "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/doc_type_table.py" --write >/dev/null 2>&1 || true
+  if ! git diff --quiet -- docs/DOC-GOVERNANCE.md; then
+    git add -- docs/DOC-GOVERNANCE.md
+    echo "📚 Regenerated the doc-type contract tables in docs/DOC-GOVERNANCE.md"
+  fi
+fi
+
 # 4) Run the pre-commit framework on STAGED files (ratchet): new/changed code must
 #    be clean even while legacy debt is burned down. mypy is excluded here until the
 #    legacy type backlog is cleared — tracked as RISK-005 in docs/ACCEPTED_RISKS.md.

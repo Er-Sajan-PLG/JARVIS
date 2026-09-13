@@ -1,6 +1,7 @@
 # ADR-012 — One GitHub identity per function, short-lived tokens
 
 **Status**: ACTIVE
+**Type**: adr
 **Last Updated**: 2026-09-11
 
 - Status: Accepted

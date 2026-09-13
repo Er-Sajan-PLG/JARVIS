@@ -1,6 +1,7 @@
 # n8n Handover — How This Works and How to Take Over
 
 **Status**: ACTIVE
+**Type**: guide
 **Last Updated**: 2026-09-13
 
 **Audience**: the human owner of this repo. Written after an autonomous session that built

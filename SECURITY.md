@@ -1,6 +1,7 @@
 # Security Policy
 
 **Status**: ACTIVE
+**Type**: policy
 **Last Updated**: 2026-09-13
 
 ## Supported Versions

@@ -1,6 +1,7 @@
 # Third-Party Integrations Subsystem (`app/integrations/`) - Version-by-Version History
 
 **Status**: ACTIVE
+**Type**: reference
 **Last Updated**: 2026-09-13
 **Source**: `app/integrations/` at HEAD
 

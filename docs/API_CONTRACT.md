@@ -1,6 +1,8 @@
 # JARVIS API Contract
 
 **Status**: ACTIVE
+**Type**: reference
+**Source**: `app/api/` at HEAD
 **Last Updated**: 2026-09-13
 
 **Authentication**: Bearer Token (`JARVIS_API_KEY`) + X-API-Key header

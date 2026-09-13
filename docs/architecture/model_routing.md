@@ -1,6 +1,7 @@
 # LLM Multi-Provider Pool & Circuit Breaker Architecture
 
 **Status**: ACTIVE
+**Type**: architecture
 **Last Updated**: 2026-09-13
 **Source**: `app/models/`, `app/resources/` at HEAD
 

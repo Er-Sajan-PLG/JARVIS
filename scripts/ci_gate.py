@@ -1306,6 +1306,45 @@ def gate_docs(worktree: Path) -> Check:
     return Check("docs", "Virtual Board Governance", True, "pass", summary[:160])
 
 
+def gate_doc_types(worktree: Path) -> Check:
+    """Type contract gate: the documented contract must match the code.
+
+    ``scripts/doc_types.py`` is the contract; ``docs/DOC-GOVERNANCE.md`` §10
+    documents it. Two copies of the same table is precisely the drift this
+    mechanism exists to prevent, so the table is generated and this gate fails when
+    it disagrees. ``check_docs.py`` in ``gate_docs`` then enforces the contract
+    against every document.
+    """
+    script = worktree / "scripts" / "doc_type_table.py"
+    if not script.is_file():
+        return Check(
+            "doc_types",
+            "Virtual Board Governance",
+            True,
+            "skip",
+            "scripts/doc_type_table.py absent",
+        )
+    res = _run(
+        [str(PYTHON), str(script), "--check"],
+        cwd=worktree,
+        timeout=120,
+        env={"PYTHONPATH": str(worktree)},
+    )
+    out = ((res.stdout or "") + (res.stderr or "")).strip()
+    summary = out.splitlines()[0] if out else f"exit {res.returncode}"
+    if res.returncode != 0:
+        return Check(
+            "doc_types",
+            "Virtual Board Governance",
+            True,
+            "fail",
+            f"documented type contract is stale — {summary[:150]}",
+            exit_code=res.returncode,
+            output=_tail(out),
+        )
+    return Check("doc_types", "Virtual Board Governance", True, "pass", summary[:160])
+
+
 def gate_doc_facts(worktree: Path) -> Check:
     """Doc facts gate: every number a doc asserts must match the repository.
 
@@ -1535,6 +1574,7 @@ def run_gates(
         # ── governance & build ──────────────────────────────────────────────
         report.checks.append(gate_board(worktree))
         report.checks.append(gate_docs(worktree))
+        report.checks.append(gate_doc_types(worktree))
         report.checks.append(gate_doc_facts(worktree))
         report.checks.append(gate_compileall(worktree))
         report.checks.append(gate_hadolint(worktree))

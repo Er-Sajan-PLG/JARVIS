@@ -1,6 +1,7 @@
 # Repository Archaeology: Timeline & History
 
 **Status**: HISTORICAL
+**Type**: snapshot
 **Last Updated**: 2026-09-10
 
 ### [1] Commit `1999e53` `[INITIAL]` - Initial project structure

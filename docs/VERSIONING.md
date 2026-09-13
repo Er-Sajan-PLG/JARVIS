@@ -1,6 +1,7 @@
 # JARVIS Versioning
 
 **Status**: ACTIVE
+**Type**: reference
 **Last Updated**: 2026-09-13
 **Source**: `app/config/version.py`, `scripts/version_bump.py`
 

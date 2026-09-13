@@ -1,6 +1,7 @@
 # JARVIS Capability Contract Tracker
 
 **Status**: ACTIVE
+**Type**: register
 **Last Updated**: 2026-09-13
 
 **Contract Version**: 1.0.0

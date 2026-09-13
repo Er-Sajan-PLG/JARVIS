@@ -1,6 +1,7 @@
 # JARVIS Repository Health & Engineering Scorecard Across History
 
 **Status**: HISTORICAL
+**Type**: snapshot
 **Last Updated**: 2026-07-28
 
 > **⚠️ HISTORICAL SNAPSHOT — NOT CURRENT.** This scorecard was written on

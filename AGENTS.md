@@ -1,6 +1,8 @@
 # JARVIS Agent Standards & Governance
 
 **Status**: ACTIVE
+**Type**: governance
+**Source**: `githooks/`, `scripts/ci_gate.py`, `scripts/check_docs.py` at HEAD
 **Last Updated**: 2026-09-13
 
 > **Not to be confused with [`docs/AGENTS.md`](docs/AGENTS.md).** That file
@@ -221,9 +223,9 @@ What did we decide?
 
 ---
 
-## 5. Modularity & Isolation Verification
+## 7. Modularity & Isolation Verification
 
-### 5.1 Current Module Boundaries
+### 7.1 Current Module Boundaries
 | Module | Responsibility | Deps | Isolated? |
 |--------|----------------|------|-----------|
 | `app.domain` | Pure dataclasses | stdlib only | ✅ |
@@ -236,7 +238,7 @@ What did we decide?
 | `app.resources` | Token budget, rate limits, health | standalone | ✅ |
 | `app.memory.integrations` | ChromaDB, OCR | wrapped | ✅ |
 
-### 5.2 Isolation Gaps (Tracked)
+### 7.2 Isolation Gaps (Tracked)
 | Gap | ADR | Sprint |
 |-----|-----|--------|
 | MCP components missing | ADR-010 | Sprint 3 |
@@ -246,20 +248,20 @@ What did we decide?
 
 ---
 
-## 6. Debugging & Logging Standards
+## 8. Debugging & Logging Standards
 
-### 6.1 Structured Logging
+### 8.1 Structured Logging
 ```python
 # Format: JSON with correlation_id
 {"timestamp": "2026-09-10T10:30:00", "level": "INFO", "logger": "app.main", "correlation_id": "abc-123", "message": "Request processed"}
 ```
 
-### 6.2 Correlation IDs
+### 8.2 Correlation IDs
 - Every request: `X-Correlation-ID` header (auto-generated if missing)
 - Propagated through all async calls
 - Included in all log entries
 
-### 6.3 Debugging Checklist
+### 8.3 Debugging Checklist
 - [ ] Structured logs with correlation IDs
 - [ ] Metrics exposed at `/metrics` (Prometheus)
 - [ ] Health check at `/health` (liveness)
@@ -269,9 +271,9 @@ What did we decide?
 
 ---
 
-## 7. Documentation Standards
+## 9. Documentation Standards
 
-### 7.1 Required Docs Per Module
+### 9.1 Required Docs Per Module
 | Doc | Location | Updated When |
 |-----|----------|--------------|
 | Architecture | `docs/ARCHITECTURE.md` | Architecture change |
@@ -281,13 +283,51 @@ What did we decide?
 | Development | `docs/DEVELOPMENT.md` | Tooling change |
 | Capability Tracker | `docs/CAPABILITY_TRACKER.md` | Contract milestone |
 
-### 7.2 Doc Update Rule
+### 9.2 Doc Update Rule
 **Every PR that changes behavior MUST update relevant docs in same PR.**
 No separate "docs later" PRs.
 
+### 9.3 Mandatory: read the doc-type contract BEFORE writing any document
+
+**This is a blocking gate, for agents and humans alike. Do not write or edit any
+document without passing through it.**
+
+Before creating or editing a file under `docs/` (or any root `*.md`):
+
+1. **Read `docs/DOC-GOVERNANCE.md` §10.** It states, per document type, what a
+   correct document looks like and which drift trap that type falls into. If you
+   have not read it in this session, read it now.
+2. **Declare the type.** Every document carries `**Type**: <name>` immediately
+   under `**Status**`. Types: `architecture`, `reference`, `governance`, `adr`,
+   `runbook`, `guide`, `roadmap`, `register`, `generated`, `changelog`, `index`,
+   `policy`, `snapshot`. If you cannot name the type, you do not yet know what you
+   are writing — stop and decide.
+3. **Scaffold, do not hand-write the header:**
+
+   ```bash
+   .venv/bin/python scripts/new_doc.py <type> docs/<path>.md \
+       --title "<Title>" --source "<the code this describes>"
+   ```
+
+4. **Fill it against the code, not from memory.** Open the file named in
+   `**Source**` while you write. Writing from memory is the most common origin of
+   drift.
+5. **Verify:** `.venv/bin/python scripts/check_docs.py --strict`
+
+**Why this is a gate and not advice.** The type contract is enforced by
+`scripts/check_docs.py` (rule 10), by `githooks/pre-commit`, and by the `gate_docs`
+CI check. A document that declares no type, or violates its type, is rejected. An
+agent that writes documentation without passing through this section is producing
+a file the gate will refuse — and, worse, one no reader can tell is current.
+
+**The load-bearing rule for every type:** an ACTIVE document that describes code
+**must** carry `**Source**` naming it. That binding is what turns a future code
+change into a present gate failure — move the code and the document goes red,
+instead of going quietly stale.
+
 ---
 
-## 8. Compliance Checklist (Run Before Commit)
+## 10. Compliance Checklist (Run Before Commit)
 
 ```bash
 # Quick compliance check
@@ -296,13 +336,15 @@ No separate "docs later" PRs.
 .venv/bin/mypy --strict app/
 .venv/bin/pytest tests/ -q
 .venv/bin/python scripts/board/review.py
+.venv/bin/python scripts/check_docs.py --strict   # doc structure + type contract
+.venv/bin/python scripts/doc_type_table.py --check # documented contract == code
 ```
 
 **All must pass = compliant. Any failure = fix before commit.**
 
 ---
 
-## 9. Enforcement & Escalation
+## 11. Enforcement & Escalation
 
 | Violation | Consequence |
 |-----------|-------------|

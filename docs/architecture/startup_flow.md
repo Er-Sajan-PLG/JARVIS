@@ -1,6 +1,7 @@
 # System Startup & Composition Root
 
 **Status**: ACTIVE
+**Type**: architecture
 **Last Updated**: 2026-09-13
 **Source**: `app/bootstrap.py`, `app/main.py` at HEAD
 

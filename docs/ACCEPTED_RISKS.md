@@ -1,6 +1,7 @@
 # Accepted Risk Register
 
 **Status**: ACTIVE
+**Type**: register
 **Last Updated**: 2026-09-13
 
 Records security/licensing findings that are known, reviewed, and intentionally

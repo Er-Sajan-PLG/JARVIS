@@ -1,6 +1,7 @@
 # Development Log
 
 **Status**: HISTORICAL
+**Type**: snapshot
 **Last Updated**: 2026-07-28
 
 ## v3.0.0 Refactored

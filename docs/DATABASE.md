@@ -1,6 +1,8 @@
 # JARVIS Database
 
 **Status**: ACTIVE
+**Type**: reference
+**Source**: `app/memory/` at HEAD
 **Last Updated**: 2026-09-13
 
 This document describes how JARVIS persists data. Every statement below was

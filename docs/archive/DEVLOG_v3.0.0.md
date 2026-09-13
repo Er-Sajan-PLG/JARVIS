@@ -1,6 +1,7 @@
 # DevLog — v3.0.0 Development Cycle
 
 **Status**: HISTORICAL
+**Type**: snapshot
 **Last Updated**: 2026-07-26
 
 **Period:** v2.5.0 → v3.0.0 (Jul 19 – Jul 26, 2026)

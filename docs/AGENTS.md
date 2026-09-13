@@ -1,6 +1,7 @@
 # JARVIS Agents — `app/agents/`
 
 **Status**: ACTIVE
+**Type**: reference
 **Last Updated**: 2026-09-13
 **Source**: `AGENTS.md` at the repo root
 

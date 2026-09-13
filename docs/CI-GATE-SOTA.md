@@ -1,6 +1,8 @@
 # ci_gate vs SOTA — supply-chain and quality gate comparison
 
 **Status**: ACTIVE
+**Type**: reference
+**Source**: `scripts/ci_gate.py` at HEAD
 **Last Updated**: 2026-09-13
 
 Owner: Architecture · Last updated: 2026-09-10 · Status: **living document**

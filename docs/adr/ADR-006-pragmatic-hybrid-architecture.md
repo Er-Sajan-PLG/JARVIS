@@ -1,6 +1,7 @@
 # ADR-006: Pragmatic Hybrid Architecture
 
 **Status**: ACTIVE
+**Type**: adr
 **Last Updated**: 2026-07-28
 
 - **Status**: Approved

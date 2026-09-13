@@ -1,6 +1,7 @@
 # 🔍 Universal Software Audit Report
 
 **Status**: SNAPSHOT
+**Type**: snapshot
 **Last Updated**: 2026-09-10
 
 > **⚠️ SNAPSHOT — dated measurement, not a live status board.** This USAT audit

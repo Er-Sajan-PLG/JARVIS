@@ -1,6 +1,8 @@
 # CAPABILITY CONTRACT — JARVIS ↔ PROFESSOR-J Shared AI Capability Surface
 
 **Status**: ACTIVE
+**Type**: governance
+**Source**: `AGENTS.md`, `docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md`
 **Last Updated**: 2026-09-13
 
 **Version:** 1.0.0

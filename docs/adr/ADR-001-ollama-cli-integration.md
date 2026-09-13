@@ -1,6 +1,7 @@
 # ADR-001: Direct Ollama Integration & Interactive CLI Loop
 
 **Status**: HISTORICAL
+**Type**: adr
 **Last Updated**: 2026-06-27
 
 - **Status**: Superseded by ADR-006

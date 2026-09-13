@@ -1,6 +1,7 @@
 # JARVIS Documentation Guide
 
 **Status**: ACTIVE
+**Type**: index
 **Last Updated**: 2026-09-13
 
 **Source of truth**: the repository state. If a document and the code disagree,
@@ -25,6 +26,7 @@ the code wins — and the document is a bug.
 | **[API_CONTRACT.md](API_CONTRACT.md)** | REST/WS endpoints, auth, data models, error codes |
 | **[ROADMAP.md](ROADMAP.md)** | Sprint plan and technical debt register |
 | **[ACCEPTED_RISKS.md](ACCEPTED_RISKS.md)** | Risk register — owners and review dates for every CRITICAL/HIGH finding |
+| **[VERSIONING.md](VERSIONING.md)** | How versions are derived from git tags and what cuts a release |
 | **[DOC-GOVERNANCE.md](DOC-GOVERNANCE.md)** | How these documents are versioned, classified, and kept honest |
 
 ---
@@ -33,7 +35,7 @@ the code wins — and the document is a bug.
 
 | Document | Purpose |
 |---|---|
-| **[CI-GATE-SOTA.md](CI-GATE-SOTA.md)** | The local CI engine: <!--fact:gate_count-->24<!--/fact--> checks, <!--fact:context_count-->9<!--/fact--> published contexts, threat model |
+| **[CI-GATE-SOTA.md](CI-GATE-SOTA.md)** | The local CI engine: <!--fact:gate_count-->25<!--/fact--> checks, <!--fact:context_count-->9<!--/fact--> published contexts, threat model |
 | **[CI-TOKEN-PERMISSIONS.md](CI-TOKEN-PERMISSIONS.md)** | Which GitHub token needs which permission, and why |
 | **[GITHUB-APP-SETUP.md](GITHUB-APP-SETUP.md)** | Migrating CI auth from long-lived PATs to GitHub Apps |
 | **[N8N-SETUP.md](N8N-SETUP.md)** | Standing up the n8n automation plane |
@@ -100,12 +102,17 @@ code and follow `docs/DOC-GOVERNANCE.md`.
 
 1. **Source of truth**: the repository state is authoritative. If a document and
    the code disagree, the code wins — and the document is a bug.
-2. **Feature timelines**: distinguish **Feature Commit Author Date** (when the code
+2. **Before writing any document, read `docs/DOC-GOVERNANCE.md` §10** — the
+   mandatory doc-type contract. Declare a `**Type**`, scaffold with
+   `scripts/new_doc.py`, and name the code you describe in `**Source**`. This is a
+   blocking gate: `scripts/check_docs.py`, `githooks/pre-commit` and CI all enforce
+   it.
+3. **Feature timelines**: distinguish **Feature Commit Author Date** (when the code
    was authored) from **Tag Release Date**.
-3. **Version bumping**: tags are cut automatically from conventional commits by
+4. **Version bumping**: tags are cut automatically from conventional commits by
    `githooks/pre-push` → `scripts/version_bump.py --apply --tag-only`. Do not
    hand-edit a version string. See `docs/VERSIONING.md`.
-4. **No absolute paths in links.** Use repo-relative markdown links; this repo has
+5. **No absolute paths in links.** Use repo-relative markdown links; this repo has
    lived at more than one path.
-5. **Every doc carries a status header** — see `docs/DOC-GOVERNANCE.md` for the
-   allowed statuses and what each one promises.
+6. **Every doc carries a status header and a type** — see `docs/DOC-GOVERNANCE.md`
+   §2 and §10 for the allowed statuses and the type contract.

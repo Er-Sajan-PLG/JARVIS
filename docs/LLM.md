@@ -1,6 +1,8 @@
 # LLM — Model Architecture, Selection & Inference
 
 **Status**: ACTIVE
+**Type**: reference
+**Source**: `app/models/` at HEAD
 **Last Updated**: 2026-09-13
 
 > **Scope / verification note.** Every statement below was verified against the
