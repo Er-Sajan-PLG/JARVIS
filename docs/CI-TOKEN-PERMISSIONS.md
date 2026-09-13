@@ -55,7 +55,7 @@ Three distinct write-capable credentials exist. They are **not** interchangeable
 The CI token and the n8n credential share a **prefix but differ by SHA** — they
 are two different fine-grained PATs issued to the same account, with different
 permission sets. The n8n credential notably **cannot read commit statuses**
-(403), so it cannot publish the gate's 8 contexts. It is used by the
+(403), so it cannot publish the gate's <!--fact:context_count-->9<!--/fact--> contexts. It is used by the
 `JARVIS-CI-Local` workflow only as an HTTP-header credential for the *bridge*
 (`ci-bridge-auth`); it never talks to GitHub directly for status publication.
 

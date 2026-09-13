@@ -37,7 +37,21 @@ except Exception:
 PY
 fi
 
-# 3) Run the pre-commit framework on STAGED files (ratchet): new/changed code must
+# 3) Keep doc facts true to the code. Documents do not store numbers; they cite
+#    a fact name that is re-derived here, so "22 checks" cannot survive gate 23.
+#    --apply rewrites the marked values and we re-stage, so the corrected docs
+#    ride along in the same commit as the change that made them stale.
+if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/sync_doc_facts.py" ]; then
+  echo "🔄 Syncing doc facts with the code…"
+  "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --apply >/tmp/jarvis_doc_facts.log 2>&1 || true
+  # Re-stage only documents the sync actually touched.
+  git diff --name-only -- docs '*.md' | while IFS= read -r f; do
+    [ -n "$f" ] && git add -- "$f"
+  done
+  echo "   $(tail -1 /tmp/jarvis_doc_facts.log)"
+fi
+
+# 4) Run the pre-commit framework on STAGED files (ratchet): new/changed code must
 #    be clean even while legacy debt is burned down. mypy is excluded here until the
 #    legacy type backlog is cleared — tracked as RISK-005 in docs/ACCEPTED_RISKS.md.
 if [ -x "$REPO_ROOT/.venv/bin/pre-commit" ]; then
@@ -46,6 +60,16 @@ if [ -x "$REPO_ROOT/.venv/bin/pre-commit" ]; then
     echo "❌ pre-commit failed. Re-stage auto-fixes or fix the reported issues."
     exit 1
   }
+fi
+
+# 5) Backstop: refuse the commit if any doc still contradicts the repository.
+if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/sync_doc_facts.py" ]; then
+  if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --check >/tmp/jarvis_doc_facts_check.log 2>&1; then
+    echo "❌ Documentation contradicts the code:"
+    grep -E '^\s+-' /tmp/jarvis_doc_facts_check.log | head -20
+    echo "   Fix with: .venv/bin/python scripts/sync_doc_facts.py --apply"
+    exit 1
+  fi
 fi
 
 exit 0
