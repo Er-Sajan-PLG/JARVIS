@@ -1,5 +1,8 @@
 # ADR-010: Adapters & Integrations Boundary Isolation
 
+
+**Status**: ACTIVE
+**Last Updated**: 2026-07-28
 - **Status**: Approved
 - **Date**: 2026-07-28
 - **Version Tag**: `v3.0.0 Refactored`

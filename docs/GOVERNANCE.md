@@ -1,10 +1,9 @@
 # JARVIS Governance — Living Document v3.0.0
-
 **Status**: ACTIVE
 **Authority**: This document governs all changes to JARVIS repository
 **Workflow Orchestration**: n8n (external) **schedules**; JARVIS **decides**.
 See `docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md`.
-**Last Updated**: 2026-09-10
+**Last Updated**: 2026-09-13
 
 ---
 
@@ -12,14 +11,29 @@ See `docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md`.
 
 | Decision Type | Authority | Process |
 |---------------|-----------|---------|
-| **Architecture changes** | Architecture Review (n8n workflow) | ADR proposal → review → merge |
-| **Security policy** | Security Review (n8n workflow) | Threat model → approval → enforce |
-| **Dependency updates** | Dependabot + n8n auto-merge | Auto-merge on green CI (patch/minor) |
-| **Breaking API changes** | API Contract Review | Deprecation notice → migration window → remove |
-| **Infrastructure** | Infrastructure as Code (n8n) | Terraform/Ansible via n8n workflows |
-| **Release** | Automated (n8n + semantic-release) | Conventional commits → auto-version → tag |
+| **Architecture changes** | Architecture Review (human) | ADR proposal → review → merge |
+| **Security policy** | Security Review (human) | Threat model → approval → enforce |
+| **Dependency updates** | Local gate → auto-merge (see note) | Auto-merge on green gate (patch/minor) |
+| **Breaking API changes** | API Contract Review (human) | Deprecation notice → migration window → remove |
+| **Infrastructure** | Repo scripts + systemd user units | Version-controlled scripts, not a workflow node |
+| **Release** | `githooks/pre-push` → `scripts/version_bump.py` | Conventional commits → auto-bump → tag → GitHub Release |
 
-**No direct pushes to `main`** — all changes via PR with n8n-enforced gates.
+**No direct pushes to `main`** — changes go through a PR whose gate result is
+published by the local CI plane.
+
+> **Corrected 2026-09-13.** This table previously attributed every decision to an
+> n8n workflow (`Architecture Review (n8n workflow)`, `Infrastructure as Code
+> (n8n)`, `Release — Automated (n8n + semantic-release)`). None of those
+> workflows exist; there is no `semantic-release` in this repo, and the release
+> number is cut by `githooks/pre-push` calling `scripts/version_bump.py`. Per
+> **ADR-013**, deterministic decisions belong in code this repository owns — n8n
+> schedules and notifies. The three workflows that do exist are named in §3.
+>
+> **On "Dependency updates → auto-merge":** GitHub-side auto-merge is *not
+> available* on this repository (`allow_auto_merge: false`, not settable on the
+> Free private plan). The local bridge currently publishes a verdict but does not
+> merge; Dependabot PRs therefore accumulate. See
+> `docs/CI-TOKEN-PERMISSIONS.md` §5 for the measured state and what unblocks it.
 
 > **Versioning note**: the version number is **derived from git tags**, not
 > from a file — see `docs/VERSIONING.md`. `pyproject.toml` `project.version` is

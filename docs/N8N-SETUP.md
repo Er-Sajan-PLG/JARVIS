@@ -1,5 +1,8 @@
 # n8n Local Setup for JARVIS — Beginner Guide
 
+
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
 **Status:** working and verified end-to-end (2026-09-10).
 **Audience:** you, if you have never used n8n before. Every command here is copy-paste safe.
 

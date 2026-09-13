@@ -1,5 +1,9 @@
 # Persistent Memory Subsystem (`app/memory/`) - Version-by-Version History
 
+
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+**Source**: `app/memory/` at HEAD
 ## Version-by-Version Evolutionary History
 
 ### Version v0.5.0 (`4034bf7`)

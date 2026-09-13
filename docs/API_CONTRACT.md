@@ -1,10 +1,9 @@
 # JARVIS API Contract — Living Document v3.0.0
-
-**Status**: IMPLEMENTED (forensic-verified)
+**Status**: ACTIVE
 **Source**: `app/main.py`, `app/adapters/http/router.py`, `app/adapters/websocket/stream.py`
 **Authentication**: Bearer Token (`JARVIS_API_KEY`) + X-API-Key header
 **Workflow Orchestration**: n8n (external)
-**Last Updated**: 2026-09-10
+**Last Updated**: 2026-09-13
 
 ---
 

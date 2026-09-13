@@ -1,12 +1,93 @@
 # JARVIS Release Changelog
 
-All notable changes to the JARVIS project from initial commit (`1999e53`) to `HEAD` (`ec0dc4e`) are documented in this file.
 
-## [v1.2.0.dirty] — setup + Sprint 3 base
-- Setup: governance (8/8), CI gate (ratchet + worktree shadow), hooks, docs, USAT audit (76.2/100 production)
-- Sprint 3: typed-state contract (`IntentState`); adapter reads wrapper; contract FAIL assertions present (3 targets)
-- ARCH-003 (archive verified) + ARCH-007 (`HF_API_URL` externalised); SEC-002 masked
-- Version: derived `v1.2.0.dirty` (from `pyproject.toml`); bump script implemented
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+All notable changes to the JARVIS project from the initial commit (`1999e53`) to the
+current release are recorded here. Entries are newest-first. Versions below `v3.0.0`
+are retained history and are **not** rewritten; see also
+[`archive/`](archive/) for the frozen v3.0.0 release-cycle documents.
+
+## [v3.2.2] — 2026-09-13
+### Fixed
+- `pre-push` published a GitHub Release **before** pushing its tag, which `gh`
+  refuses (`tag vX exists locally but has not been pushed`). The hook now pushes
+  the tag first, then publishes. Pushing a tag re-enters the hook with
+  `local_ref=refs/tags/…`, which the branch guard skips — no recursion.
+  (`7991764`)
+
+### Changed
+- `docs/CI-TOKEN-PERMISSIONS.md` and **RISK-012** rewritten from live probes:
+  branch protection is a **plan** limit, not a token-scope limit. Re-probed with
+  a token that holds `administration:write` and admin permission — still the
+  "Upgrade to GitHub Pro" message, and repository rulesets are gated the same
+  way. (`b0f545e`)
+
+## [v3.2.1] — 2026-09-13
+### Fixed
+- Release publishing was wired into `pre-push` but produced nothing on first
+  use — the ordering bug above. Recorded here because the tag exists.
+
+## [v3.2.0] — 2026-09-13
+### Added
+- `scripts/publish_release.py` (218 lines) + `tests/unit/test_publish_release.py`
+  (9 tests). Turns a git **tag** into a GitHub **Release** — notes, compare link
+  and the "Latest" marker.
+- `pre-push` now publishes the release for a newly cut tag.
+
+### Fixed
+- **TD-009 closed.** GitHub showed 21 tags and **0 releases**, so release notes
+  and compare links had never existed. Backfilled 20 missing releases; verified
+  independently via the GitHub API — 21 tags → 21 releases. (`d10141b`)
+
+## [v3.1.2] — 2026-09-13
+### Added
+- `tests/integration/test_ci_bridge_gate_loop.py` — 12 tests pinning the
+  CI-bridge → `ci_gate` → status-publish loop, including the blocking-vs-
+  reported-only rule and publish-failure detection. Mutation-checked: reverting
+  the reported-only rule fails 2 of them. (`59eaeb6`)
+
+### Changed
+- **RISK-004 resolved.** The "~36% coverage" figure was stale; measured with the
+  gate's own command, coverage is **98%** (`TOTAL 6215 141 98%`) across 1028
+  passing tests. `gate_coverage` now reports `pass` against the 80% floor.
+- `docs/ROADMAP.md`, `docs/ACCEPTED_RISKS.md` and
+  `docs/SPRINT_1_2_COMPLETION.md` corrected to the measured values.
+
+## [v3.1.1] — 2026-09-12
+### Fixed
+- Version drift: nothing ever *created* a tag, so the derived version silently
+  sat at `v3.0.1+dev.148`. `scripts/version_bump.py` now computes the SemVer bump
+  from conventional commits since the last release tag, and `pre-push` applies it
+  (`--apply --tag-only`). It refuses to bump when there is nothing bump-worthy,
+  rather than minting an empty patch tag. (`cab37e3`)
+
+### Changed
+- The mypy ratchet was lowered 494 → 485, locking the Phase-0 gain
+  (`.governance/mypy_baseline.txt`). The ceiling may only move down.
+
+## [v3.1.0] — 2026-09-12
+### Added
+- **ADR-013** — *JARVIS orchestrates its own work; n8n is a workflow executor it
+  drives.* Settled the drift where governance named seven n8n workflows as the
+  automation authority while three existed and the real CI decision lived in
+  `scripts/ci_gate.py`.
+- Phase-0 security fixes: WebSocket/SSE surfaces authenticated (`21bf808`), the
+  file-tool allowlist enforced (`2d8d7ea`), the `ApprovalRegistry` persisted
+  across a restart (`d52789f`), and the gitleaks allowlist narrowed to two fake
+  fixture literals (`0f41a88`).
+
+### Changed
+- CI publishing token resolution fixed to read `.ci-bridge.env` first, so the
+  service uses `JARVIS_CI_TOKEN` instead of an unrelated token from
+  `~/.hermes/.env`. Verified by read-back: `state=success, total_count=8`.
+  (RISK-015, `1a20495`)
+- Test coverage raised 45% → 92% (`fa6c544`), then to 98%.
+
+## [v3.0.1] — 2026-07-28
+### Fixed
+- The API hardcoded `version="3.0.0"`, so `/health` reported `3.0.0` while the app
+  knew a longer version. It now imports the git-derived `VERSION`.
 
 ---
 

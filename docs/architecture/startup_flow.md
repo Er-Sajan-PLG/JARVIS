@@ -3,6 +3,10 @@
 > **Source of Truth**: `app/bootstrap.py` and `app/config/` at `HEAD`.
 > **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`fef3297`) | Tag Release Date: 2026-07-28*
 
+
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+**Source**: `app/bootstrap.py`, `app/main.py` at HEAD
 ---
 
 ## 1. Composition Root Bootstrap Sequence

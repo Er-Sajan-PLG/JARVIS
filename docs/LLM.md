@@ -1,17 +1,24 @@
 # LLM — Model Architecture, Selection & Inference
 
 > **Scope / verification note.** Every statement below was verified against the
-> source code in `app/`. One source file, `config.yaml`, could **not** be read
-> (the tooling blocked it as a security concern). Therefore all claims about
-> *which models are actually wired up* are derived from the hardcoded defaults in
-> `app/config/settings.py` (`Settings.models`, `Settings.profiles`), not from a
-> deployment `config.yaml`. Where the shipped defaults differ from what a real
-> `config.yaml` would supply, the discrepancy is called out explicitly.
+> source code in `app/`.
+>
+> **Corrected 2026-09-13:** this preamble previously stated that `config.yaml`
+> could not be read because tooling blocked it as a security concern. That was an
+> artefact of the session that wrote this file, not a property of the repository —
+> `config.yaml` is tracked and readable. The statements below that were derived
+> from `app/config/settings.py` defaults remain accurate as *defaults*; where the
+> shipped `config.yaml` differs, that is noted inline.
 
-> **Version.** `app/config/version.py` → `VERSION = "v.2.4.0"`. The model layer
+> **Version.** `app/config/version.py` derives `VERSION` from git tags (see
+> `docs/VERSIONING.md`). The model layer
 > is the `app/models/` package plus its callers in `app/main.py` and
 > `app/agents/doc_agent.py`.
 
+
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+**Source**: `app/models/` at HEAD
 ---
 
 ## 1. Model architecture

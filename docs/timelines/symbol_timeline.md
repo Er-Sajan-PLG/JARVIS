@@ -1,5 +1,8 @@
 # Symbol Lifecycle & Lineage Timeline
 
+
+**Status**: SNAPSHOT
+**Last Updated**: 2026-09-13
 | Symbol Name | Created Commit | Transition History | Current Status | Replacement Symbol |
 | :--- | :--- | :--- | :--- | :--- |
 | `OllamaClient` | `e13ee67` | Created ➔ Wrapped in `BaseLLMProvider` (`bb7e20b`) | Active | `BaseLLMProvider` |

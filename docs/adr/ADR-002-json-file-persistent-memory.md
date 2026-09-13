@@ -1,5 +1,8 @@
 # ADR-002: JSON File Persistent Memory Core
 
+
+**Status**: HISTORICAL
+**Last Updated**: 2026-06-28
 - **Status**: Superseded by ADR-004 & ADR-007
 - **Date**: 2026-06-28
 - **Version Tag**: `v0.5.0`

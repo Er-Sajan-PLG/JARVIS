@@ -1,5 +1,8 @@
 # Symbol Lineage & Tombstone Registry
 
+
+**Status**: SNAPSHOT
+**Last Updated**: 2026-09-13
 | Symbol Name | Type | File Path | Birth Commit | Death Commit | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `main` | function | `app/main.py` | `e13ee67` | `ec0dc4e` | DELETED |

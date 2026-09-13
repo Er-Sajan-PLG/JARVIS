@@ -1,5 +1,8 @@
 # ADR-005: FastAPI Web API Server & Modern Single-Page App
 
+
+**Status**: HISTORICAL
+**Last Updated**: 2026-07-18
 - **Status**: Evolved into ADR-010
 - **Date**: 2026-07-18
 - **Version Tag**: `v2.5.0`

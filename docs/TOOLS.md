@@ -5,7 +5,7 @@
 > `app/tools/` (`base.py`, `executor.py`, `file_tools.py`, `git_tools.py`, `__init__.py`)
 > and the consuming code in `app/agents/doc_agent.py` and `app/main.py`, plus the
 > project’s own `tests/stress_test.py`. Where the source contradicts itself, that is
-> called out explicitly.  
+> called out explicitly.
 > See **AI Verification Status** at the end for per-statement confidence.
 
 ---
@@ -100,7 +100,7 @@ agentic loop**:
 2. Initialize `messages` with system + the user `task`.
 3. Loop for `iteration` in range(1, `MAX_ITERATIONS` + 1) where `MAX_ITERATIONS = 12`:
    - a. `response = self._model.generate(messages)`; `text = response.content`
-   - b. If `not self._executor.has_calls(text)`: **return `text`** — no tool calls → agent is done; final text returned.  
+   - b. If `not self._executor.has_calls(text)`: **return `text`** — no tool calls → agent is done; final text returned.
         (The assistant turn is *not* appended in this case.)
    - c. `calls = self._executor.parse(text)` — extract `<tool_call>` blocks.
    - d. Append the assistant message `{"role":"assistant","content"}`.
@@ -108,14 +108,14 @@ agentic loop**:
         `self._executor.format_result(call, result)` into `result_blocks`.
    - f. Append a single user message
         `{"role":"user","content":"\n\n".join(result_blocks)}` containing all results.
-4. If the loop hits `MAX_ITERATIONS` without a tool‑free response, return the string  
+4. If the loop hits `MAX_ITERATIONS` without a tool‑free response, return the string
    `"[Documentation agent reached iteration limit without completing]"`.
 
 Key points:
 
 - Results are **batched**: all tool results from one model turn are concatenated into **one**
   user message (not one message per tool).
-- `format_result` wraps each result as  
+- `format_result` wraps each result as
   `<tool_result name="..." status="success|error">...</tool_result>` so the model can
   correlate results to calls.
 - The model is expected to emit **one `<tool_call>` per line** and wait for results before
@@ -159,7 +159,7 @@ Safety is layered and enforced inside the tool handlers and the executor, not by
 `read_file` raises `PermissionError` if `path` not in `ALLOWED_READ`; `write_file` raises
 `PermissionError` if `path` not in `ALLOWED_WRITE`. The check is an **exact string match**
 — there is no path normalisation or `..` resolution, so traversal/absolute/equivalent paths
-are blocked simply because they don’t match the literal entries.  
+are blocked simply because they don’t match the literal entries.
 (Verified by reading the handlers and by `tests/stress_test.py` Security/Adversarial
 suites, which pass.)
 
@@ -195,16 +195,16 @@ ever sees `ToolResult` objects.
 
 Two independent permission layers:
 
-1. **Path allowlist** (mandatory, enforced in handlers)  
+1. **Path allowlist** (mandatory, enforced in handlers)
    As described above — the blast radius for file access is the two sets in `file_tools.py`.
    This is the primary v2.4 security boundary and is **always applied** (no flag disables it).
 
-2. **Confirmation gate** (optional, in the executor)  
-   `ToolExecutor.__init__(registry, require_confirmation=True)`.  
+2. **Confirmation gate** (optional, in the executor)
+   `ToolExecutor.__init__(registry, require_confirmation=True)`.
    In `run()`, before executing, if `self._require_confirmation` and
    `tool.requires_confirmation`:
    - It prints `[Tool] name(args)` (args preview capped at 120 chars),
-   - then blocks on `input(" Execute? (y/N): ")`.  
+   - then blocks on `input(" Execute? (y/N): ")`.
    Answer `"y"` → execute; anything else → returns
    `ToolResult(success=False, error="User declined — tool not executed")`.
 
@@ -321,7 +321,7 @@ The following were checked directly against the source files inspected in this t
   function calling is wired in. (`executor.py`, `doc_agent.py`.)
 - Exactly **7 tools** are registered: `git_log`, `git_diff_stat`, `git_diff_full`,
   `git_show`, `git_tags` (`git_tools.py`) and `read_file`, `write_file` (`file_tools.py`).
-  Confirmed by importing the modules and listing `FILE_TOOLS`/`GIT_TOOLS`.  
+  Confirmed by importing the modules and listing `FILE_TOOLS`/`GIT_TOOLS`.
   (`GIT_TOOLS = ['git_log','git_diff_stat','git_diff_full','git_show','git_tags']`,
   `FILE_TOOLS = ['read_file','write_file']`.)
 - `write_file` is the only tool with `requires_confirmation=True` (risk medium); all git
@@ -422,6 +422,10 @@ Reviewer:
 
 # Notes by AI:
 
+
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+**Source**: `app/tools/` at HEAD
 d but unused in the current code (forward-compat for v3.0).
 format_for_prompt() -> str — builds a human-readable tool list for the system prompt. Tools whose risk_level is not "none"/"low" get a [<risk> risk] suffix (so write_file shows [medium risk]; git tools and read_file do not).
 Registered tools (verified)
@@ -556,7 +560,7 @@ Performance/scaling. Behavior with very large repos, extremely large diffs, or m
 External systems. No external services (LLM servers, vector stores, etc.) were invoked or inspected; their interaction with the tool layer is out of scope of app/tools/.
 Developer Verification
 Status: ☐ Not Reviewed
-Reviewer: 
+Reviewer:
 # JARVIS Documentation Agent — Tool System (`app/tools/`)
 
 > Source-verified documentation. Every claim below was checked against the code in

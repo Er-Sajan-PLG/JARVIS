@@ -1,5 +1,8 @@
 # Sprint 1 (Foundation) + Sprint 2 (Hardening) — Verified Completion Record
 
+
+**Status**: SNAPSHOT
+**Last Updated**: 2026-09-13
 **Recorded**: 2026-09-11  (+05:45, session FF5D759)
 **Method**: Verified against source files / running services / git tags / grep / file reads — NOT copied from `docs/ROADMAP.md` checkboxes. Only real evidence used.
 **Status principle**: Only items verified by real evidence are marked green; BLOCKED / MISSING / PARTIAL stay labeled with their real reason (GitHub 403, missing file, partial implementation). No fabricated green.
@@ -52,9 +55,9 @@ Status: 10 checklist items evaluated. Verified complete: 9. Partial: 1. Blocked:
 ## What was NOT done (honest scope boundary — this session)
 - Sprint 3: NOT modified. `MemoryItem` class still MISSING; `app/brain/graph.py` skeleton unchanged; FAIL assertions preserved (user's explicit instruction: "Keep Sprint 3 skeleton as-is"). `CAPABILITY_TRACKER.md`: 48% verified (5/10 >= 60%); Sprint 3 checklist items 103-108 unchanged (`🔴 TODO`).
 - Sprint 4: Untouched (ecosystem integration — STEMMA / LearningHub / PROFESSOR-J MCP server / Cloudflare Pages).
-- `docs/HEALTH_REPORT.md`: Still 2026-07-28 / 109 passed / `ec0dc4e`. User hasn't asked; NOT edited in this session. Not fabricated.
+- `docs/archive/HEALTH_REPORT_2026-07-28.md`: Still 2026-07-28 / 109 passed / `ec0dc4e`. User hasn't asked; NOT edited in this session. Not fabricated.
 - `.env.example`: Existing 26+ keys NOT expanded. User hasn't directed.
-- `docs/CODING_STANDARDS.md`: Unchanged (Sprint 3 title file). Not edited.
+- the coding standards (now repo-root `AGENTS.md` + `docs/DEVELOPMENT.md`): Unchanged (Sprint 3 title file). Not edited.
 - `docs/GOVERNANCE.md`: Only the versioning reference line edited (`tags` + VERSIONING.md); no governance structure changed.
 - `docs/CHANGELOG.md`: Not edited in this session. Not fabricated.
 

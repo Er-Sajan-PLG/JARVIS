@@ -5,6 +5,10 @@
 > `app/agents/` package only.
 
 
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+**Source**: `app/agents/` at HEAD
+
 > Scope of this document: only the code under `app/agents/` and the modules it
 > directly imports/invokes were inspected. Every claim below was checked against
 > source files; discrepancies found during review are called out explicitly.

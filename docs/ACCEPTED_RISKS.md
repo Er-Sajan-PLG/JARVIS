@@ -1,5 +1,8 @@
 # Accepted Risk Register
 
+
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
 Records security/licensing findings that are known, reviewed, and intentionally
 accepted (or deferred) with a rationale and review date. Each entry has an
 expiry; a lapsed entry is a governance failure.
