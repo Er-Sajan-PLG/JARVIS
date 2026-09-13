@@ -1261,6 +1261,47 @@ def gate_contract(worktree: Path) -> Check:
     return Check("contract", "Tests", True, "pass", summary[:160])
 
 
+def gate_docs(worktree: Path) -> Check:
+    """Documentation hygiene gate (docs/DOC-GOVERNANCE.md).
+
+    Enforces three mechanical rules that a human reviewer cannot reliably hold:
+    every doc carries a valid status header, no table is an empty stub, and every
+    repo-relative path cited in backticks resolves on disk.
+
+    Blocking: a document that names a file which does not exist is a bug by the
+    rule in `docs/README.md` ("if a document and the code disagree, the code
+    wins — and the document is a bug"). This is exactly the class of defect that
+    survived review for weeks before 2026-09-13.
+    """
+    script = worktree / "scripts" / "check_docs.py"
+    if not script.is_file():
+        return Check(
+            "docs", "Virtual Board Governance", True, "skip", "scripts/check_docs.py absent"
+        )
+    res = _run(
+        [str(PYTHON), str(script), "--strict"],
+        cwd=worktree,
+        timeout=300,
+        env={"PYTHONPATH": str(worktree)},
+    )
+    out = (res.stdout or "") + (res.stderr or "")
+    lines = [ln for ln in out.strip().splitlines() if ln.strip()]
+    summary = lines[0] if lines else f"exit {res.returncode}"
+    if res.returncode != 0:
+        # Surface the actual findings, not just a count.
+        detail = [ln.strip() for ln in lines if ln.strip().startswith("-")]
+        return Check(
+            "docs",
+            "Virtual Board Governance",
+            True,
+            "fail",
+            f"documentation hygiene: {len(detail)} finding(s) — {summary[:120]}",
+            exit_code=res.returncode,
+            output=_tail("\n".join(detail[:40]) or out),
+        )
+    return Check("docs", "Virtual Board Governance", True, "pass", summary[:160])
+
+
 def gate_mutation(worktree: Path) -> Check:
     """Mutation testing (opt-in `--with-mutation`): reported, and slow by design."""
     exe = _tool("mutmut")
@@ -1451,6 +1492,7 @@ def run_gates(
         report.checks.append(gate_provenance(worktree, sha))
         # ── governance & build ──────────────────────────────────────────────
         report.checks.append(gate_board(worktree))
+        report.checks.append(gate_docs(worktree))
         report.checks.append(gate_compileall(worktree))
         report.checks.append(gate_hadolint(worktree))
         report.checks.append(gate_checkov(worktree))
