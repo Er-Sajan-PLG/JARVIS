@@ -53,7 +53,7 @@
 | **Security** | | | |
 || Add `SECURITY.md` with disclosure email | Dev | — | ✅ VERIFIED (SECURITY.md present) ||
 || Add `.gitleaks.toml` + pre-commit hook | Dev | *(pre-commit hook)* | ✅ VERIFIED (.pre-commit-config.yaml + ruff/mypy/gitleaks; gate passes) ||
-|| Add CodeQL SAST workflow | Dev | *(needs Actions)* | ❌ MISSING (.github/workflows/codeql-analysis.yml absent; gitleaks/trufflehog/semgrep/bandit cover) ||
+|| Add CodeQL SAST workflow | Dev | *(local: `codeql` CLI, no Actions)* | 🟡 PARTIAL — the *workflow* is genuinely impossible (Actions billing-blocked), but CodeQL is **not** unavailable: the CLI (`github/codeql-cli-binaries` v2.27.0, 410 MB linux64) runs standalone without Actions and could join the gate. Today the gate covers SAST with semgrep + bandit + trufflehog + gitleaks, so the gap is depth (dataflow), not absence. Tracked as an improvement, not a blocker ||
 || Add container scan (Trivy) | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED (Trivy fs gate in 22-check CI pipeline; Dockerfile + .dockerignore + hadolint) ||
 | **Code Quality** | | | |
 || Fix bare `except` in `app/conversation/manager.py:203`, `app/memory/store.py:210` | Dev | — | ✅ VERIFIED (grep: 0 bare `except:` hits in `app/`) ||
@@ -83,9 +83,9 @@
 | Add `/health` and `/ready` endpoints (unauthenticated, minimal) | Dev | — | ✅ VERIFIED (`app/adapters/http/router.py`: `/health`; `app/main.py`: `/ready` + `/metrics`) |
 | Add metrics endpoint (Prometheus format) | Dev | — | ✅ VERIFIED (`/metrics` endpoint + `metrics.export_prometheus()` reference in main.py) |
 | **Release Automation** | | | |
-| Create release automation (semantic-release) | Dev | *(no workflow — `bump_version.py`)* | 🟠 PARTIAL (`.github/workflows/release.yml` exists; `workflow_dispatch`-only; semantic-release not wired; `scripts/bump_version.py` handles tag-based release; Actions disabled = full automation BLOCKED — TD-009) |
+| Create release automation (semantic-release) | Dev | *(local: `scripts/version_bump.py` + `scripts/publish_release.py`)* | ✅ VERIFIED — **release publishing works locally without Actions.** Tags: `githooks/pre-push` auto-tags from conventional commits. Releases: `scripts/publish_release.py` publishes via `gh` (the CI token lacks `contents:write`; `gh`'s repo-scoped classic token can). 2026-09-13: backfilled so **21 tags → 21 GitHub releases** (was 21 tags / **0 releases** — notes, compare links and "Latest" never existed). Wired into the hook so it stays automatic. Actions `release.yml` remains dispatch-only, which no longer blocks anything (TD-009 closed) |
 | Configure conventional commits enforcement | Dev | *(pre-commit hook)* | 🟡 PARTIAL (`.pre-commit-config.yaml`: `commitlint` v9.26.0 + conventional config; `scripts/commit.sh` handles two-pass commit; enforcement is pre-commit layer, verified working — no separate GitHub Actions check due to Actions block) |
-| Add SBOM generation (CycloneDX) | Dev | *(in `ci_gate.py`)* | ❌ MISSING (no `cyclonedx` file/workflow; `sbom` gate check exists in 22-check CI pipeline — partial via gate) |
+| Add SBOM generation (CycloneDX) | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — **not missing.** `gate_sbom` produces a real CycloneDX 1.7 SBOM (`artifacts/sbom-<sha>.cdx.json`, 172 components); **57 artifacts** exist on disk and `syft` is installed. RISK-003 was already closed 2026-09-10; this row's ❌ was a doc lag |
 | **Testing** | | | |
 | Achieve 80% coverage threshold | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — **98%** measured 2026-09-13 (`pytest tests/ -q --cov=app --cov-report=term` → `TOTAL 6215 141 98%`, 1028 passed); floor 80% exceeded. RISK-004's "~36%" figure was stale and has been corrected |
 | Add integration tests for critical paths | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — `tests/integration/test_ci_bridge_gate_loop.py` (12 tests, 2026-09-13) pins the CI-bridge → `ci_gate` → status-publish contract: blocking failures redden their context, reported-only failures (mypy/RISK-005, coverage/RISK-004) stay green but visible in the description, every gate maps to a published context, a 403'd publish is reported as `publish-failed` rather than announced as success, gate JSON is parsed, and bridge state round-trips + degrades on corruption. Mutation-checked: reverting the reported-only rule fails 2 of them. `tests/e2e/` remains empty (no live-instance DAST — that is RISK-006, still open) |
@@ -135,7 +135,7 @@
 | TD-006 | No branch protection | ⛔ BLOCKED — GitHub returns 403 on a private free-tier repo (RISK-012) | 1 | Dev |
 | TD-007 | No security scanning | ✅ RESOLVED — gitleaks, trufflehog, bandit, semgrep, trivy, osv, pip-audit in the gate | 1 | Dev |
 | TD-008 | No container image | ✅ RESOLVED — multi-stage Dockerfile + hadolint gate | 2 | Dev |
-| TD-009 | No release automation | 🟠 HIGH — release.yml exists but is `workflow_dispatch`-only (Actions blocked) | 2 | Dev |
+| TD-009 | No release automation | ✅ RESOLVED — tags auto-cut by `githooks/pre-push`; releases published by `scripts/publish_release.py` via `gh` (Actions-independent). 21 tags → 21 releases as of 2026-09-13 | 2 | Dev |
 | TD-010 | Capability Contract gaps | 🟡 MEDIUM — see `CAPABILITY_TRACKER.md` | 3 | Dev |
 | TD-011 | No eval suite | 🟡 MEDIUM | 3 | Dev |
 | TD-012 | No Dockerfile | ✅ RESOLVED — same as TD-008 | 2 | Dev |

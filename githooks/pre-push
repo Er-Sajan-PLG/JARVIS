@@ -44,6 +44,16 @@ while read -r local_ref local_sha remote_ref remote_sha || [ -n "$local_ref" ]; 
     echo "🔖 Pushing '$branch', $ahead commit(s) ahead of '$latest' — auto-tagging…"
     if (cd "$REPO_ROOT" && "$PY" scripts/version_bump.py --apply --tag-only); then
       echo "   ✅ release tag created (see git tag)."
+      # A tag is not a release: GitHub showed 21 tags and 0 releases, so notes,
+      # compare links and the "Latest" marker never existed. Actions is
+      # billing-blocked, so publish locally via gh (the CI token lacks
+      # contents:write; gh holds a repo-scoped token that can). Non-fatal: a
+      # release-publish failure must never block a push.
+      if (cd "$REPO_ROOT" && "$PY" scripts/publish_release.py); then
+        echo "   ✅ GitHub release published."
+      else
+        echo "   ⚠️  could not publish a GitHub release (tag still pushed)."
+      fi
     else
       echo "   ⚠️  could not auto-tag (see above); push continues untagged."
     fi
