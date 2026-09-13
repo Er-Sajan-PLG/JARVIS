@@ -5,34 +5,10 @@ and required tools without incurring unnecessary LLM latency for simple requests
 """
 
 import logging
-from dataclasses import dataclass, field
-from enum import Enum
 
-# Module logger. The Sprint-3 contract tests patch `app.brain.analyzer.logger.info`, so
-# the name must exist even though today's heuristic path does not log.
+from app.domain import IntentAnalysis, IntentComplexity
+
 logger = logging.getLogger(__name__)
-
-# LangGraph typed-state (Sprint 3 capability contract, ADR-006, AGENTS.md §5)
-
-
-class IntentComplexity(str, Enum):
-    """Complexity classification of user intent."""
-
-    DIRECT_CHAT = "direct_chat"  # Fast path: direct LLM response, no tools needed
-    FILE_QUERY = "file_query"  # Reading/analyzing uploaded files or workspace
-    TOOL_SEARCH = "tool_search"  # Web search, OCR, or information retrieval
-    MULTI_STEP = "multi_step"  # Slow path: requires dynamic ExecutionPlan with steps
-
-
-@dataclass
-class IntentAnalysis:
-    """Result of intent analysis."""
-
-    complexity: IntentComplexity
-    requires_tools: bool = False
-    suggested_tools: list[str] = field(default_factory=list)
-    confidence: float = 1.0
-    reasoning: str = ""
 
 
 # Sprint 3 (ADR-006): node names for the typed-state graph skeleton. These are consumed

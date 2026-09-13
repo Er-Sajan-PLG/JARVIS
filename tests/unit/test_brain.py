@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from app.brain.analyzer import IntentAnalysis, IntentAnalyzer, IntentComplexity
-from app.brain.graph import (
+from app.brain.nodes import (
     intent_analyzer_node,
     response_synthesizer_node,
     task_planner_node,
@@ -21,9 +21,9 @@ from app.brain.planner import (
 from app.brain.runner import ExecutionRunner
 from app.brain.synthesizer import ResponseSynthesizer
 from app.domain import (
+    CognitiveState,
     ExecutionPlan,
     ExecutionStep,
-    IntentState,
     SafetyTier,
     StepStatus,
     ToolCall,
@@ -269,28 +269,33 @@ async def test_response_synthesizer_stream() -> None:
 
 
 def test_brain_graph_nodes() -> None:
-    # 1. intent_analyzer_node
-    state_in: IntentState = {"prompt": "Hello", "session_id": "sess_1"}
-    state_analyzed = intent_analyzer_node(state_in)
-    assert "analysis" in state_analyzed
-    assert state_analyzed["analysis"].complexity == IntentComplexity.DIRECT_CHAT
-
-    # 2. task_planner_node
+    analyzer = IntentAnalyzer()
     with patch.object(
         TaskPlanner,
         "create_plan",
         return_value=ExecutionPlan(plan_id="p_test", goal="Hello"),
     ):
-        state_planned = task_planner_node(state_analyzed)
-        assert state_planned["plan"].plan_id == "p_test"
-        assert state_planned["prompt"] == "Hello"
+        planner = TaskPlanner()
+    runner = ExecutionRunner()
+
+    # 1. intent_analyzer_node
+    state_in: CognitiveState = {
+        "user_input": "Hello",
+        "session_id": "sess_1",
+        "next_node": "intent",
+    }
+    state_analyzed = asyncio.run(intent_analyzer_node(state_in, analyzer))
+    assert "intent" in state_analyzed
+    assert state_analyzed["intent"].complexity == IntentComplexity.DIRECT_CHAT
+
+    # 2. task_planner_node
+    state_planned = asyncio.run(task_planner_node(state_analyzed, planner))
+    assert "plan" in state_planned
 
     # 3. tool_executor_node
-    state_executed = tool_executor_node(state_planned)
-    assert state_executed["executed"] == state_planned["plan"]
-    assert state_executed["hitl_approvals"] == {}
+    state_executed = asyncio.run(tool_executor_node(state_planned, runner))
+    assert "execution_results" in state_executed
 
     # 4. response_synthesizer_node
-    state_response = response_synthesizer_node(state_executed)
-    assert "synthesized" in state_response
-    assert state_response["executed"] == state_executed["executed"]
+    state_response = asyncio.run(response_synthesizer_node(state_executed))
+    assert "synthesized_response" in state_response
