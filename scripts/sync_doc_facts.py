@@ -98,6 +98,29 @@ def iter_docs() -> list[Path]:
     return sorted(out)
 
 
+# Facts a document is allowed to cite. Anything else is a typo, and a typo'd
+# marker name would silently never be checked (the value would resolve to
+# `unknown` and be skipped forever).
+KNOWN_FACTS = frozenset(
+    {
+        "version",
+        "commit",
+        "gate_count",
+        "context_count",
+        "adr_count",
+        "board_count",
+        "cadence_fast",
+        "cadence_default",
+        "cadence_quarterly",
+        "cadence_historical",
+        "doc_count",
+        "python_requires",
+        "test_count",
+        "coverage",
+    }
+)
+
+
 def is_exempt(p: Path) -> bool:
     rel = str(p.relative_to(REPO_ROOT))
     return rel.startswith(EXEMPT_PREFIXES) or rel in EXEMPT_FILES
@@ -135,7 +158,25 @@ def apply_facts(facts: dict[str, str]) -> tuple[int, int, list[str]]:
 
 
 def check_facts(facts: dict[str, str]) -> list[str]:
+    """Every number a doc asserts must be verifiable against the repository.
+
+    The rule that matters, and the one this function previously got wrong: an
+    **unresolvable** fact is a finding, not a pass. If a document cites
+    `test_count` and the fact cannot be derived, the checker cannot say the
+    document is true — it can only say it does not know. Reporting that silence
+    as "no findings" is the worst possible outcome, because it *looks* like
+    verification while the number underneath may be arbitrarily stale.
+
+    That is not hypothetical. `coverage`/`test_count` are expensive and read from
+    a gate-written cache; when the cache was unprovenanced or absent they resolved
+    to `unknown`, `check_facts` skipped them, and `docs/ROADMAP.md` asserted a
+    test count 84 lower than the suite's real count while this checker printed
+    "no findings — every marked fact matches the repository". A blind spot that
+    reports clean is worse than no check, so an unresolved *cited* fact is now a
+    blocking finding naming the marker and why it is unresolvable.
+    """
     findings: list[str] = []
+    cited_unknown: list[str] = []
     for path in iter_docs():
         rel = str(path.relative_to(REPO_ROOT))
         if is_exempt(path):
@@ -143,11 +184,27 @@ def check_facts(facts: dict[str, str]) -> list[str]:
         text = path.read_text(encoding="utf-8", errors="replace")
         lines = text.splitlines()
 
+        # 0. a marker naming a fact that does not exist is a typo, and a typo would
+        #    otherwise resolve to `unknown` and be skipped forever.
+        for m in MARKER_RE.finditer(text):
+            if m.group(1) not in KNOWN_FACTS:
+                line = text[: m.start()].count("\n") + 1
+                findings.append(
+                    f"{rel}:{line}: marker '{m.group(1)}' is not a known fact "
+                    f"— see scripts/doc_facts.py for the list"
+                )
+
         # 1. marked values must match
         for m in MARKER_RE.finditer(text):
             name, committed = m.group(1), m.group(2).strip()
             actual = facts.get(name, "unknown")
             if actual == "unknown":
+                # The document asserts a value we cannot verify. That is a finding,
+                # not a silence — unless the line is quoting the anti-pattern.
+                line = text[: m.start()].count("\n") + 1
+                if _line_is_quoted(lines, line - 1):
+                    continue
+                cited_unknown.append(f"{rel}:{line}: fact '{name}'")
                 continue
             if committed != actual:
                 line = text[: m.start()].count("\n") + 1
@@ -179,6 +236,19 @@ def check_facts(facts: dict[str, str]) -> list[str]:
                     f"{rel}:{line}: unmarked stale claim {m.group(0)!r} (repo says {actual}) "
                     f"— wrap it in <!--fact:{name}-->{actual}<!--/fact-->"
                 )
+
+    # Unresolvable cited facts are reported as a single grouped finding. They mean
+    # the checker could not verify the document — not that the document is wrong —
+    # and the fix is to produce the measurement (run the gate), not to edit prose.
+    if cited_unknown:
+        findings.append(
+            f"{len(cited_unknown)} citation(s) could not be verified because the fact(s) "
+            f"are unresolvable — the checker cannot certify a document it cannot measure. "
+            f"Run the gate (`scripts/ci_gate.py --with-coverage`) so "
+            f"`.governance/doc_facts.json` carries a measurement for this commit: "
+            + ", ".join(cited_unknown[:10])
+            + (" …" if len(cited_unknown) > 10 else "")
+        )
     return findings
 
 

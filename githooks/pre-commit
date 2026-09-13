@@ -79,7 +79,19 @@ if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/sync_doc_fac
   if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --check >/tmp/jarvis_doc_facts_check.log 2>&1; then
     echo "❌ Documentation contradicts the code:"
     grep -E '^\s+-' /tmp/jarvis_doc_facts_check.log | head -20
-    echo "   Fix with: .venv/bin/python scripts/sync_doc_facts.py --apply"
+    # Two distinct failures, two distinct remedies. A stale value is fixed by
+    # --apply. An *unresolvable* fact (typically test_count/coverage with no
+    # measurement for this commit) cannot be fixed by editing prose — --apply
+    # refuses to write `unknown` on purpose — so point at the real remedy: run the
+    # gate to produce the measurement. Prescribing --apply here would send the
+    # author in a circle.
+    if grep -q "could not be verified" /tmp/jarvis_doc_facts_check.log; then
+      echo "   This is an unresolvable fact, not a stale one. Produce the measurement:"
+      echo "     .venv/bin/python scripts/ci_gate.py --sha HEAD --with-coverage"
+      echo "   (the gate writes .governance/doc_facts.json with this commit's numbers)"
+    else
+      echo "   Fix with: .venv/bin/python scripts/sync_doc_facts.py --apply"
+    fi
     exit 1
   fi
 fi
