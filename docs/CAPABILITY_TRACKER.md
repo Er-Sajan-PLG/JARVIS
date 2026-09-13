@@ -19,7 +19,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 | **Memory Subsystem** | 4-stage pipeline + rich schema | Hybrid BM25+Chroma | PR #75 | 🟡 **45%** | Sprint 3 |
 | **Provider Routing** | Multi-provider + circuit breakers | ✅ Implemented | ✅ Implemented | ✅ **100%** | Done |
 | **Safety Gate (HITL)** | Tiered + DESTRUCTIVE blocks | ✅ Implemented | ✅ Implemented | ✅ **100%** | Done |
-| **MCP Client** | stdio + Streamable HTTP | ❌ None | PR #86 | 🔴 **0%** | Sprint 3 |
+| **MCP Client** | stdio + Streamable HTTP | ✅ Implemented | PR #86 | ✅ **100%** | Done |
 | **Voice I/O** | Piper + faster-whisper | 🔵 Out of scope | ✅ Implemented | N/A | N/A |
 | **Session/Checkpoint** | LangGraph MemorySaver | Basic file-backed | ✅ Implemented | 🟡 **60%** | Sprint 3 |
 | **STEMMA Grounding** | LHS Adapter | 🔵 Out of scope | ✅ Implemented | N/A | N/A |
@@ -79,10 +79,10 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 
 | Contract Requirement | JARVIS Current | Gap | Action | Sprint |
 |---------------------|----------------|-----|--------|--------|
-| stdio MCP | ❌ None | Missing | Port from PROFESSOR-J PR #86 | 3 |
-| Streamable HTTP MCP | ❌ None | Missing | Port from PROFESSOR-J PR #86 | 3 |
-| Tool registry (discover, list, search) | DocumentationAgent only (7 tools) | Limited scope | Build general tool registry | 3 |
-| Tool execution via ToolExecutor + safety gate | ✅ DocumentationAgent | Not general | Generalize ToolExecutor | 3 |
+| stdio MCP | ✅ `app/integrations/mcp/transports.py` | — | Ported | Done |
+| Streamable HTTP MCP | ✅ `app/integrations/mcp/transports.py` | — | Ported | Done |
+| Tool registry (discover, list, search) | ✅ `MCPRegistry` + `MCPToolSearch` | — | Implemented | Done |
+| Tool execution via ToolExecutor + safety gate | ✅ `MCPClientManager.call_tool` routed through `ToolSafetyPolicy` | — | Implemented | Done |
 | JSON Schema for args/returns | ✅ ToolDefinition.parameters | — | — | Done |
 
 ### 2.6 Session/Context (Contract §6)
@@ -117,7 +117,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 ### Sprint 3 (Weeks 5-8): Capability Contract Alignment
 - [ ] **Cognitive Engine**: Port LangGraph orchestration from PROFESSOR-J
 - [ ] **Memory**: Full 4-stage pipeline with `MemoryItem` schema
-- [ ] **MCP Client**: stdio + Streamable HTTP
+- [x] **MCP Client**: stdio + Streamable HTTP
 - [ ] **Session**: LangGraph checkpointers (MemorySaver/Postgres)
 - [ ] **OTel**: Spans with semantic conventions
 - [ ] **Eval Suite**: Regression suite for model behavior
@@ -220,7 +220,7 @@ def verify_contract_compliance():
 | Memory Subsystem | 45% | 100% | Sprint 3 |
 | Provider Routing | 100% | 100% | Done |
 | Safety Gate | 100% | 100% | Done |
-| MCP Client | 0% | 100% | Sprint 3 |
+| MCP Client | 100% | 100% | Done |
 | Session/Checkpoint | 60% | 100% | Sprint 3 |
 
 ---
