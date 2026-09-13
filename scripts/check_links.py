@@ -73,9 +73,14 @@ API_BASE_SUFFIXES = (
     "/v1beta",
 )
 
-# Hosts that answer automated requests with a block rather than a true status.
-# Curated, and conservative: a host belongs here only if a human has seen it block
-# a real, working page.
+# Hosts that are known to answer automated requests with a block rather than a true
+# status. Curated, and conservative: a host belongs here only if a human has seen it
+# block a real, working page.
+#
+# IMPORTANT — a host in this set is still PROBED. The list only decides how a
+# non-success is *classified* (unverified rather than dead). It must never be used to
+# skip the request, because that would let a dead path on a listed host pass
+# unchecked, which is the exact failure mode a link checker exists to catch.
 ALLOW_HOSTS = {
     "github.com",  # 429s under even light load
     "www.github.com",
@@ -185,23 +190,53 @@ def is_placeholder(url: str) -> bool:
 
 
 def probe(url: str, timeout: float = 15.0) -> tuple[str, str]:
-    """Return (verdict, detail) where verdict is ok | unverified | transient | dead."""
+    """Return (verdict, detail) where verdict is ok | unverified | transient | dead.
+
+    Ordering here is the whole design, and it is deliberate:
+
+    1. **Placeholders are skipped** without a request — they are illustrative
+       addresses (`localhost`, `example.com`), not links any reader clicks.
+    2. **The host is probed, always.** A host allowlist must never mean "do not
+       check this URL": that would let `https://github.com/some/dead/path` pass
+       merely because `github.com` is listed, which defeats the checker. The
+       allowlist below is consulted *after* the probe to decide how to classify a
+       non-success, never to skip the probe.
+    3. **DNS failure is hard-dead for every URL**, including an API base. A hostname
+       that does not resolve is dead whatever path follows it, so the API-base
+       special case (added for non-browsable endpoints on *live* hosts) must not
+       swallow it.
+    """
     if is_placeholder(url):
         return "skipped", "local or example address, not a clickable link"
 
-    # An API base URL is not browsable: the base path is meant to be *called*, so a
-    # 404 on it says nothing about health. Probe the host root for signal, but never
-    # report an API base as dead — a false positive a reader cannot act on is worse
-    # than no check, because it trains them to ignore this one.
     api_base = url.rstrip("/").endswith(API_BASE_SUFFIXES)
-    target = f"https://{host_of(url)}/" if api_base else url
+    host = host_of(url)
 
-    if host_of(target) in ALLOW_HOSTS:
-        return "unverified", "host blocks automated requests"
+    # An API base URL is not browsable: the base path is meant to be *called*, so a
+    # 404 there says nothing about health. Probe the host root instead — but that is
+    # still a real probe, and a dead hostname stays dead.
+    target = f"https://{host}/" if api_base else url
 
     verdict, detail = _probe_url(target, timeout)
-    if api_base and verdict == "dead":
+
+    # DNS is authoritative: an unresolvable host is dead, full stop. Checked before
+    # any downgrade path so a dead hostname can never be reported as unverified.
+    if "DNS failure" in detail:
+        return "dead", detail
+
+    if verdict == "dead" and api_base:
+        # The host answered, so it is alive; only the non-browsable base path 404'd.
         return "unverified", f"API base URL (not browsable; host root said {detail})"
+
+    # A host that blocks automated requests gets the benefit of the doubt *only for a
+    # status that could plausibly be a block* (401/403/405/406/429). A definite
+    # verdict is never downgraded merely because the host is familiar: a 404 means
+    # this URL does not exist, on github.com exactly as anywhere else. Downgrading it
+    # would reopen the hole where a dead path hides behind an allowlisted host.
+    inconclusive = detail.startswith(("HTTP 401", "HTTP 403", "HTTP 405", "HTTP 406", "HTTP 999"))
+    if verdict != "ok" and host in ALLOW_HOSTS and (inconclusive or verdict == "transient"):
+        return "unverified", f"{detail} (host is known to block automated requests)"
+
     return verdict, detail
 
 

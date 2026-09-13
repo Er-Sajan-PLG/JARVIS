@@ -117,16 +117,20 @@ def apply_facts(facts: dict[str, str]) -> tuple[int, int, list[str]]:
             if value == "unknown":
                 unknown.append(f"{path.relative_to(REPO_ROOT)}:{name}")
                 continue
-            text = MARKER_RE.sub(
-                lambda m, n=name, v=value: f"<!--fact:{n}-->{v}<!--/fact-->"
-                if m.group(1) == n
-                else m.group(0),
-                text,
-            )
+            for marker in MARKER_RE.finditer(text):
+                if marker.group(1) != name:
+                    continue
+                if marker.group(2) == value:
+                    # Already correct — not a rewrite, not a change reported.
+                    continue
+                before = marker.group(0)
+                after = f"<!--fact:{name}-->{value}<!--/fact-->"
+                text = text[: marker.start()] + after + text[marker.end() :]
+                if before != after:
+                    updated += 1
         if text != original:
             path.write_text(text, encoding="utf-8")
             changed += 1
-            updated += len(MARKER_RE.findall(text))
     return changed, updated, unknown
 
 

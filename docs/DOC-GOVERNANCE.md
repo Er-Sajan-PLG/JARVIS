@@ -7,7 +7,7 @@
 
 **Created**: 2026-09-13
 **Authority**: `docs/GOVERNANCE.md`; repo-root `AGENTS.md` §Documentation
-**Reviewed**: 2026-12-13
+**Reviewed**: 2026-09-13
 
 ---
 
