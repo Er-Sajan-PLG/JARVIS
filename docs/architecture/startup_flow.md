@@ -1,4 +1,4 @@
-# System Startup & Composition Root (`v3.0.0 Refactored`)
+# System Startup & Composition Root
 
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13

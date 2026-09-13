@@ -1,9 +1,13 @@
 # JARVIS Master Diagnostic Matrix & Troubleshooting Guide
 
-**Status**: ACTIVE
-**Last Updated**: 2026-09-13
+**Status**: HISTORICAL
+**Last Updated**: 2026-07-28
 
-This document tracks all verified runtime error symptoms, root causes, diagnostic logs, and commit fixes across the complete history of JARVIS from `v0.1.0` to `v3.0.0 Refactored`.
+> **Scope: history, not current behaviour.** Everything below is a frozen record of
+> bugs diagnosed and fixed between `v0.1.0` and `v3.0.0 Refactored` (2026-07-28).
+> No entry describes `HEAD`. For how to debug the system as it exists today, start
+> at `docs/DEVELOPMENT.md` and `docs/CONFIG.md`; for current architecture see
+> `docs/ARCHITECTURE.md`.
 
 ---
 

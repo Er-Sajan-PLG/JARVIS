@@ -1,4 +1,4 @@
-# JARVIS Architecture — Living Document v3.0.0
+# JARVIS Architecture
 
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13

@@ -1,4 +1,4 @@
-# Data Flow Architecture (`v3.0.0 Refactored`)
+# Data Flow Architecture
 
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13

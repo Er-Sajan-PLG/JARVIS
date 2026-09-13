@@ -1,4 +1,4 @@
-# LLM Multi-Provider Pool & Circuit Breaker Architecture (`v3.0.0 Refactored`)
+# LLM Multi-Provider Pool & Circuit Breaker Architecture
 
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13

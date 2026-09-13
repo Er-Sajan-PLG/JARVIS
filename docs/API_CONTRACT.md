@@ -1,4 +1,4 @@
-# JARVIS API Contract — Living Document v3.0.0
+# JARVIS API Contract
 
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13

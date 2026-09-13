@@ -25,7 +25,7 @@ checked against the source code at the time of writing. Files inspected:
 
 > Version note: `app/config/version.py` **derives** the version from git tags at
 > import time (`git describe --tags --long`), so it reports the current tag (e.g.
-> `v3.2.2`), not a hardcoded string. `_FALLBACK_VERSION = "v3.0.1"` is used only
+> the current tag, e.g. `v3.3.1`), not a hardcoded string. `_FALLBACK_VERSION = "v3.0.1"` is used only
 > when git is unavailable. Some module docstrings still carry older hand-written
 > version strings ("v2.0", "v2.1") — those are cosmetic and are not the version.
 > See `docs/VERSIONING.md`.

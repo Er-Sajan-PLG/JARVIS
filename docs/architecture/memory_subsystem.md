@@ -1,4 +1,4 @@
-# Memory Subsystem Architecture (`v3.0.0 Refactored`)
+# Memory Subsystem Architecture
 
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13

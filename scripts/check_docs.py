@@ -182,6 +182,18 @@ PATH_RE = re.compile(r"`([A-Za-z0-9_][A-Za-z0-9_./-]*\.[A-Za-z0-9]+)`")
 STATUS_RE = re.compile(r"^\s*\*\*Status\*\*\s*:\s*(.+?)\s*$", re.MULTILINE)
 
 
+def classify_status(text: str) -> str:
+    """Return the document's declared status, or '' when it has none."""
+    m = STATUS_RE.search(text)
+    if not m:
+        return ""
+    value = m.group(1).strip().upper()
+    for s in ALLOWED_STATUSES:
+        if value.startswith(s):
+            return s
+    return value
+
+
 def check_status(rel: Path, text: str) -> list[str]:
     if str(rel) in STATUS_EXEMPT:
         return []
@@ -249,6 +261,36 @@ def check_single_map(rel: Path, text: str) -> list[str]:
     return []
 
 
+VERSION_BANNER_RE = re.compile(r"v\d+\.\d+\.\d+")
+
+
+def check_stale_version_banner(rel: Path, text: str) -> list[str]:
+    """Rule 5 (docs/DOC-GOVERNANCE.md §8): an ACTIVE doc must not pin a version.
+
+    Scoped to the level-1 heading, on purpose. A living document that is edited
+    across releases cannot honestly carry "v3.0.0" in its *title* — that is a
+    frozen label on a moving target, and it is how ARCHITECTURE.md came to be
+    read as a v3.0.0 artefact while describing v3.3.x code. version numbers in
+    the *body* are usually legitimate (they cite releases, tags or changelog
+    rows), so they are not flagged.
+
+    Only HISTORICAL/SNAPSHOT documents may pin a version in their title, and
+    those live in docs/archive/.
+    """
+    if str(rel) in PATH_CHECK_EXEMPT or str(rel).startswith("docs/archive/"):
+        return []
+    status = classify_status(text)
+    if status in {"HISTORICAL", "SNAPSHOT"}:
+        return []
+    title = next((ln for ln in text.splitlines() if ln.startswith("# ")), "")
+    if VERSION_BANNER_RE.search(title):
+        return [
+            f"{rel}: active document pins a version in its title ({title.strip()!r}); "
+            f"living docs are versioned by git + release tag (rule 5)"
+        ]
+    return []
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--strict", action="store_true", help="exit non-zero when findings exist")
@@ -266,6 +308,7 @@ def main() -> int:
         findings += check_stub_tables(rel, text)
         findings += check_paths(rel, text)
         findings += check_single_map(rel, text)
+        findings += check_stale_version_banner(rel, text)
 
     print(f"check_docs: scanned {len(docs)} markdown file(s)")
     if findings:

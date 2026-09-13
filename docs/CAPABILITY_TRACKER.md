@@ -1,4 +1,4 @@
-# JARVIS Capability Contract Tracker — Living Document v3.0.0
+# JARVIS Capability Contract Tracker
 
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13

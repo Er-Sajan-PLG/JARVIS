@@ -1,4 +1,4 @@
-# JARVIS Development Workflow — Living Document v3.0.0
+# JARVIS Development Workflow
 
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13

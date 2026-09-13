@@ -51,7 +51,7 @@ the code wins — and the document is a bug.
 | **[MEMORY.md](MEMORY.md)** | Memory subsystem architecture and lifecycle |
 | **[DATABASE.md](DATABASE.md)** | Persistence: JSON stores and ChromaDB collections |
 | **[CONFIG.md](CONFIG.md)** | Configuration system and defaults |
-| **[DEBUGGING.md](DEBUGGING.md)** | Diagnostic matrix: symptom → root cause → fix |
+| **[DEBUGGING.md](DEBUGGING.md)** | Diagnostic matrix for `v0.1.0` → `v3.0.0` — **historical**, not current behaviour |
 | **[SYMBOL_LINEAGE.md](SYMBOL_LINEAGE.md)** | Symbol birth/death/rename registry (generated) |
 
 ---

@@ -95,6 +95,8 @@ recorded in §5.
    protection) and the 2026-09-13 token correction both turn on.
 7. **Update the doc in the same change as the code.** A PR that changes behaviour
    without touching its document is incomplete.
+8. **No version pinning in a living document's title** (§8). A doc edited across
+   releases cannot honestly carry "v3.0.0"; the release tag *is* the version.
 
 ---
 
@@ -133,7 +135,7 @@ claims: `README.md`, `docs/README.md`, `docs/ARCHITECTURE.md`,
 
 ## 6. The checker
 
-`scripts/check_docs.py` enforces rules 2, 3 and 4 mechanically and runs in CI.
+`scripts/check_docs.py` enforces rules 1-5 mechanically and runs in CI.
 
 ```bash
 .venv/bin/python scripts/check_docs.py          # report
@@ -146,7 +148,9 @@ It checks, for every `docs/**/*.md` plus the root-level markdown files:
 - no markdown table consists only of a header row and a separator row;
 - every repo-relative path written in backticks resolves on disk
   (URLs, absolute paths and glob patterns are skipped);
-- `docs/README.md` is the only file whose title claims to be the navigation map.
+- `docs/README.md` is the only file whose title claims to be the navigation map;
+- no ACTIVE document pins a version in its **title** (rule 5 / §8) — version
+  numbers in the body are legitimate and are not flagged.
 
 Adding a new exception is a code change with a rationale in the script, not a
 silent skip.

@@ -1,4 +1,4 @@
-# JARVIS Roadmap — Living Document v3.0.0
+# JARVIS Roadmap
 
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13

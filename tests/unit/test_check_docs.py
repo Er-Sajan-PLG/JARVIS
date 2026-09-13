@@ -140,6 +140,45 @@ def test_ordinary_title_is_not_a_map(cd):
     assert cd.check_single_map(Path("docs/ROADMAP.md"), "# JARVIS Roadmap\n") == []
 
 
+# ── Rule 5: no version pinned in an active doc's title ───────────────────────
+
+
+def test_active_doc_pinning_version_in_title_is_reported(cd):
+    """A doc edited across releases must not carry a frozen version label. This
+    is how ARCHITECTURE.md read as a v3.0.0 artefact while describing v3.3.x."""
+    text = "# JARVIS Architecture — Living Document v3.0.0\n\n**Status**: ACTIVE\n"
+    findings = cd.check_stale_version_banner(Path("docs/ARCHITECTURE.md"), text)
+    assert findings and "rule 5" in findings[0]
+
+
+def test_active_doc_title_with_backticked_version_is_reported(cd):
+    text = "# Data Flow Architecture (`v3.0.0 Refactored`)\n\n**Status**: ACTIVE\n"
+    assert cd.check_stale_version_banner(Path("docs/architecture/data_flow.md"), text)
+
+
+def test_clean_title_passes(cd):
+    text = "# JARVIS Architecture\n\n**Status**: ACTIVE\n"
+    assert cd.check_stale_version_banner(Path("docs/ARCHITECTURE.md"), text) == []
+
+
+def test_version_in_body_is_allowed(cd):
+    """Citing a release in the body is legitimate; only the title is a claim."""
+    text = "# JARVIS Roadmap\n\n**Status**: ACTIVE\n\nShipped in v3.2.2 and v3.3.0.\n"
+    assert cd.check_stale_version_banner(Path("docs/ROADMAP.md"), text) == []
+
+
+def test_historical_doc_may_pin_a_version(cd):
+    text = "# Health Report v3.0.0\n\n**Status**: HISTORICAL\n"
+    assert (
+        cd.check_stale_version_banner(Path("docs/archive/HEALTH_REPORT_2026-07-28.md"), text) == []
+    )
+
+
+def test_archived_doc_is_exempt_even_when_mislabelled(cd):
+    text = "# Old Thing v2.1.0\n\n**Status**: ACTIVE\n"
+    assert cd.check_stale_version_banner(Path("docs/archive/OLD_v2.1.0.md"), text) == []
+
+
 # ── end-to-end: the real repo must be clean ──────────────────────────────────
 
 
@@ -152,6 +191,7 @@ def test_real_repository_is_clean(cd):
         findings += cd.check_stub_tables(rel, text)
         findings += cd.check_paths(rel, text)
         findings += cd.check_single_map(rel, text)
+        findings += cd.check_stale_version_banner(rel, text)
     assert findings == [], "documentation findings:\n" + "\n".join(findings)
 
 

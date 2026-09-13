@@ -1,4 +1,4 @@
-# JARVIS — Master Architecture & Component Topology (`v3.0.0 Refactored`)
+# JARVIS — Master Architecture & Component Topology
 
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
