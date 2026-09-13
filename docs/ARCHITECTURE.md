@@ -183,7 +183,7 @@ app.guardrails    → (standalone, no deps)
 |-------|-----------|-------------|
 | **Transport** | TLS termination at edge (Cloudflare) | Required for production |
 | **API Auth** | Bearer Token (`JARVIS_API_KEY`) + X-API-Key header | `app/adapters/http/router.py:validate_api_key` |
-| **WS Auth** | Same Bearer + X-API-Key on upgrade | **MUST BE ADDED** to `ws_router` |
+| **WS Auth** | Same credential as HTTP, plus `?api_key=` for browsers | `app/adapters/security.py:is_authorized` — unauthenticated upgrade closed with 1008 |
 | **Tool Safety** | `@safety_gate(tier)` decorator | Runtime wrapper — blocks DESTRUCTIVE without HITL |
 | **Secrets** | `.env` only, never committed | `.gitignore` enforced |
 | **n8n → JARVIS** | API key rotation, scoped credentials | n8n stores JARVIS_API_KEY in encrypted credentials |

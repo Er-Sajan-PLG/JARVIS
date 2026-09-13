@@ -1,12 +1,22 @@
 """
-File tools for JARVIS Documentation Agent
+File tools for JARVIS Documentation Agent.
 
 Intentionally scoped:
 - read_file: documentation files + README only
 - write_file: CHANGELOG and DEVLOG only, requires confirmation
 
-Blast radius is defined here, not enforced by the caller.
-The allowlist is the security model.
+The allowlist IS the security model, and it is ENFORCED here: each handler calls
+_require_allowed(), which fails closed with PermissionError. ToolDefinition.execute
+converts that into ToolResult(success=False), so a refused path is an error the
+caller cannot mistake for a success.
+
+Approval (_hitl_approved, injected by @safety_gate) gates whether an already-allowed
+operation runs. It never widens the allowlist.
+
+These are the DocumentationAgent's narrow tools. The ExecutionRunner uses the
+generic, workspace-sandboxed primitives in app/tools/workspace_tools.py instead;
+the two trust levels are deliberately separate.
+
 In v3.0, this becomes a proper permission system with user-configurable rules.
 """
 
@@ -41,9 +51,25 @@ ALLOWED_CREATE_DIR: set[str] = set()
 # ─── Raw functions ─────────────────────────────────────────────────────────────
 
 
+def _require_allowed(path: str, allowed: set[str], operation: str) -> None:
+    """Fail closed: raise PermissionError if path is outside the allowlist.
+
+    Raising (rather than returning a message) is what makes the allowlist a real
+    control: ToolDefinition.execute converts the exception into
+    ToolResult(success=False), so a refused path is an *error* the caller cannot
+    mistake for a successful read/write. Approval (_hitl_approved) gates whether an
+    allowed operation runs; it must never widen the allowlist itself.
+    """
+    if path not in allowed:
+        raise PermissionError(f"Path not allowed for {operation}: {path} (not in allowlist)")
+    if path.startswith("/") or ".." in path:
+        raise PermissionError(f"Path not allowed for {operation}: {path} (absolute or traversal)")
+
+
 @safety_gate(tier=SafetyTier.SAFE, description="Read file content")
 def read_file(path: str) -> str:
     """Read a documentation file."""
+    _require_allowed(path, ALLOWED_READ, "read")
     p = Path(path)
     if not p.exists():
         return f"(file not found: {path} — this may be a new file)"
@@ -53,6 +79,7 @@ def read_file(path: str) -> str:
 @safety_gate(tier=SafetyTier.SENSITIVE, description="Write file content")
 def write_file(path: str, content: str) -> str:
     """Write content to a file."""
+    _require_allowed(path, ALLOWED_WRITE, "write")
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content, encoding="utf-8")
@@ -62,6 +89,7 @@ def write_file(path: str, content: str) -> str:
 @safety_gate(tier=SafetyTier.SENSITIVE, description="Append file content")
 def append_file(path: str, content: str) -> str:
     """Append content to an existing file without overwriting."""
+    _require_allowed(path, ALLOWED_WRITE, "append")
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "a", encoding="utf-8") as f:
@@ -72,6 +100,7 @@ def append_file(path: str, content: str) -> str:
 @safety_gate(tier=SafetyTier.DESTRUCTIVE, description="Create directory")
 def create_directory(path: str) -> str:
     """Create a new directory."""
+    _require_allowed(path, ALLOWED_CREATE_DIR, "create_directory")
     p = Path(path)
     p.mkdir(parents=True, exist_ok=True)
     return f"Created directory: {path}"
