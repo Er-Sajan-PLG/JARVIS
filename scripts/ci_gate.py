@@ -575,7 +575,13 @@ def gate_pip_audit(worktree: Path) -> Check:
 
 
 def gate_coverage(worktree: Path) -> Check:
-    """REPORTED ONLY — 36% vs 80% target, tracked as RISK-004."""
+    """REPORTED ONLY — measured 98% on 2026-09-13 against the 80% floor (RISK-004 closed).
+
+    Historically this reported ~36% and was tracked as RISK-004. That figure was
+    stale; the gate's own command now yields TOTAL 98%, so the floor is exceeded.
+    Still non-blocking on purpose: coverage moves as new code lands, and a floor
+    breach should surface as a reported failure, not a build break.
+    """
     res = _run(
         [
             str(PYTHON),

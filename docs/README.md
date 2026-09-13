@@ -42,7 +42,7 @@ across all versions (`v0.1.0` through `v3.0.1`).
 | **[CHANGELOG.md](CHANGELOG.md)** | User-facing release notes (`v0.1.0` ➔ `v3.0.1`) |
 | **[DEVLOG.md](DEVLOG.md)** | Developer architectural evolution and decision rationale |
 | **[HISTORY.md](HISTORY.md)** | Git database archaeology and milestone timeline |
-| **[adr/](adr/)** | Architectural Decision Records — **ADR-001 through ADR-012** |
+| **[adr/](adr/)** | Architectural Decision Records — **ADR-001 through ADR-013** |
 | **[DECISIONS-AUTONOMOUS-2026-09-10.md](DECISIONS-AUTONOMOUS-2026-09-10.md)** | Autonomous decisions: what, why, rejected alternatives |
 | **[AUDIT-USAT.md](AUDIT-USAT.md)** | Forensic architecture audit (implemented vs documented) |
 | **[HEALTH_REPORT.md](HEALTH_REPORT.md)** | ⚠️ **Historical snapshot (2026-07-28)** — not current |
@@ -57,7 +57,7 @@ across all versions (`v0.1.0` through `v3.0.1`).
 |---|---|
 | [`architecture/`](architecture/) | Mermaid flowcharts: components, cognitive brain, model routing, memory, data flow, startup |
 | [`modules/`](modules/) | Per-subsystem guides: domain, brain, models, memory, guardrails, adapters, integrations |
-| [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-012) |
+| [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-013) |
 | [`migrations/`](migrations/) | v2→v3 migration notes and tombstones |
 | [`timelines/`](timelines/) | Evolution and symbol timelines |
 

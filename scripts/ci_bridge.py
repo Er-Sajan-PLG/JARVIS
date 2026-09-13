@@ -88,7 +88,14 @@ TOKEN_VARS = (
 # `.env` ships `GITHUB_MCP_PAT=PLACEHOLDER_...`, and handing that to the API
 # yields a bare 401 "Bad credentials" that reads like a network fault.
 _TOKEN_PLACEHOLDER_MARKERS = ("PLACEHOLDER", "CHANGEME", "YOUR_TOKEN", "XXXX")
+
+# `.ci-bridge.env` is the systemd EnvironmentFile the CI-bridge service reads, and
+# the documented home of the dedicated, correctly-scoped JARVIS_CI_TOKEN
+# (ADR-012, docs/CI-TOKEN-PERMISSIONS.md). It comes FIRST so an ambient shell
+# export (a dev PAT that can list PRs but 403s on POST /statuses) can never
+# shadow the credential the service actually uses to publish gate results.
 TOKEN_FILES = (
+    REPO_ROOT / ".ci-bridge.env",
     Path.home() / "Projects" / ".env",
     Path.home() / ".hermes" / ".env",
     REPO_ROOT / ".env",
@@ -215,17 +222,24 @@ def load_token() -> tuple[str, str]:
     if app_token:
         return app_token, app_source
 
-    for var in TOKEN_VARS:
-        value = os.environ.get(var, "").strip()
-        if _usable(value):
-            return value, f"env:{var}"
-
+    # Files BEFORE the ambient process env. The service's dedicated, correctly
+    # scoped credential lives in `.ci-bridge.env` (the first TOKEN_FILES entry).
+    # A human's interactive shell can export a dev PAT (e.g. GITHUB_MCP_PAT) that
+    # lists PRs fine but 403s on POST /statuses; if os.environ were scanned first,
+    # that dev token would silently shadow the publishing token and every gate
+    # result would land with `published=0/8` (RISK-015). Resolving the file first
+    # keeps the answer deterministic for the service regardless of ambient env.
     for path in TOKEN_FILES:
         env = _parse_env_file(path)
         for var in TOKEN_VARS:
             value = env.get(var, "").strip()
             if _usable(value):
                 return value, f"{path}:{var}"
+
+    for var in TOKEN_VARS:
+        value = os.environ.get(var, "").strip()
+        if _usable(value):
+            return value, f"env:{var}"
 
     try:
         res = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, timeout=30)
