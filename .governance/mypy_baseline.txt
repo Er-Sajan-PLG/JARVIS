@@ -1,5 +1,7 @@
-494
+485
 # mypy --strict app/ error CEILING. Enforced by gate_mypy in scripts/ci_gate.py.
 # This number may only go DOWN. Raising it is a reviewed decision that must be
 # recorded in docs/ACCEPTED_RISKS.md (RISK-005), not a silent edit.
 # Baseline set 2026-09-11.
+# Lowered 494 -> 485 on 2026-09-12, locking the gain from the Phase 0 fixes
+# (the gate itself reported "DOWN, lower the baseline to lock the gain").

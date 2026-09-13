@@ -3,7 +3,13 @@
 **Version:** 1.0.0
 **Status:** Contract definition (not code). Both repos implement to this contract.
 **Authority:** JARVIS repository governance. Per-repo governance overrides implementation detail; contract interface is binding.
-**Related:** `docs/ECOSYSTEM-TARGET-ARCHITECTURE.md`
+**Related:** `docs/ARCHITECTURE.md` (JARVIS system topology),
+`docs/CAPABILITY_TRACKER.md` (compliance tracking),
+`docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md` (orchestration authority)
+
+> **Note (2026-09-12):** this header previously cited
+> `docs/ECOSYSTEM-TARGET-ARCHITECTURE.md`, which does not exist in this
+> repository. The reference was removed rather than left dangling.
 
 ---
 

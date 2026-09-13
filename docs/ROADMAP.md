@@ -27,7 +27,7 @@
 | Install deps (`pip install -r requirements.txt`) | Dev | — | ✅ DONE |
 | Add `JARVIS_API_KEY` to `.env` | Dev | — | ✅ DONE |
 | Archive legacy servers (moved to `legacy/`, not `app/legacy/`) | Dev | — | ✅ DONE |
-| Add WS auth (`validate_api_key` to `ws_router`) | Dev | — | ✅ DONE |
+| Add WS auth (`validate_api_key` to `ws_router`) | Dev | — | ✅ DONE (the 2026-09-10 claim was false: `ws_router` had no check until `app/adapters/security.py`, 2026-09-12; `tests/unit/test_ws_sse_auth.py` now pins it) |
 | Verify: `.venv/bin/python -m app.main` | Dev | — | ✅ DONE |
 
 > **Completed.** Every Sprint 0 task is done. Two corrections to the plan as written:
@@ -47,18 +47,18 @@
 | Task | Owner | n8n Workflow | Status |
 |------|-------|--------------|--------|
 | **CI Pipeline** | | | |
-|| Create `JARVIS-CI` workflow (lint → typecheck → test → build → security) | Dev | n8n | ✅ VERIFIED (n8n local plane; .github/workflows/ci.yml; 22 gates; 8/8 pub; Actions billing-blocked) ||
-|| Configure branch protection via GitHub API | Dev | `JARVIS-Branch-Protection` | ⛔ BLOCKED (GitHub 403 free-tier repo; RISK-012; `.github/workflows/release.yml` exists as dispatch fallback) ||
-|| Enable Dependabot (grouped PRs, weekly) | Dev | `JARVIS-Dependabot` | ✅ VERIFIED (.github/dependabot.yml; PR #23-#36 merged via SSH) ||
+|| Create the local CI plane (`JARVIS-CI-Local` -> `scripts/ci_bridge.py` -> `scripts/ci_gate.py`) | Dev | `JARVIS-CI-Local` | ✅ VERIFIED (22 gates; 8/8 contexts published; Actions billing-blocked) ||
+|| Configure branch protection via GitHub API | Dev | *(GitHub API — 403)* | ⛔ BLOCKED (GitHub 403 free-tier repo; RISK-012; `.github/workflows/release.yml` exists as dispatch fallback) ||
+|| Enable Dependabot (grouped PRs, weekly) | Dev | *(GitHub, no n8n workflow)* | ✅ VERIFIED (.github/dependabot.yml; PR #23-#36 merged via SSH) ||
 | **Security** | | | |
 || Add `SECURITY.md` with disclosure email | Dev | — | ✅ VERIFIED (SECURITY.md present) ||
-|| Add `.gitleaks.toml` + pre-commit hook | Dev | `JARVIS-Precommit` | ✅ VERIFIED (.pre-commit-config.yaml + ruff/mypy/gitleaks; gate passes) ||
-|| Add CodeQL SAST workflow | Dev | `JARVIS-Security` | ❌ MISSING (.github/workflows/codeql-analysis.yml absent; gitleaks/trufflehog/semgrep/bandit cover) ||
-|| Add container scan (Trivy) | Dev | `JARVIS-Security` | ✅ VERIFIED (Trivy fs gate in 22-check CI pipeline; Dockerfile + .dockerignore + hadolint) ||
+|| Add `.gitleaks.toml` + pre-commit hook | Dev | *(pre-commit hook)* | ✅ VERIFIED (.pre-commit-config.yaml + ruff/mypy/gitleaks; gate passes) ||
+|| Add CodeQL SAST workflow | Dev | *(local: `codeql` CLI, no Actions)* | 🟡 PARTIAL — the *workflow* is genuinely impossible (Actions billing-blocked), but CodeQL is **not** unavailable: the CLI (`github/codeql-cli-binaries` v2.27.0, 410 MB linux64) runs standalone without Actions and could join the gate. Today the gate covers SAST with semgrep + bandit + trufflehog + gitleaks, so the gap is depth (dataflow), not absence. Tracked as an improvement, not a blocker ||
+|| Add container scan (Trivy) | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED (Trivy fs gate in 22-check CI pipeline; Dockerfile + .dockerignore + hadolint) ||
 | **Code Quality** | | | |
 || Fix bare `except` in `app/conversation/manager.py:203`, `app/memory/store.py:210` | Dev | — | ✅ VERIFIED (grep: 0 bare `except:` hits in `app/`) ||
 || Fix mutable defaults in archived legacy (for hygiene) | Dev | — | 🟡 PARTIAL (legacy moved to `legacy/`; hygiene enforced by ruff gate) ||
-|| Add `ruff` + `mypy` to pre-commit + CI | Dev | `JARVIS-Precommit` | ✅ VERIFIED (.pre-commit-config.yaml: ruff + mypy; `.governance/mypy_baseline.txt`=494; `--disable-error-code=misc` for FastAPI decorator noise) ||
+|| Add `ruff` + `mypy` to pre-commit + CI | Dev | *(pre-commit hook)* | ✅ VERIFIED (.pre-commit-config.yaml: ruff + mypy; `.governance/mypy_baseline.txt`=494; `--disable-error-code=misc` for FastAPI decorator noise) ||
 || Pin Python 3.11 in `pyproject.toml` + CI | Dev | — | ✅ VERIFIED (pyproject.toml: `>=3.11`; `.venv`: cpython 3.11.16) ||
 | **Documentation** | | | |
 || Add `LICENSE` (MIT) | Dev | — | ✅ VERIFIED (LICENSE present) ||
@@ -75,20 +75,20 @@
 | Task | Owner | n8n Workflow | Status |
 |------|-------|--------------|--------|
 | **Containerization** | | | |
-| Create multi-stage `Dockerfile` (non-root user, healthcheck) | Dev | `JARVIS-Docker-Build` | ✅ VERIFIED (Dockerfile + .dockerignore present; multi-stage build structure verified) |
+| Create multi-stage `Dockerfile` (non-root user, healthcheck) | Dev | *(no workflow — plain `docker build`)* | ✅ VERIFIED (Dockerfile + .dockerignore present; multi-stage build structure verified) |
 | Add `.dockerignore` | Dev | — | ✅ VERIFIED (.dockerignore present) |
-| Update `docker-compose.yml` for app service | Dev | `JARVIS-Docker-Build` | ✅ VERIFIED (docker-compose.yml present) |
+| Update `docker-compose.yml` for app service | Dev | *(no workflow — plain `docker compose`)* | ✅ VERIFIED (docker-compose.yml present) |
 | **Observability** | | | |
 | Add structured logging (JSON, correlation IDs) | Dev | — | 🟡 PARTIAL (middleware in `app/main.py` has correlation IDs; full structured JSON logging via `app/telemetry/` pending — Sprint 3/OTel gap) |
 | Add `/health` and `/ready` endpoints (unauthenticated, minimal) | Dev | — | ✅ VERIFIED (`app/adapters/http/router.py`: `/health`; `app/main.py`: `/ready` + `/metrics`) |
 | Add metrics endpoint (Prometheus format) | Dev | — | ✅ VERIFIED (`/metrics` endpoint + `metrics.export_prometheus()` reference in main.py) |
 | **Release Automation** | | | |
-| Create `JARVIS-Release` workflow (semantic-release) | Dev | n8n | 🟠 PARTIAL (`.github/workflows/release.yml` exists; `workflow_dispatch`-only; semantic-release not wired; `scripts/bump_version.py` handles tag-based release; Actions disabled = full automation BLOCKED — TD-009) |
-| Configure conventional commits enforcement | Dev | `JARVIS-CI` | 🟡 PARTIAL (`.pre-commit-config.yaml`: `commitlint` v9.26.0 + conventional config; `scripts/commit.sh` handles two-pass commit; enforcement is pre-commit layer, verified working — no separate GitHub Actions check due to Actions block) |
-| Add SBOM generation (CycloneDX) | Dev | `JARVIS-Release` | ❌ MISSING (no `cyclonedx` file/workflow; `sbom` gate check exists in 22-check CI pipeline — partial via gate) |
+| Create release automation (semantic-release) | Dev | *(local: `scripts/version_bump.py` + `scripts/publish_release.py`)* | ✅ VERIFIED — **release publishing works locally without Actions.** Tags: `githooks/pre-push` auto-tags from conventional commits. Releases: `scripts/publish_release.py` publishes via `gh` (the CI token lacks `contents:write`; `gh`'s repo-scoped classic token can). 2026-09-13: backfilled so **21 tags → 21 GitHub releases** (was 21 tags / **0 releases** — notes, compare links and "Latest" never existed). Wired into the hook so it stays automatic. Actions `release.yml` remains dispatch-only, which no longer blocks anything (TD-009 closed) |
+| Configure conventional commits enforcement | Dev | *(pre-commit hook)* | 🟡 PARTIAL (`.pre-commit-config.yaml`: `commitlint` v9.26.0 + conventional config; `scripts/commit.sh` handles two-pass commit; enforcement is pre-commit layer, verified working — no separate GitHub Actions check due to Actions block) |
+| Add SBOM generation (CycloneDX) | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — **not missing.** `gate_sbom` produces a real CycloneDX 1.7 SBOM (`artifacts/sbom-<sha>.cdx.json`, 172 components); **57 artifacts** exist on disk and `syft` is installed. RISK-003 was already closed 2026-09-10; this row's ❌ was a doc lag |
 | **Testing** | | | |
-| Achieve 80% coverage threshold | Dev | `JARVIS-CI` | 🟡 PARTIAL (153 tests pass; no `pytest --cov` run tracked; `tests/unit/` + `tests/sprint3/` + `tests/integration/` directory structure present — coverage % unknown, target not verified) |
-| Add integration tests for critical paths | Dev | `JARVIS-CI` | 🟡 PARTIAL (`tests/unit/` verified; `tests/integration/` and `tests/contract/` directories exist per AGENTS.md; no end-to-end CI-bridge/n8n integration test verified in this session) |
+| Achieve 80% coverage threshold | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — **98%** measured 2026-09-13 (`pytest tests/ -q --cov=app --cov-report=term` → `TOTAL 6215 141 98%`, 1028 passed); floor 80% exceeded. RISK-004's "~36%" figure was stale and has been corrected |
+| Add integration tests for critical paths | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — `tests/integration/test_ci_bridge_gate_loop.py` (12 tests, 2026-09-13) pins the CI-bridge → `ci_gate` → status-publish contract: blocking failures redden their context, reported-only failures (mypy/RISK-005, coverage/RISK-004) stay green but visible in the description, every gate maps to a published context, a 403'd publish is reported as `publish-failed` rather than announced as success, gate JSON is parsed, and bridge state round-trips + degrades on corruption. Mutation-checked: reverting the reported-only rule fails 2 of them. `tests/e2e/` remains empty (no live-instance DAST — that is RISK-006, still open) |
 
 **Exit Criteria**: Docker image builds, deploys to staging; release automation works; 80% coverage
 
@@ -135,7 +135,7 @@
 | TD-006 | No branch protection | ⛔ BLOCKED — GitHub returns 403 on a private free-tier repo (RISK-012) | 1 | Dev |
 | TD-007 | No security scanning | ✅ RESOLVED — gitleaks, trufflehog, bandit, semgrep, trivy, osv, pip-audit in the gate | 1 | Dev |
 | TD-008 | No container image | ✅ RESOLVED — multi-stage Dockerfile + hadolint gate | 2 | Dev |
-| TD-009 | No release automation | 🟠 HIGH — release.yml exists but is `workflow_dispatch`-only (Actions blocked) | 2 | Dev |
+| TD-009 | No release automation | ✅ RESOLVED — tags auto-cut by `githooks/pre-push`; releases published by `scripts/publish_release.py` via `gh` (Actions-independent). 21 tags → 21 releases as of 2026-09-13 | 2 | Dev |
 | TD-010 | Capability Contract gaps | 🟡 MEDIUM — see `CAPABILITY_TRACKER.md` | 3 | Dev |
 | TD-011 | No eval suite | 🟡 MEDIUM | 3 | Dev |
 | TD-012 | No Dockerfile | ✅ RESOLVED — same as TD-008 | 2 | Dev |
@@ -158,13 +158,13 @@ Week 9-12:  ██████████████████████�
 
 | Metric | Current | Target | Measurement |
 |--------|---------|--------|-------------|
-| **Time to working dev env** | Broken | < 5 min | `JARVIS-Setup-Env` workflow |
-| **CI pass rate** | 0% | 100% | n8n `JARVIS-CI` |
+| **Time to working dev env** | Working | < 5 min | `scripts/setup_dev_env.sh` (no `JARVIS-Setup-Env` workflow exists) |
+| **CI pass rate** | 100% on gated PRs | 100% | `scripts/ci_gate.py` via `JARVIS-CI-Local` |
 | **Test coverage** | Unknown | ≥ 80% | pytest --cov |
 | **Security scan pass** | None | 100% | CodeQL + gitleaks + Trivy |
-| **Deploy frequency** | Manual | On every tag | n8n `JARVIS-Release` |
+| **Deploy frequency** | Manual | On every tag | *(no deploy automation — see TD-009)* |
 | **Capability Contract compliance** | ~40% | 100% | `CAPABILITY_TRACKER.md` |
-| **MTTR (Mean Time to Recovery)** | Unknown | < 30 min | n8n incident workflows |
+| **MTTR (Mean Time to Recovery)** | Unknown | < 30 min | *(manual; no incident workflow exists)* |
 
 ---
 

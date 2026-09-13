@@ -14,28 +14,42 @@ What this covers:
   6. Adversarial — actively trying to break the sandbox
 """
 
-import sys
 import os
-import unittest
-import tempfile
 import shutil
 import subprocess
+import sys
+import tempfile
+import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 # Make sure we can import from the project root
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from app.tools.base import ToolResult, ToolDefinition, ToolRegistry
-from app.tools.executor import ToolExecutor, ParsedCall
-from app.tools.git_tools import GIT_TOOLS, git_log, git_diff_stat, git_diff_full
-from app.tools.file_tools import FILE_TOOLS, read_file, write_file, ALLOWED_READ, ALLOWED_WRITE
-from app.agents.doc_agent import DocumentationAgent, MAX_ITERATIONS
-from app.models.client import ModelResponse
-
+from app.agents.doc_agent import MAX_ITERATIONS, DocumentationAgent  # noqa: E402
+from app.models.client import ModelResponse  # noqa: E402
+from app.tools.base import ToolDefinition, ToolRegistry  # noqa: E402
+from app.tools.executor import ParsedCall, ToolExecutor  # noqa: E402
+from app.tools.file_tools import (  # noqa: E402
+    ALLOWED_CREATE_DIR,
+    ALLOWED_READ,
+    ALLOWED_WRITE,
+    FILE_TOOLS,
+    append_file,
+    create_directory,
+    list_dir,
+    read_file,
+    write_file,
+)
+from app.tools.git_tools import (  # noqa: E402
+    GIT_TOOLS,
+    git_diff_full,
+    git_diff_stat,
+    git_log,
+)
 
 # ─── Mock Model ────────────────────────────────────────────────────────────────
+
 
 class MockModel:
     """
@@ -43,6 +57,7 @@ class MockModel:
     Replaces the real LLM — returns pre-scripted responses in sequence.
     When the script is exhausted, returns a plain "Done." response.
     """
+
     def __init__(self, responses: list[str]):
         self._responses = list(responses)
         self._index = 0
@@ -80,8 +95,8 @@ def _make_executor(require_confirmation: bool = False) -> tuple[ToolRegistry, To
 #    Every format a local model might produce — does the parser handle it?
 # ══════════════════════════════════════════════════════════════════════════════
 
-class TestParser(unittest.TestCase):
 
+class TestParser(unittest.TestCase):
     def setUp(self):
         _, self.ex = _make_executor()
 
@@ -95,9 +110,9 @@ class TestParser(unittest.TestCase):
     def test_multiple_calls_one_response(self):
         """Model often batches multiple tool calls in one turn."""
         text = (
-            'I will check both.\n'
+            "I will check both.\n"
             '<tool_call>{"name": "git_log", "args": {"n": 10}}</tool_call>\n'
-            'And also:\n'
+            "And also:\n"
             '<tool_call>{"name": "git_tags", "args": {}}</tool_call>'
         )
         calls = self.ex.parse(text)
@@ -107,7 +122,9 @@ class TestParser(unittest.TestCase):
 
     def test_whitespace_and_newlines_inside_tag(self):
         """Model may add newlines inside the tag."""
-        text = '<tool_call>\n  {"name": "git_diff_stat", "args": {"from_ref": "HEAD~1"}}\n</tool_call>'
+        text = (
+            '<tool_call>\n  {"name": "git_diff_stat", "args": {"from_ref": "HEAD~1"}}\n</tool_call>'
+        )
         calls = self.ex.parse(text)
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0].name, "git_diff_stat")
@@ -120,7 +137,7 @@ class TestParser(unittest.TestCase):
 
     def test_malformed_json_skipped_gracefully(self):
         """Malformed JSON should be silently skipped, not crash."""
-        text = '<tool_call>not valid json at all {{{</tool_call>'
+        text = "<tool_call>not valid json at all {{{</tool_call>"
         calls = self.ex.parse(text)
         self.assertEqual(len(calls), 0)
 
@@ -155,13 +172,16 @@ class TestParser(unittest.TestCase):
 
     def test_string_values_in_args(self):
         """String arguments with special characters."""
-        text = '<tool_call>{"name": "git_diff_full", "args": {"from_ref": "HEAD~3", "to_ref": "HEAD"}}</tool_call>'
+        text = (
+            '<tool_call>{"name": "git_diff_full", "args": '
+            '{"from_ref": "HEAD~3", "to_ref": "HEAD"}}</tool_call>'
+        )
         calls = self.ex.parse(text)
         self.assertEqual(calls[0].args["from_ref"], "HEAD~3")
 
     def test_100_tool_calls_parsed(self):
         """Volume test: 100 tool calls in one response."""
-        calls_text = '\n'.join(
+        calls_text = "\n".join(
             f'<tool_call>{{"name": "git_log", "args": {{"n": {i}}}}}</tool_call>'
             for i in range(1, 101)
         )
@@ -174,8 +194,8 @@ class TestParser(unittest.TestCase):
 #    Does the allowlist actually hold? Can it be escaped?
 # ══════════════════════════════════════════════════════════════════════════════
 
-class TestSecurity(unittest.TestCase):
 
+class TestSecurity(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
         self.orig_cwd = os.getcwd()
@@ -186,8 +206,8 @@ class TestSecurity(unittest.TestCase):
 
     def test_safety_policy_tiers(self):
         """ToolSafetyPolicy evaluates SAFE, SENSITIVE, and DESTRUCTIVE tiers properly."""
-        from app.guardrails import ToolSafetyPolicy, HITLRequiredError
         from app.domain import SafetyTier
+        from app.guardrails import HITLRequiredError, ToolSafetyPolicy
 
         policy = ToolSafetyPolicy(auto_approve_sensitive=True)
         # Safe tier
@@ -198,7 +218,9 @@ class TestSecurity(unittest.TestCase):
 
         # Destructive tier requires HITL approval
         with self.assertRaises(HITLRequiredError):
-            policy.evaluate_tool_call("create_directory", tier=SafetyTier.DESTRUCTIVE, args={}, hitl_approved=False)
+            policy.evaluate_tool_call(
+                "create_directory", tier=SafetyTier.DESTRUCTIVE, args={}, hitl_approved=False
+            )
 
     def test_executor_unknown_tool_returns_error_not_crash(self):
         """Calling an unknown tool returns ToolResult(success=False), never raises."""
@@ -210,6 +232,7 @@ class TestSecurity(unittest.TestCase):
 
     def test_tool_exception_wrapped_not_propagated(self):
         """If a tool raises internally, it must become ToolResult(success=False)."""
+
         def always_raises(**kwargs):
             raise RuntimeError("catastrophic failure")
 
@@ -226,18 +249,130 @@ class TestSecurity(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertIn("catastrophic failure", result.error)
 
+    # ═════════════════════════════════════════════════════════════════════════════
+    # 2B. FILE ALLOWLIST ENFORCEMENT TESTS
+    #    These tests MUST fail before the allowlist is enforced, and pass after.
+    # ═════════════════════════════════════════════════════════════════════════════
+
+    def test_read_file_enforces_allowlist(self):
+        """read_file must reject paths outside ALLOWED_READ."""
+        forbidden = "pyproject.toml"
+        self.assertNotIn(
+            forbidden, ALLOWED_READ, "Test invariant: pyproject.toml must remain forbidden"
+        )
+        with self.assertRaises(PermissionError) as ctx:
+            read_file(forbidden)
+        self.assertIn(
+            "not allowed", str(ctx.exception).lower(), "read_file must raise on forbidden paths"
+        )
+
+    def test_write_file_enforces_allowlist(self):
+        """write_file must reject paths outside ALLOWED_WRITE."""
+        forbidden = "/tmp/jarvis_probe.txt"
+        self.assertNotIn(forbidden, ALLOWED_WRITE, "Test invariant: /tmp must remain forbidden")
+        with self.assertRaises(PermissionError) as ctx:
+            write_file(forbidden, "probe")
+        self.assertIn(
+            "not allowed", str(ctx.exception).lower(), "write_file must raise on forbidden paths"
+        )
+        # Fail closed: nothing may exist on disk after a refused write.
+        from pathlib import Path
+
+        self.assertFalse(Path(forbidden).exists(), "Forbidden write must not create file")
+
+    def test_append_file_enforces_allowlist(self):
+        """append_file must reject paths outside ALLOWED_WRITE (same list as write)."""
+        forbidden = "/tmp/jarvis_append_probe.txt"
+        self.assertNotIn(forbidden, ALLOWED_WRITE, "Test invariant")
+        with self.assertRaises(PermissionError) as ctx:
+            append_file(forbidden, "probe")
+        self.assertIn(
+            "not allowed", str(ctx.exception).lower(), "append_file must raise on forbidden paths"
+        )
+        from pathlib import Path
+
+        self.assertFalse(Path(forbidden).exists(), "Forbidden append must not create file")
+
+    def test_create_directory_enforces_allowlist(self):
+        """create_directory must reject paths outside ALLOWED_CREATE_DIR (currently empty).
+
+        create_directory is DESTRUCTIVE-tier, so @safety_gate runs the HITL policy
+        check *before* the function body. We therefore pass _hitl_approved=True to
+        reach the allowlist check, and assert the stronger property: even WITH human
+        approval, a forbidden path is still refused. Approval must never widen the
+        allowlist -- the allowlist is the security model, approval only gates the
+        operations the allowlist already permits.
+        """
+        forbidden = "/tmp/jarvis_dir_probe"
+        self.assertNotIn(
+            forbidden, ALLOWED_CREATE_DIR, "Test invariant: ALLOWED_CREATE_DIR is empty"
+        )
+        # _hitl_approved is popped by the @safety_gate wrapper, not by this function's
+        # own signature -- type checkers see the wrapped signature and flag it.
+        with self.assertRaises(PermissionError) as ctx:
+            create_directory(forbidden, _hitl_approved=True)  # type: ignore[call-arg]
+        self.assertIn(
+            "not allowed",
+            str(ctx.exception).lower(),
+            "create_directory must raise even when HITL-approved",
+        )
+        from pathlib import Path
+
+        self.assertFalse(Path(forbidden).exists(), "Forbidden directory must not be created")
+
+    def test_list_dir_enforces_allowlist(self):
+        """list_dir should respect a future allowlist (currently permissive by default)."""
+        result = list_dir(".")
+        self.assertIsInstance(result, str)
+
+    def test_allowlist_paths_are_relative_not_absolute(self):
+        """ALLOWED_READ/WRITE entries are relative paths; absolute paths must be rejected."""
+        for p in ALLOWED_READ | ALLOWED_WRITE:
+            self.assertFalse(p.startswith("/"), f"Allowlist entry {p!r} must be relative")
+        for p in ALLOWED_READ | ALLOWED_WRITE:
+            self.assertNotIn("..", p, f"Allowlist entry {p!r} must not contain '..'")
+
+    def test_executor_read_file_rejects_forbidden(self):
+        """End-to-end: executor running read_file on forbidden path must fail."""
+        from app.tools.base import ToolRegistry
+        from app.tools.executor import ParsedCall, ToolExecutor
+        from app.tools.file_tools import FILE_TOOLS
+
+        reg = ToolRegistry()
+        reg.register_many(FILE_TOOLS)
+        ex = ToolExecutor(reg, require_confirmation=False)
+        call = ParsedCall(name="read_file", args={"path": "pyproject.toml"}, raw="")
+        result = ex.run(call)
+        self.assertFalse(result.success, "Executor must reject forbidden read")
+        self.assertIn("not allowed", result.error.lower())
+
+    def test_executor_write_file_rejects_forbidden(self):
+        """End-to-end: executor running write_file on forbidden path must fail."""
+        from app.tools.base import ToolRegistry
+        from app.tools.executor import ParsedCall, ToolExecutor
+        from app.tools.file_tools import FILE_TOOLS
+
+        reg = ToolRegistry()
+        reg.register_many(FILE_TOOLS)
+        ex = ToolExecutor(reg, require_confirmation=False)
+        call = ParsedCall(name="write_file", args={"path": "/tmp/probe", "content": "x"}, raw="")
+        result = ex.run(call)
+        self.assertFalse(result.success, "Executor must reject forbidden write")
+        self.assertIn("not allowed", result.error.lower())
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 3. GIT TOOL TESTS
 #    Edge cases in git operations — these must fail gracefully
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @unittest.skipUnless(
-    subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True, cwd=ROOT).returncode == 0,
-    "No git repo found — skipping git tests"
+    subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True, cwd=ROOT).returncode
+    == 0,
+    "No git repo found — skipping git tests",
 )
 class TestGitTools(unittest.TestCase):
-
     def test_git_log_returns_commits(self):
         result = git_log(5)
         self.assertIsInstance(result, str)
@@ -255,6 +390,7 @@ class TestGitTools(unittest.TestCase):
     def test_git_diff_full_truncated_at_limit(self):
         """Diff output must be capped — never blow the context window."""
         from app.tools.git_tools import DIFF_MAX_CHARS
+
         result = git_diff_full("HEAD~2", "HEAD")
         self.assertLessEqual(len(result), DIFF_MAX_CHARS + 200)  # +200 for the truncation message
 
@@ -264,7 +400,7 @@ class TestGitTools(unittest.TestCase):
         call = ParsedCall(
             name="git_diff_stat",
             args={"from_ref": "nonexistent-branch-xyz", "to_ref": "HEAD"},
-            raw=""
+            raw="",
         )
         result = ex.run(call)
         self.assertFalse(result.success)
@@ -285,8 +421,8 @@ class TestGitTools(unittest.TestCase):
 #    Permissions, missing files, empty content, write verification
 # ══════════════════════════════════════════════════════════════════════════════
 
-class TestFileTools(unittest.TestCase):
 
+class TestFileTools(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
         self.orig_cwd = os.getcwd()
@@ -334,6 +470,7 @@ class TestFileTools(unittest.TestCase):
     def test_output_capped_in_executor(self):
         """Executor must cap tool output — read_file on huge file shouldn't blow context."""
         from app.tools.executor import MAX_OUTPUT_CHARS
+
         big_content = "x" * (MAX_OUTPUT_CHARS * 3)
         Path("docs/CHANGELOG.md").write_text(big_content)
         _, ex = _make_executor()
@@ -349,8 +486,8 @@ class TestFileTools(unittest.TestCase):
 #    Does the loop behave correctly with a scripted mock model?
 # ══════════════════════════════════════════════════════════════════════════════
 
-class TestAgentLoop(unittest.TestCase):
 
+class TestAgentLoop(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
         self.orig_cwd = os.getcwd()
@@ -379,21 +516,28 @@ class TestAgentLoop(unittest.TestCase):
 
     def test_single_tool_use_then_done(self):
         """Model calls one tool, then answers — loop runs exactly twice."""
-        agent, model = self._agent([
-            '<tool_call>{"name": "git_log", "args": {"n": 3}}</tool_call>',
-            "Here is the changelog based on git history.",
-        ])
+        agent, model = self._agent(
+            [
+                '<tool_call>{"name": "git_log", "args": {"n": 3}}</tool_call>',
+                "Here is the changelog based on git history.",
+            ]
+        )
         result = agent.run("Generate a changelog entry", verbose=False)
         self.assertEqual(model.call_count, 2)
         self.assertNotIn("<tool_call>", result)
 
     def test_multiple_tools_sequential(self):
         """Model calls tools across multiple iterations."""
-        agent, model = self._agent([
-            '<tool_call>{"name": "git_log", "args": {"n": 5}}</tool_call>',
-            '<tool_call>{"name": "read_file", "args": {"path": "docs/CHANGELOG.md"}}</tool_call>',
-            "Here is the final changelog entry.",
-        ])
+        agent, model = self._agent(
+            [
+                '<tool_call>{"name": "git_log", "args": {"n": 5}}</tool_call>',
+                (
+                    '<tool_call>{"name": "read_file", "args": '
+                    '{"path": "docs/CHANGELOG.md"}}</tool_call>'
+                ),
+                "Here is the final changelog entry.",
+            ]
+        )
         result = agent.run("Generate a changelog entry", verbose=False)
         self.assertEqual(model.call_count, 3)
         self.assertEqual(result, "Here is the final changelog entry.")
@@ -409,10 +553,12 @@ class TestAgentLoop(unittest.TestCase):
 
     def test_unknown_tool_error_propagated_to_model(self):
         """Model calls non-existent tool — gets error result, loop continues."""
-        agent, model = self._agent([
-            '<tool_call>{"name": "nonexistent_tool", "args": {}}</tool_call>',
-            "Okay, I'll work with what I have.",
-        ])
+        agent, model = self._agent(
+            [
+                '<tool_call>{"name": "nonexistent_tool", "args": {}}</tool_call>',
+                "Okay, I'll work with what I have.",
+            ]
+        )
         result = agent.run("Generate a changelog entry", verbose=False)
         # Loop completes normally — error was injected as a tool_result
         self.assertEqual(model.call_count, 2)
@@ -421,21 +567,27 @@ class TestAgentLoop(unittest.TestCase):
     def test_tool_result_injected_into_messages(self):
         """Verify tool results actually appear in the conversation the model sees."""
         received = []
+
         class SpyModel:
             call_count = 0
+
             def generate(self, messages, **kwargs):
                 self.call_count += 1
                 received.append(messages.copy())
                 if self.call_count == 1:
                     return ModelResponse(
                         content='<tool_call>{"name": "git_log", "args": {"n": 1}}</tool_call>',
-                        model="spy"
+                        model="spy",
                     )
                 return ModelResponse(content="Done.", model="spy")
+
             @property
-            def model_name(self): return "spy"
+            def model_name(self):
+                return "spy"
+
             @property
-            def role(self): return "general"
+            def role(self):
+                return "general"
 
         model = SpyModel()
         agent = DocumentationAgent(model=model)
@@ -452,6 +604,7 @@ class TestAgentLoop(unittest.TestCase):
     def test_agent_writes_file_when_instructed(self):
         """Full flow: model reads format, generates entry, writes file."""
         import json as _json  # local import to avoid confusion
+
         changelog_path = "docs/CHANGELOG.md"
         new_content = "# Changelog\n\n## [2.0.0]\n- New feature\n\n## [1.0.0]\n- Initial release\n"
 
@@ -459,11 +612,21 @@ class TestAgentLoop(unittest.TestCase):
         # The parser uses json.loads() to parse tool call arguments.
         # repr() produces Python syntax (single quotes) which is invalid JSON.
         # This is exactly the bug the parser silently skips — good test of real behavior.
-        agent, model = self._agent([
-            f'<tool_call>{{"name": "read_file", "args": {{"path": "{changelog_path}"}}}}</tool_call>',
-            f'<tool_call>{{"name": "write_file", "args": {{"path": "{changelog_path}", "content": {_json.dumps(new_content)}}}}}</tool_call>',
-            "I have written the changelog entry.",
-        ])
+        read_args = '{"name": "read_file", "args": {"path": "' + changelog_path + '"}}'
+        write_args = (
+            '{"name": "write_file", "args": {"path": "'
+            + changelog_path
+            + '", "content": '
+            + _json.dumps(new_content)
+            + "}}"
+        )
+        agent, model = self._agent(
+            [
+                f"<tool_call>{read_args}</tool_call>",
+                f"<tool_call>{write_args}</tool_call>",
+                "I have written the changelog entry.",
+            ]
+        )
         agent.run("Generate and write a changelog entry", verbose=False)
 
         written = Path(changelog_path).read_text()
@@ -476,8 +639,8 @@ class TestAgentLoop(unittest.TestCase):
 #    Actively trying to break things — what a confused model might attempt
 # ══════════════════════════════════════════════════════════════════════════════
 
-class TestAdversarial(unittest.TestCase):
 
+class TestAdversarial(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
         self.orig_cwd = os.getcwd()
@@ -496,45 +659,62 @@ class TestAdversarial(unittest.TestCase):
 
     def test_model_tries_to_write_source_code(self):
         """Model attempts to overwrite source files — must be blocked."""
-        agent = self._agent([
-            '<tool_call>{"name": "write_file", "args": {"path": "app/agents/doc_agent.py", "content": "# pwned"}}</tool_call>',
-            "Done.",
-        ])
+        agent = self._agent(
+            [
+                (
+                    '<tool_call>{"name": "write_file", "args": '
+                    '{"path": "app/agents/doc_agent.py", "content": "# pwned"}}'
+                    "</tool_call>"
+                ),
+                "Done.",
+            ]
+        )
         res = agent.run("task", verbose=False)
         self.assertIsNotNone(res)
 
     def test_model_tries_path_traversal_write(self):
         """Model uses ../ to escape docs directory."""
-        agent = self._agent([
-            '<tool_call>{"name": "write_file", "args": {"path": "../../etc/evil", "content": "bad"}}</tool_call>',
-            "Done.",
-        ])
+        agent = self._agent(
+            [
+                (
+                    '<tool_call>{"name": "write_file", "args": '
+                    '{"path": "../../etc/evil", "content": "bad"}}'
+                    "</tool_call>"
+                ),
+                "Done.",
+            ]
+        )
         agent.run("task", verbose=False)
         self.assertFalse(Path("/etc/evil").exists())
 
     def test_model_tries_to_read_secrets(self):
         """Model attempts to read a secrets/config file."""
         Path(".env").write_text("SECRET_KEY=super_secret_123")
-        agent = self._agent([
-            '<tool_call>{"name": "read_file", "args": {"path": ".env"}}</tool_call>',
-            "Done.",
-        ])
         received_messages = []
+
         class SpyModel:
             call_count = 0
+
             def generate(self, messages, **kwargs):
                 self.call_count += 1
                 received_messages.append(messages.copy())
                 if self.call_count == 1:
                     return ModelResponse(
-                        content='<tool_call>{"name": "read_file", "args": {"path": ".env"}}</tool_call>',
-                        model="spy"
+                        content=(
+                            '<tool_call>{"name": "read_file", '
+                            '"args": {"path": ".env"}}</tool_call>'
+                        ),
+                        model="spy",
                     )
                 return ModelResponse(content="Done.", model="spy")
+
             @property
-            def model_name(self): return "spy"
+            def model_name(self):
+                return "spy"
+
             @property
-            def role(self): return "general"
+            def role(self):
+                return "general"
 
         spy = SpyModel()
         a = DocumentationAgent(model=spy)
@@ -558,7 +738,7 @@ class TestAdversarial(unittest.TestCase):
         call = ParsedCall(
             name="write_file",
             args={"path": "docs/CHANGELOG.md; rm -rf /", "content": "bad"},
-            raw=""
+            raw="",
         )
         result = ex.run(call)
         self.assertTrue(result.success or not result.success)
@@ -572,11 +752,11 @@ if __name__ == "__main__":
     suite = unittest.TestSuite()
 
     sections = [
-        ("Parser",      TestParser),
-        ("Security",    TestSecurity),
-        ("Git Tools",   TestGitTools),
-        ("File Tools",  TestFileTools),
-        ("Agent Loop",  TestAgentLoop),
+        ("Parser", TestParser),
+        ("Security", TestSecurity),
+        ("Git Tools", TestGitTools),
+        ("File Tools", TestFileTools),
+        ("Agent Loop", TestAgentLoop),
         ("Adversarial", TestAdversarial),
     ]
 

@@ -26,4 +26,11 @@ regexes = [
     '''(?i)dummy''',
     '''(?i)dev-test-key''',
     '''(?i)correct-key''',
+    # Exact fake literals committed by fa6c544 and replaced with the
+    # dev-test-key-* placeholder in PR #54. gitleaks scans commit HISTORY, so
+    # the old blob still matches. Scoped to these two literal values only
+    # (never a path, rule or commit wildcard), so any real secret anywhere
+    # else still fails the gate. See docs/ACCEPTED_RISKS.md (RISK-016).
+    '''mistral_sec_123''',
+    '''zhipu-key-123''',
 ]

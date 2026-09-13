@@ -2,7 +2,8 @@
 
 **Status**: ACTIVE
 **Authority**: This document governs all changes to JARVIS repository
-**Workflow Orchestration**: n8n (external) — all CI/CD, automation, approval flows run in n8n
+**Workflow Orchestration**: n8n (external) **schedules**; JARVIS **decides**.
+See `docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md`.
 **Last Updated**: 2026-09-10
 
 ---
@@ -38,31 +39,51 @@ main (protected)
    └── release/*     → PR → n8n CI → tag → deploy
 ```
 
-**Branch Protection Rules (enforced via n8n + GitHub API)**:
-- ✅ Required: PR from feature branch
-- ✅ Required: n8n CI workflow passes (lint, typecheck, test, build)
-- ✅ Required: 1 approval (code owner for critical paths)
-- ✅ Required: No force push
-- ✅ Required: Linear history (squash merge)
-- ✅ Required: Signed commits
+**Branch protection: NOT available on this repository.** Measured 2026-09-12:
+`GET /repos/Er-Sajan-PLG/JARVIS/branches/main/protection` → **HTTP 403**
+("Upgrade to GitHub Pro or make this repository public"). Nothing on that endpoint
+can be configured, so **no** rule above is enforced by GitHub.
+
+| Rule | Real status |
+|------|-------------|
+| Required PR | **Convention only** — `main` can be pushed to directly |
+| Gate passes | **Published as commit statuses, cannot block merge** (RISK-012) |
+| 1 approval | Not enforced — solo repo; GitHub forbids self-approval |
+| No force push | Not enforced |
+| Linear history | Convention (squash merge is the practice) |
+| Signed commits | Not enforced — commits report `N`/`E`, not verified (RISK-011) |
+
+Until the platform limit changes, enforcement is **process, not policy**: the gate
+publishes statuses, the pipeline stops on red, and a human does not press merge.
+That is an accepted risk with an owner and a review date — see `docs/ACCEPTED_RISKS.md`
+(RISK-012, RISK-011).
 
 ---
 
 ## 3. n8n Workflow Governance
 
-### 3.1 n8n as Single Source of Automation Truth
+### 3.1 n8n schedules; the gate decides (ADR-013)
 
-All automation lives in n8n — **no GitHub Actions for business logic**.
+**Corrected 2026-09-12.** This section previously declared n8n the "Single Source
+of Automation Truth" and named seven workflows. Three exist, and none of them
+decides anything — they trigger and notify. See
+`docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md` for the decision.
 
-| Workflow Category | n8n Workflow | Trigger |
-|-------------------|--------------|---------|
-| **CI Pipeline** | `JARVIS-CI` | PR opened/updated |
-| **CD Deploy** | `JARVIS-Deploy` | Tag pushed / main merged |
-| **Dependency Updates** | `JARVIS-Dependabot` | Dependabot PR created |
-| **Security Scan** | `JARVIS-Security` | Schedule (daily) + PR |
-| **Release Automation** | `JARVIS-Release` | Conventional commit to main |
-| **HITL Approval** | `JARVIS-HITL` | JARVIS emits HITLRequestEvent |
-| **Workflow Cleanup** | `JARVIS-Cleanup` | Schedule (weekly) |
+The automation that actually runs:
+
+| Workflow | Trigger | What it actually does |
+|----------|---------|------------------------|
+| `JARVIS-CI-Local` | Schedule (poll) | Calls `scripts/ci_bridge.py`, which gates each PR's head SHA with `scripts/ci_gate.py` (22 checks) and publishes 8 commit-status contexts |
+| `JARVIS-HITL` | Schedule (poll `GET /api/v1/hitl/pending`) | Notifies a human that a DESTRUCTIVE step is paused; calls the decision webhook |
+| `JARVIS-Cleanup` | Schedule (weekly) | Deletes merged branches and stale workflow runs |
+
+**The decision is not in n8n.** `scripts/ci_gate.py` runs the 22 checks and decides
+pass/fail; `ci_bridge.py` records the result. n8n's CI workflow only *calls* the
+bridge and relays the outcome. A workflow that named itself the decision-maker
+was never the one making the decision.
+
+> Workflows live in `n8n/workflows/*.json`, are imported into the running n8n DB,
+> and are edited through the UI by the owner — see `docs/N8N-HANDOVER.md`.
 
 ### 3.2 n8n Workflow Standards
 
@@ -70,7 +91,9 @@ All automation lives in n8n — **no GitHub Actions for business logic**.
 - **Environment promotion**: Dev → Staging → Prod via n8n environments
 - **Secrets**: Stored in n8n encrypted credentials (never in repo)
 - **Observability**: All workflows emit to JARVIS telemetry via REST API
-- **Rollback**: One-click in n8n UI; `JARVIS-Rollback` workflow for emergencies
+- **Rollback**: Revert the offending commit / restore from the repo copy. There is
+  no `JARVIS-Rollback` workflow; an n8n UI button is not an enforcement path
+  (ADR-013).
 
 ---
 
@@ -78,37 +101,34 @@ All automation lives in n8n — **no GitHub Actions for business logic**.
 
 ### 4.1 Required Checks (All Must Pass)
 
-```yaml
-# n8n CI workflow: JARVIS-CI
-stages:
-  - lint:
-      - ruff check app/ tests/
-      - ruff format --check app/ tests/
-  - typecheck:
-      - mypy --strict app/
-  - test:
-      - pytest tests/ -v --cov=app --cov-fail-under=80
-  - build:
-      - python -m compileall app/
-      - docker build -t jarvis:${GIT_SHA} .
-  - security:
-      - gitleaks detect --source .
-      - pip-audit -r requirements.txt
-  - contract:
-      - python -c "from app.main import app; from app.bootstrap import bootstrap_system"
-```
+There is no `JARVIS-CI` n8n workflow and no YAML describing one. The real gate is
+`scripts/ci_gate.py` — **22 checks** run against a detached worktree of the target
+commit, grouped into **8 published commit-status contexts**:
+
+| Published context | Checks behind it |
+|---|---|
+| `Lint & Typecheck` | `ruff_ratchet` (changed files only), `mypy` (ratcheted at `.governance/mypy_baseline.txt`) |
+| `SAST` | `semgrep` |
+| `Tests` | `pytest` (1004 tests), `contract`, `coverage` |
+| `Security Scan` | `gitleaks`, `trufflehog`, `bandit`, `pip_audit` |
+| `Supply Chain` | `trivy`, `osv`, `licenses`, `sbom`, `provenance`, `checkov` |
+| `Virtual Board Governance` | `board` (8 AST checks in `scripts/board/review.py`) |
+| `Build` | `compileall`, `hadolint`, `docker_build`, `worktree` |
+| `Conventional Commits` | `commitlint` |
+
+Full threat model and per-check detail: `docs/CI-GATE-SOTA.md`.
 
 ### 4.2 Gate Enforcement
 
 | Gate | Enforced By | Bypass |
 |------|-------------|--------|
-| Lint | n8n CI | ❌ Never |
-| Typecheck | n8n CI | ❌ Never |
-| Tests (80% coverage) | n8n CI | ❌ Never |
-| Build | n8n CI | ❌ Never |
-| Security scan | n8n CI | ❌ Never |
-| Import smoke test | n8n CI | ❌ Never |
-| Branch protection | GitHub + n8n | ❌ Never |
+| Lint | `ci_gate.py` (`ruff_ratchet`) | ❌ Never |
+| Typecheck | `ci_gate.py` (`mypy`, ratcheted) | ❌ Never |
+| Tests | `ci_gate.py` (`pytest`, `contract`, `coverage`) | ❌ Never |
+| Build | `ci_gate.py` (`compileall`, `hadolint`, `docker_build`) | ❌ Never |
+| Security scan | `ci_gate.py` (`gitleaks`, `trufflehog`, `bandit`, `pip_audit`) | ❌ Never |
+| Import smoke test | `ci_gate.py` (`contract`) | ❌ Never |
+| Branch protection | **NOT AVAILABLE** (GitHub 403, RISK-012) | ⚠️ Any push can bypass |
 
 ---
 
@@ -118,25 +138,32 @@ stages:
 
 | Secret Type | Storage | Rotation |
 |-------------|---------|----------|
-| `JARVIS_API_KEY` | n8n encrypted credentials | 90 days (n8n workflow) |
-| LLM API keys | `.env` (local) / n8n credentials (prod) | Per provider policy |
-| Database credentials | n8n credentials | 90 days |
-| n8n encryption key | Host secret manager | Annual |
+| `JARVIS_API_KEY` | `.env` (local, gitignored) | Manual |
+| LLM API keys | `.env` (local) / `.ci-bridge.env` | Per provider policy |
+| CI GitHub token | `.ci-bridge.env` (service env file, 0600) | Per PAT/App policy (ADR-012) |
+| Database credentials | N/A — no database in use | — |
+| n8n encryption key | n8n default location on this host | Not automated |
+
+> **Corrected 2026-09-12.** This table previously claimed rotation *workflows* that
+> do not exist. Rotation is manual; no scheduled rotation job runs.
 
 ### 5.2 Vulnerability Management
 
 - **Dependabot**: Enabled, grouped PRs, weekly schedule
 - **Auto-merge**: Patch/minor on green CI; major requires review
-- **SAST**: CodeQL via n8n weekly + on PR
+- **SAST**: `semgrep` + `bandit` inside `scripts/ci_gate.py` on every gated commit.
+  (CodeQL needs GitHub Actions, which is billing-disabled here — RISK-012.)
 - **Container scan**: Trivy on every image build
 - **SBOM**: CycloneDX generated on release
 
 ### 5.3 Incident Response
 
-1. n8n alert → Security workflow triggered
-2. Auto-isolate (revoke API key, block IP)
-3. Create incident ticket (n8n → Linear/GitHub Issues)
-4. Post-mortem within 72h → ADR if architectural
+1. `gitleaks` / `trufflehog` / `bandit` / `pip_audit` fire inside `ci_gate.py`,
+   or a gate result goes red → the pipeline stops (there is no separate
+   `JARVIS-Security` workflow).
+2. Isolate by hand: rotate the leaked credential, restart the service.
+3. File the issue in GitHub.
+4. Post-mortem within 72h → ADR if architectural.
 
 ---
 
@@ -152,22 +179,22 @@ stages:
 
 ### 6.2 Release Automation (n8n)
 
-```
-Conventional commit to main
-       │
-       ▼
-n8n: JARVIS-Release workflow
-       │
-       ├─ Parse commit types (feat/fix/chore/breaking)
-       ├─ Determine version bump
-       ├─ Generate CHANGELOG.md (auto + manual breaking section)
-       ├─ Create signed tag (vX.Y.Z)
-       ├─ Build & push Docker image (multi-arch)
-       ├─ Deploy to staging (n8n: JARVIS-Deploy-Staging)
-       ├─ Run smoke tests against staging
-       ├─ Promote to production (manual approval in n8n)
-       └─ Notify (n8n: Slack/Email/Telegram)
-```
+**There is no `JARVIS-Release` workflow and no `JARVIS-Deploy-Staging`.** Release
+automation is blocked at two points that are recorded, not hidden:
+
+| Step | Real status |
+|------|-------------|
+| Determine version bump | `scripts/bump_version.py patch\|minor\|major` — **manual invocation** |
+| CHANGELOG.md | Written by hand / by `bump_version.py` |
+| Tag `vX.Y.Z` | `git tag` (not GPG-signed — RISK-011) |
+| Build & push image | `docker build` locally; no registry push configured |
+| Deploy to staging | **Not implemented** — no staging environment exists |
+| Smoke tests | **Not implemented** against a deployed environment |
+| Promote to production | **Not implemented** |
+| Notify | n8n can send the message; nothing currently triggers it |
+
+Full automation requires GitHub Actions for the hosted half and is blocked by the
+billing limit on this private repo (RISK-012, TD-009 in `docs/ROADMAP.md`).
 
 ### 6.3 Changelog Format
 
@@ -294,6 +321,7 @@ disallow_untyped_defs = true
 | Version | Date | Change | Author |
 |---------|------|--------|--------|
 | 3.0.0 | 2026-09-10 | Initial governance from forensic audit | Hermes |
+| 3.0.1 | 2026-09-12 | §2/§3/§4 corrected to measured reality: three real n8n workflows (not seven), the real `ci_gate.py` 22-check/8-context gate (not a fictional n8n CI YAML), and branch protection recorded as **403-unavailable** rather than six ✅ rows. Authority settled by ADR-013. | Hermes |
 
 ---
 
