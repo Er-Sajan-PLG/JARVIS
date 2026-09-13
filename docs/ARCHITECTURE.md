@@ -343,6 +343,7 @@ authoritative.
 | ADR-011 | Tool Wiring, the Destructive-Action Gate, and the HITL Trigger | ✅ Accepted |
 | ADR-012 | One GitHub identity per function, short-lived tokens | ✅ Accepted |
 | ADR-013 | JARVIS orchestrates its own work; n8n is a workflow executor it drives | ✅ Accepted |
+| ADR-014 | Documentation facts are machine-synced and machine-checked | ✅ Accepted |
 
 > **Corrected 2026-09-13.** This table previously listed **ADR-010 as "n8n External
 > Orchestration — PROPOSED"**. That was wrong on both counts: ADR-010 is *Adapters

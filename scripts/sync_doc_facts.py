@@ -47,7 +47,15 @@ BARE_CLAIMS: list[tuple[re.Pattern[str], str]] = [
 
 # Documents that are allowed to contain historical numbers without markers:
 # they describe a past state on purpose and must NOT be rewritten.
-EXEMPT_PREFIXES = ("docs/archive/",)
+EXEMPT_PREFIXES = (
+    "docs/archive/",
+    # An ADR is the one place a stale number is *correct*. Its Context section
+    # records what was true when the decision was taken — ADR-014 quotes "22 checks"
+    # precisely because that was the value that drifted. Rewriting it would falsify
+    # the record the ADR exists to keep, and an ADR must never be edited to look
+    # right in hindsight (docs/DOC-GOVERNANCE.md §10, type `adr`).
+    "docs/adr/",
+)
 EXEMPT_FILES = {
     "docs/CHANGELOG.md",  # release notes are a historical record
     "docs/DEBUGGING.md",  # historical symptom log

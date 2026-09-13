@@ -79,7 +79,7 @@ the code wins — and the document is a bug.
 |---|---|
 | [`architecture/`](architecture/) | Mermaid diagrams: components, cognitive brain, model routing, memory, data flow, startup |
 | [`modules/`](modules/) | Per-subsystem guides: domain, brain, models, memory, guardrails, adapters, integrations |
-| [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-013) |
+| [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-014) |
 | [`migrations/`](migrations/) | v2→v3 migration notes and symbol tombstones |
 | [`timelines/`](timelines/) | Evolution and symbol timelines |
 | [`archive/`](archive/) | Superseded snapshots and frozen release-cycle docs |

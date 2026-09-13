@@ -279,7 +279,7 @@ static data does not persist reliably across restarts in this n8n build.
 
 - **8 governance checks** run in CI: import layering, domain purity, schema drift,
   prerequisite graph, safety-gate coverage, MCP tool search, OTEL spans, LangGraph checkpoint.
-- **<!--fact:adr_count-->13<!--/fact--> ADRs** in `docs/adr/` (ADR-001 → ADR-013), including
+- **<!--fact:adr_count-->14<!--/fact--> ADRs** in `docs/adr/` (ADR-001 → ADR-013), including
   [ADR-011](docs/adr/ADR-011-tool-wiring-and-hitl-gate.md) (tool wiring + HITL) and
   [ADR-012](docs/adr/ADR-012-github-auth-identity-per-function.md) (one GitHub identity per function).
 - **16 tracked risks** in [`docs/ACCEPTED_RISKS.md`](docs/ACCEPTED_RISKS.md) — every
