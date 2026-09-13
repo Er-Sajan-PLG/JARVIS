@@ -73,7 +73,7 @@ nvidia-cusparselt-cu13==0.9.1
 nvidia-nccl-cu13==2.30.7
 nvidia-nvjitlink==13.4.52
 nvidia-nvshmem-cu13==3.7.2
-nvidia-nvtx==13.0.85
+nvidia-nvtx==13.4.49
 oauthlib==3.3.1
 ollama==0.6.2
 onnxruntime==1.29.0

@@ -1,8 +1,10 @@
-# JARVIS Development Workflow — Living Document v3.0.0
+# JARVIS Development Workflow
 
-**Status**: ACTIVE — Daily workflow standards
+**Status**: ACTIVE
+**Type**: guide
+**Last Updated**: 2026-09-13
+
 **Orchestration**: JARVIS decides, n8n schedules (ADR-013)
-**Last Updated**: 2026-09-10
 
 ---
 

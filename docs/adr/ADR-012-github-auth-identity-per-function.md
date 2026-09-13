@@ -1,5 +1,9 @@
 # ADR-012 — One GitHub identity per function, short-lived tokens
 
+**Status**: ACTIVE
+**Type**: adr
+**Last Updated**: 2026-09-11
+
 - Status: Accepted
 - Date: 2026-09-11
 - Amends: RISK-015 (resolved at the CI layer)
@@ -89,6 +93,16 @@ and the default should be "prove you need one".
    deserves its own narrow identity.
 4. **Finally**: drop the PATs; `.ci-bridge.env` holds App ids and key paths, not
    usable tokens.
+
+> **Status correction (2026-09-13, path-checked against the tree).** Step 2's
+> *code* half is done, under a different filename than this ADR names: the minter
+> is `scripts/github_app_token.py` (RS256 JWT → installation token, 1-hour cache),
+> and `scripts/ci_bridge.py::load_token()` already prefers an App token when one
+> is configured, raising rather than silently falling back when it is configured
+> but broken. What remains is **not code**: the App must be registered at
+> github.com/settings/apps, a website action only the account owner can perform —
+> tracked as **RISK-016**. Steps 3 and 4 remain open. The `mint_app_token.py`
+> name was never created; do not look for it.
 
 ## Alternatives rejected
 

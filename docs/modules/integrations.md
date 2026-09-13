@@ -1,5 +1,10 @@
 # Third-Party Integrations Subsystem (`app/integrations/`) - Version-by-Version History
 
+**Status**: ACTIVE
+**Type**: reference
+**Last Updated**: 2026-09-13
+**Source**: `app/integrations/` at HEAD
+
 ## Version-by-Version Evolutionary History
 
 ### Version v0.1.0 (`e13ee67`)

@@ -1,5 +1,9 @@
 # Repository Archaeology: Timeline & History
 
+**Status**: HISTORICAL
+**Type**: snapshot
+**Last Updated**: 2026-09-10
+
 ### [1] Commit `1999e53` `[INITIAL]` - Initial project structure
 **Author:** Er Sajan PLG | **Date:** 2026-06-27 02:44:04 +0545
 
@@ -8,7 +12,6 @@
 - *Scaffolding & Dependency Foundations*: Established the initial Python module root (`app/`), entrypoint stub (`app/main.py`), and dependency manifest (`requirements.txt`).
 - *Tooling Stack*: Provisioned requirements for local LLMs (`ollama`), async web services (`fastapi`, `uvicorn`), vector search (`chromadb`), and deep learning utilities (`torch`, `transformers`).
 - *Confidence Level*: `VERIFIED`
-
 
 ### [2] Commit `e13ee67` `[v0.1.0]` - Build Jarvis v0.1: Connect to Ollama
 **Author:** Er Sajan PLG | **Date:** 2026-06-27 03:25:01 +0545
@@ -19,7 +22,6 @@
 - *Initial CLI Integration*: Connected `app/main.py` to `OllamaClient.ask()` for single-turn model execution.
 - *Tag Boundary*: `v0.1.0` Release Boundary.
 - *Confidence Level*: `VERIFIED`
-
 
 ### [3] Commit `ded44b9` `[v0.2.0]` - v0.2: working CLI chat loop with Ollama integration
 **Author:** Er Sajan PLG | **Date:** 2026-06-27 04:59:01 +0545
@@ -32,7 +34,6 @@
 - *Tag Boundary*: `v0.2.0` Release Boundary.
 - *Confidence Level*: `VERIFIED`
 
-
 ### [4] Commit `163f8a1` `[v0.2.0]` - Add .gitignore for Python project
 **Author:** Er Sajan PLG | **Date:** 2026-06-27 12:58:53 +0545
 
@@ -40,7 +41,6 @@
 **Architectural Insights:**
 - *Repository Hygiene & Secret Protection*: Configured explicit `.gitignore` rules preventing Python bytecode (`__pycache__/`), virtual environment binaries (`.venv/`), environment variable files (`.env`), and build artifacts from leaking into git tracking database.
 - *Confidence Level*: `VERIFIED`
-
 
 ### [5] Commit `8b1d0cb` `[v0.3.0]` - Added Architecture and Roadmap in docs for what to do seamless development
 **Author:** Er Sajan PLG | **Date:** 2026-06-27 13:05:30 +0545
@@ -51,7 +51,6 @@
 - *Engineering Roadmap Specification*: Defined 5-phase engineering roadmap (`docs/ROADMAP.md`) targeting Foundation, Intelligence, Tools, Interfaces, and Autonomous Execution.
 - *Tag Boundary*: `v0.3.0` Release Boundary.
 - *Confidence Level*: `VERIFIED`
-
 
 ### [6] Commit `39b3d5b` `[v0.3.0]` - Making prompt
 **Author:** Er Sajan PLG | **Date:** 2026-06-27 13:51:06 +0545
@@ -277,7 +276,6 @@
 **Author:** Er Sajan PLG | **Date:** 2026-07-28 00:28:43 +0545
 
 **Files Modified:** app/adapters/__init__.py, app/adapters/http/router.py, app/adapters/websocket/stream.py, app/api/ocr/routes.py, app/integrations/__init__.py
-
 
 # v0.1.0
 - **Timeline Metadata**: *Feature Author Date: 2026-06-27 (`e13ee67`)  |  Tag Release Date: 2026-06-27*
