@@ -1261,6 +1261,128 @@ def gate_contract(worktree: Path) -> Check:
     return Check("contract", "Tests", True, "pass", summary[:160])
 
 
+def gate_docs(worktree: Path) -> Check:
+    """Documentation gate: structure (check_docs.py) + factual drift (sync_doc_facts.py).
+
+    Two distinct failure modes, both blocking:
+
+    1. **Structure** — missing status header, stub table, a path that does not
+       exist, a version pinned in a living doc's title.
+    2. **Drift** — a number in a doc that no longer matches the repository
+       ("22 checks" after gate 23 was added, "1028 passed" after 1063). Structure
+       checks cannot see this, which is why both halves exist: a document can be
+       perfectly well-formed and still be lying.
+    """
+    script = worktree / "scripts" / "check_docs.py"
+    if not script.is_file():
+        return Check(
+            "docs",
+            "Virtual Board Governance",
+            True,
+            "skip",
+            "scripts/check_docs.py absent",
+        )
+    res = _run(
+        [str(PYTHON), str(script), "--strict"],
+        cwd=worktree,
+        timeout=300,
+        env={"PYTHONPATH": str(worktree)},
+    )
+    out = (res.stdout or "") + (res.stderr or "")
+    lines = [ln for ln in out.strip().splitlines() if ln.strip()]
+    summary = lines[0] if lines else f"exit {res.returncode}"
+    if res.returncode != 0:
+        # Surface the actual findings, not just a count.
+        detail = [ln.strip() for ln in lines if ln.strip().startswith("-")]
+        return Check(
+            "docs",
+            "Virtual Board Governance",
+            True,
+            "fail",
+            f"documentation hygiene: {len(detail)} finding(s) — {summary[:120]}",
+            exit_code=res.returncode,
+            output=_tail("\n".join(detail[:40]) or out),
+        )
+    return Check("docs", "Virtual Board Governance", True, "pass", summary[:160])
+
+
+def gate_doc_types(worktree: Path) -> Check:
+    """Type contract gate: the documented contract must match the code.
+
+    ``scripts/doc_types.py`` is the contract; ``docs/DOC-GOVERNANCE.md`` §10
+    documents it. Two copies of the same table is precisely the drift this
+    mechanism exists to prevent, so the table is generated and this gate fails when
+    it disagrees. ``check_docs.py`` in ``gate_docs`` then enforces the contract
+    against every document.
+    """
+    script = worktree / "scripts" / "doc_type_table.py"
+    if not script.is_file():
+        return Check(
+            "doc_types",
+            "Virtual Board Governance",
+            True,
+            "skip",
+            "scripts/doc_type_table.py absent",
+        )
+    res = _run(
+        [str(PYTHON), str(script), "--check"],
+        cwd=worktree,
+        timeout=120,
+        env={"PYTHONPATH": str(worktree)},
+    )
+    out = ((res.stdout or "") + (res.stderr or "")).strip()
+    summary = out.splitlines()[0] if out else f"exit {res.returncode}"
+    if res.returncode != 0:
+        return Check(
+            "doc_types",
+            "Virtual Board Governance",
+            True,
+            "fail",
+            f"documented type contract is stale — {summary[:150]}",
+            exit_code=res.returncode,
+            output=_tail(out),
+        )
+    return Check("doc_types", "Virtual Board Governance", True, "pass", summary[:160])
+
+
+def gate_doc_facts(worktree: Path) -> Check:
+    """Doc facts gate: every number a doc asserts must match the repository.
+
+    Separate from gate_docs on purpose — this one is about *truth*, not form, and
+    it fails when a doc is well-formed but wrong.
+    """
+    script = worktree / "scripts" / "sync_doc_facts.py"
+    if not script.is_file():
+        return Check(
+            "doc_facts",
+            "Virtual Board Governance",
+            True,
+            "skip",
+            "scripts/sync_doc_facts.py absent",
+        )
+    res = _run(
+        [str(PYTHON), str(script), "--check"],
+        cwd=worktree,
+        timeout=300,
+        env={"PYTHONPATH": str(worktree)},
+    )
+    out = (res.stdout or "") + (res.stderr or "")
+    lines = [ln for ln in out.strip().splitlines() if ln.strip()]
+    summary = lines[0] if lines else f"exit {res.returncode}"
+    if res.returncode != 0:
+        detail = [ln.strip() for ln in lines if ln.strip().startswith("-")]
+        return Check(
+            "doc_facts",
+            "Virtual Board Governance",
+            True,
+            "fail",
+            f"documentation contradicts the code: {len(detail)} finding(s)",
+            exit_code=res.returncode,
+            output=_tail("\n".join(detail[:40]) or out),
+        )
+    return Check("doc_facts", "Virtual Board Governance", True, "pass", summary[:160])
+
+
 def gate_mutation(worktree: Path) -> Check:
     """Mutation testing (opt-in `--with-mutation`): reported, and slow by design."""
     exe = _tool("mutmut")
@@ -1451,6 +1573,9 @@ def run_gates(
         report.checks.append(gate_provenance(worktree, sha))
         # ── governance & build ──────────────────────────────────────────────
         report.checks.append(gate_board(worktree))
+        report.checks.append(gate_docs(worktree))
+        report.checks.append(gate_doc_types(worktree))
+        report.checks.append(gate_doc_facts(worktree))
         report.checks.append(gate_compileall(worktree))
         report.checks.append(gate_hadolint(worktree))
         report.checks.append(gate_checkov(worktree))
@@ -1467,7 +1592,38 @@ def run_gates(
             _teardown_worktree(worktree)
 
     report.duration_ms = int((time.time() - started) * 1000)
+    _persist_doc_facts(report)
     return report
+
+
+def _persist_doc_facts(report: GateReport) -> None:
+    """Write the expensively-computed facts so docs can cite them.
+
+    `pytest` and `coverage` numbers are already measured by this gate. Persisting
+    them means `scripts/sync_doc_facts.py` can resolve `test_count`/`coverage`
+    without re-running the suite — so a doc can state "1063 passed" and stay true
+    without anyone remembering to update it.
+    """
+    facts: dict[str, str] = {}
+    for c in report.checks:
+        text = f"{c.summary}\n{c.output or ''}"
+        if c.name == "pytest":
+            m = re.search(r"(\d+) passed", text)
+            if m:
+                facts["test_count"] = m.group(1)
+        elif c.name == "coverage":
+            m = re.search(r"^TOTAL\s+\d+\s+\d+\s+(\d+)%", text, re.M)
+            if m:
+                facts["coverage"] = m.group(1)
+    if not facts:
+        return
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        from doc_facts import _write_cache  # noqa: PLC0415
+
+        _write_cache(facts)
+    except Exception:  # noqa: BLE001 - never let bookkeeping break the gate
+        pass
 
 
 def _print_human(report: GateReport) -> None:

@@ -1,6 +1,9 @@
 # ADR-011: Tool Wiring, the Destructive-Action Gate, and the HITL Trigger
 
-**Status**: Accepted
+**Status**: ACTIVE
+**Type**: adr
+**Last Updated**: 2026-09-10
+
 **Date**: 2026-09-10
 **Author**: Hermes (autonomous session; decisions reviewed with the user afterwards)
 **Supersedes**: nothing

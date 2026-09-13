@@ -1,5 +1,10 @@
 # Contributing to JARVIS
 
+**Status**: ACTIVE
+**Type**: governance
+**Source**: `AGENTS.md`, `githooks/pre-commit` at HEAD
+**Last Updated**: 2026-09-13
+
 Thanks for contributing. This project follows strict governance — read
 `AGENTS.md` at the repo root **before** making any change. Key rules are
 summarized below; `AGENTS.md` is authoritative.
@@ -32,7 +37,7 @@ python3.11 -m venv .venv
 ```
 
 5. **Commit** — conventional commits (`feat:`, `fix:`, `chore:`, etc.), small scope.
-6. **PR** — describe what/why; CI runs all 6 gates.
+6. **PR** — describe what/why; CI runs all <!--fact:gate_count-->25<!--/fact--> gates.
 
 ## Standards
 

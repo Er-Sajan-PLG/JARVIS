@@ -127,6 +127,9 @@ CONTEXT_OF: dict[str, str] = {
     "checkov": "Supply Chain",
     # Governance, build, commits
     "board": "Virtual Board Governance",
+    "docs": "Virtual Board Governance",
+    "doc_types": "Virtual Board Governance",
+    "doc_facts": "Virtual Board Governance",
     "compileall": "Build",
     "hadolint": "Build",
     "docker_build": "Build",

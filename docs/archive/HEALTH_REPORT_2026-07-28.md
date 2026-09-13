@@ -1,5 +1,9 @@
 # JARVIS Repository Health & Engineering Scorecard Across History
 
+**Status**: HISTORICAL
+**Type**: snapshot
+**Last Updated**: 2026-07-28
+
 > **⚠️ HISTORICAL SNAPSHOT — NOT CURRENT.** This scorecard was written on
 > **2026-07-28** and its `HEAD` (`ec0dc4e`) is frozen at that date. Everything
 > below describes the repository as it was *then*: it predates the n8n automation

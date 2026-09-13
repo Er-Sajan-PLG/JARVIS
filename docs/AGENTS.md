@@ -1,9 +1,13 @@
 # JARVIS Agents — `app/agents/`
 
+**Status**: ACTIVE
+**Type**: reference
+**Last Updated**: 2026-09-13
+**Source**: `AGENTS.md` at the repo root
+
 > **Not to be confused with the repo-root [`AGENTS.md`](../AGENTS.md).** That
 > file is the authoritative governance standard. This file documents the
 > `app/agents/` package only.
-
 
 > Scope of this document: only the code under `app/agents/` and the modules it
 > directly imports/invokes were inspected. Every claim below was checked against

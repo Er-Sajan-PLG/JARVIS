@@ -1,5 +1,9 @@
 # ADR-008: Tiered Tool Safety Policy & HITL Approval Gates
 
+**Status**: ACTIVE
+**Type**: adr
+**Last Updated**: 2026-07-28
+
 - **Status**: Approved
 - **Date**: 2026-07-28
 - **Version Tag**: `v3.0.0 Refactored`

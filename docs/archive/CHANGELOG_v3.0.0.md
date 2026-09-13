@@ -1,4 +1,9 @@
 # Changelog
+
+**Status**: HISTORICAL
+**Type**: snapshot
+**Last Updated**: 2026-07-26
+
 ## [v3.0.0] - 2026-07-26
 
 ### Added

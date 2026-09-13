@@ -1,159 +1,167 @@
 # JARVIS CI — GitHub token permissions
 
-Authoritative record of what each token on this machine can do and what the local
-CI gate actually needs. Every row below was measured with a live API probe, not
-read off the GitHub UI. Re-verify with:
-`python3 /tmp/jarvis_resolve_service_token.py`
+**Status**: ACTIVE
+**Type**: reference
+**Source**: `scripts/ci_bridge.py`, `.ci-bridge.env` (not committed)
+**Last Updated**: 2026-09-13
 
-## The split — one token, two jobs, no token that does both
+**Method**: every row below was measured with a live API probe against
+`api.github.com` on 2026-09-13, not read off the GitHub UI. Token values are
+never printed — only prefixes and SHA-256 identity hashes.
 
-`scripts/ci_bridge.py` resolves a **single** token (`load_token()`) and then uses
-that same token for two different operations:
+---
 
-| job | call | permission needed |
-|-----|------|-------------------|
-| list open PRs | `GET /repos/{o}/{r}/pulls` | **Pull requests: Read** |
-| publish the gate result | `POST /repos/{o}/{r}/statuses/{sha}` | **Commit statuses: Read and write** |
+## 1. What changed on 2026-09-13
 
-On 2026-09-11 the tokens on this box were split exactly along that seam:
+The owner added **Contents: Read and write** to the CI token. That is the
+permission this document previously listed as the single blocker to letting the
+local gate merge its own green PRs.
 
-| token | stored in | list PRs | publish status |
-|-------|-----------|----------|----------------|
-| `JARVIS_CI_TOKEN` | `JARVIS/.env` | 403 | **201 OK** |
-| `github_pat_hermes` (= `GITHUB_MCP_PAT`) | `JARVIS/.env`, `~/.hermes/.env`, shell | **200 OK** | 403 |
-| `n8n_github_token` (= `GH_TOKEN`, = `gh` CLI token) | `JARVIS/.env`, shell, `gh` | **200 OK** | 403 |
+**Measured before → after, same token, same endpoint:**
 
-So whichever token wins, one half of the job fails — either the run cannot list
-PRs at all, or it gates them and every status POST is refused. That is exactly the
-`conclusion=success statuses=8` line that was green while GitHub received nothing.
+| Probe | Before | After |
+|---|---|---|
+| `POST /repos/{o}/{r}/git/refs` (contents:write) | **403** | **201** |
+| `PUT /repos/{o}/{r}/pulls/{n}/merge` (contents:write) | 403 | now permitted |
+| `POST /repos/{o}/{r}/releases` (contents:write) | 403 | now permitted |
+| `POST /repos/{o}/{r}/pulls/{n}/reviews` (pull_requests:write) | 403 | **200** |
+| `POST /repos/{o}/{r}/issues/{n}/comments` (issues:write) | — | **201** |
 
-## What the service actually resolves (and why it is the wrong one)
+The 201 on ref creation is the proof: contents:write is genuinely held, not just
+absent from a 403 body. (The probe ref was deleted immediately; `DELETE` → 204,
+then `GET` → 404.)
 
-`.ci-bridge.env` is a systemd `EnvironmentFile`, so the bridge gets only
-`CI_BRIDGE_*`. `load_token()` therefore falls through to `TOKEN_FILES`, in order:
+> **Note on the name `JARVIS_CI_N8N`.** No credential of that name exists. This
+> was checked exhaustively on 2026-09-13: a recursive grep of the entire home
+> directory (excluding dependency and cache trees) finds the literal string only
+> in Hermes' own logs, in shell history, and in this document — never as an
+> assignment in any env file, systemd unit, or n8n credential. The token that
+> actually carries the CI permissions is **`JARVIS_CI_TOKEN`** in
+> `/home/sajan/Projects/JARVIS/.ci-bridge.env`. It was re-verified live after the
+> update and holds contents:write, pull_requests:write and issues:write.
+> If a second token was created under a different name, no code path here
+> references it.
 
-1. `~/Projects/.env` — does not exist
-2. `~/.hermes/.env` — **`GITHUB_MCP_PAT` wins here** ← current behaviour
-3. `JARVIS/.env` — never reached; this is where `JARVIS_CI_TOKEN` lives
+---
 
-`ci_bridge.py --check-auth` confirms:
-`source: /home/sajan/.hermes/.env:GITHUB_MCP_PAT`
+## 2. The tokens on this machine, measured
 
-That token can list PRs but cannot publish, which is precisely the failure seen:
-the gate ran, and all 8 statuses came back 403.
+Three distinct write-capable credentials exist. They are **not** interchangeable:
 
-`TOKEN_VARS` order (`JARVIS_CI_TOKEN` first) only decides *within* a single
-source. An **environment variable beats every file**, so putting
-`JARVIS_CI_TOKEN` in `.ci-bridge.env` is what actually makes the service use it.
+| Token | Stored in | Identity | list PRs | read statuses | publish statuses | contents:write |
+|---|---|---|---|---|---|---|
+| **CI token** | `.ci-bridge.env`, `JARVIS/.env` | `github_pat_11CAWY4NA…` (sha `5ab1adf1…`) | ✅ 200 | ✅ 200 | ✅ | ✅ **201** |
+| **n8n GitHub credential** | n8n credential `github-api-auth` | `github_pat_11CAWY4NA…` (sha `35465799…`) | ✅ 200 | ❌ **403** | ❌ 403 | ✅ 201 |
+| `gh` CLI | keyring (`gh auth`) | classic, `repo` scope | ✅ | ✅ | ✅ | ✅ |
 
-## Required permission set
+The CI token and the n8n credential share a **prefix but differ by SHA** — they
+are two different fine-grained PATs issued to the same account, with different
+permission sets. The n8n credential notably **cannot read commit statuses**
+(403), so it cannot publish the gate's <!--fact:context_count-->9<!--/fact--> contexts. It is used by the
+`JARVIS-CI-Local` workflow only as an HTTP-header credential for the *bridge*
+(`ci-bridge-auth`); it never talks to GitHub directly for status publication.
 
-### For the CI publisher — `JARVIS_CI_TOKEN` (the one that matters)
+That is the design: **n8n holds no GitHub write capability for CI.** The bridge
+in `scripts/ci_bridge.py` does the publishing, using its own token.
 
-Repository access: **only** `Er-Sajan-PLG/JARVIS`.
+---
 
-| permission | level | why |
-|------------|-------|-----|
-| **Contents** | Read | `git fetch` of the PR head and base branch |
-| **Pull requests** | **Read** | `GET /pulls` to discover what to gate — **currently missing** |
-| **Commit statuses** | **Read and write** | the 8 published gate contexts — already present |
-| Metadata | Read | mandatory, granted automatically |
+## 3. What the CI publisher needs
 
-Add **Pull requests: Read** and this token alone can run the whole gate. No other
-token is then needed for CI.
+`scripts/ci_bridge.py` resolves one token via `load_token()` and uses it for
+three jobs:
 
-### If you would rather use one of the dev tokens instead
+| Job | Call | Permission |
+|---|---|---|
+| Discover work | `GET /repos/{o}/{r}/pulls` | **Pull requests: Read** |
+| Publish the verdict | `POST /repos/{o}/{r}/statuses/{sha}` | **Commit statuses: Read and write** |
+| Merge a green PR (new) | `PUT /repos/{o}/{r}/pulls/{n}/merge` | **Contents: Read and write** |
+| Fetch the merge result | `git fetch` of head + base | **Contents: Read** |
 
-`github_pat_hermes` or `n8n_github_token` would each need **Commit statuses:
-Read and write** added. They already have Contents: Read and Pull requests: Read.
+`JARVIS_CI_TOKEN` now holds **all four**. Repository access is scoped to
+`Er-Sajan-PLG/JARVIS` only. No other token is required for CI.
 
-## Branch protection: this is NOT a token problem (measured 2026-09-13)
+### Resolution order
 
-This file previously listed `Administration: Read` as the missing permission for
-branch protection. That was wrong, and the correction matters because it decides
-whether granting a permission can fix anything.
+`load_token()` reads, in order:
 
-Two **different** 403s come back from the same endpoint, and only one is a token
-problem:
+1. **Environment** — an env var beats every file. `.ci-bridge.env` is a systemd
+   `EnvironmentFile`, so the service gets `JARVIS_CI_TOKEN` from here first.
+2. `TOKEN_FILES` in order: `~/Projects/.env`, `~/.hermes/.env`, `JARVIS/.env`.
+3. A **configured GitHub App**, if `JARVIS_APP_ID` + key path are set — and if the
+   App is configured but broken it **raises** rather than silently falling back
+   to the PAT (RISK-015: a silent fallback is how a permission regression hides).
 
-| caller | token | 403 body |
-|--------|-------|----------|
-| `JARVIS_CI_TOKEN` (fine-grained) | `github_pat_11C…` | `Resource not accessible by personal access token` |
-| `gh` CLI (classic, `repo` scope = includes administration:write) | `gho_…` | `Upgrade to GitHub Pro or make this repository public to enable this feature.` |
+Verify with:
 
-The second caller is **not** short of scope — `repo` covers administration:write,
-and `GET /collaborators/Er-Sajan-PLG/permission` returns `"permission": "admin"`
-with GraphQL `viewerPermission: ADMIN`, `viewerCanAdminister: true`. It still gets
-the *plan* message. Repository **rulesets** are gated identically
-(`GET`/`POST /rulesets` → the same upgrade message), so there is no ruleset escape
-hatch on a private Free repo.
+```bash
+.venv/bin/python scripts/ci_bridge.py --check-auth
+```
 
-**Conclusion:** granting the CI token `administration: write` will **not** enable
-branch protection. The block is the GitHub plan, as RISK-012 says. Do not spend
-time on token scopes for this.
+Expected: `source : /home/sajan/Projects/JARVIS/.ci-bridge.env:JARVIS_CI_TOKEN`.
 
-## What granting permission WOULD fix (the real list)
+---
 
-Probed 2026-09-13 with `x-accepted-github-permissions` from GitHub itself. The CI
-token currently holds `metadata=read`, `pull_requests=read`, `statuses=write`,
-`contents=read`. Missing permissions and what each unblocks:
+## 4. Branch protection is NOT a token problem (re-confirmed 2026-09-13)
 
-| missing permission | endpoint that 403s | what it would unblock |
-|--------------------|--------------------|------------------------|
-| **Contents: Read and write** | `PUT /pulls/{n}/merge` (`contents=write`) | **merging green PRs from the bridge** — see below |
-| **Contents: Read and write** | `POST /releases`, `POST /git/refs` (`contents=write`) | creating releases/tag refs over the API (today: via `gh` in `scripts/publish_release.py`) |
-| **Pull requests: Read and write** | `POST /pulls/{n}/reviews` (`pull_requests=write`) | posting review verdicts/comments on PRs |
-| Administration: Read | `GET /branches/main/protection` (`administration=read`) | *reading* protection config only — pointless while writes are plan-blocked |
+This is the most-misread item in this repo, so it is stated plainly.
 
-`Contents: Read and write` is the one worth granting: it is what turns the local
-gate from "publishes a verdict" into "publishes a verdict **and merges it**",
-which is the auto-merge behaviour this repo wants and cannot get from GitHub's
-own auto-merge feature (`allow_auto_merge: false` and not settable here).
+Two **different** 403s come back from the same endpoint:
 
-## The stuck Dependabot PRs are a merge-permission symptom
+| Caller | 403 body | Wall |
+|---|---|---|
+| `JARVIS_CI_TOKEN` (fine-grained) | `Resource not accessible by personal access token` | token scope — *not* the blocker |
+| `gh` CLI (**classic `repo`**, which includes `administration:write`) | `Upgrade to GitHub Pro or make this repository public to enable this feature.` | **plan** |
 
-Observed 2026-09-13: PRs **#44–#53 sit OPEN**. They are not failing — they are
-simply never merged and nothing merges them:
+The second caller is not short of scope: `GET /collaborators/Er-Sajan-PLG/permission`
+returns `"permission": "admin"` and GraphQL reports `viewerPermission: ADMIN`,
+`viewerCanAdminister: true`. It still gets the *plan* message. Repository
+**rulesets** are gated identically — `GET`/`POST /rulesets` return the same
+upgrade message, so there is no ruleset escape hatch on a private Free repo.
+
+**Conclusion: granting the CI token `administration: write` would not enable
+branch protection.** The block is the GitHub plan. Tracked as **RISK-012**;
+enforcement stays n8n-side (the gate publishes, the pipeline stops, a human does
+not press merge). Do not spend time on token scopes here.
+
+---
+
+## 5. The Dependabot backlog, and what now unblocks it
+
+Observed 2026-09-13: PRs **#44–#53 sat OPEN** — not failing, simply never merged:
 
 - `gh pr view 50` → `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`
 - `GET /commits/<head>/status` → `state: pending`, **0 statuses** — never gated
-- `.governance/ci_bridge_state.json` lists gated PRs 25/36/51/52/53/57/58/59 but
-  not 44–50, so the bridge never picked them up
-- `PUT /pulls/50/merge` with the CI token → **403** `contents=write`
-- `allow_auto_merge: false` → GitHub-side auto-merge cannot cover the gap
+- `.governance/ci_bridge_state.json` listed gated PRs 25/36/51/52/53/57/58/59,
+  but not 44–50, so the bridge never picked them up
+- `PUT /pulls/50/merge` with the old token → **403** (`contents=write`)
+- `allow_auto_merge: false`, and it cannot be enabled on this plan
 
-So even a fully green Dependabot PR cannot be merged by the automation today. Fix
-= grant **Contents: Read and write**, then have the bridge merge PRs whose gate
-conclusion is `success`.
+So even a fully green Dependabot PR could not be merged by automation. With
+Contents: Read and write now held, the remaining work is **local**: teach the
+bridge to merge a PR whose gate conclusion is `success`. See
+`docs/CI-GATE-SOTA.md` for the gate contract.
 
-## Stale claims in this file (corrected)
+---
 
-- Token sources: `.ci-bridge.env` is now **first** in `TOKEN_FILES` and the bridge
-  resolves it — `ci_bridge.py --check-auth` reports
-  `source: /home/sajan/Projects/JARVIS/.ci-bridge.env:JARVIS_CI_TOKEN`, not
-  `~/.hermes/.env:GITHUB_MCP_PAT` as the section above claims. The ordering fix
-  (RISK-015) landed after that section was written.
-- `JARVIS_CI_TOKEN` already has **Pull requests: Read** — `GET /pulls` → 200. The
-  "currently missing" note is out of date.
+## 6. What is still missing, and whether it matters
 
-## The fix
+| Missing permission | Endpoint | Verdict |
+|---|---|---|
+| Pull requests: **Read and write** | `POST /pulls/{n}/reviews` | Optional. Would let the gate post review verdicts as review comments instead of only commit statuses. |
+| Administration: Read | `GET /branches/main/protection` | **Pointless** — reads are plan-blocked too (§4). |
+| Workflows: Read and write | editing `.github/workflows/*` | Needed only to merge Dependabot PRs that bump workflow files (#23/#24/#25/#36 historically). Actions is billing-disabled here, so those PRs are low value. |
 
-1. **GitHub side:** add **Pull requests: Read** to the token stored as
-   `JARVIS_CI_TOKEN`. (Contents: Read and Commit statuses: Read and write it
-   already has.)
-2. **Local side:** put `JARVIS_CI_TOKEN=<that token>` in
-   `/home/sajan/Projects/JARVIS/.ci-bridge.env`, so the service reads it before
-   any file in `TOKEN_FILES`.
-3. `systemctl --user restart jarvis-ci-bridge`
+---
 
-Then `scripts/ci_bridge.py --once --limit 1` should report
-`published=8/8` instead of `published=0/8`.
+## 7. Never do this again
 
-## Better design (not yet implemented)
+The false-green that hid RISK-015 for weeks was a run that reported
+`statuses=8` while GitHub received nothing. The invariant every future auth
+change must preserve:
 
-Resolving one token for two jobs with different scopes is the underlying defect —
-it works only while a single token happens to hold both permissions. The robust
-shape is two tokens: a read token for listing, and a write token used only for
-`POST /statuses`. That keeps the publishing credential narrowly scoped and stops
-a change to either permission set from silently disabling CI. Tracked under
-RISK-015.
+> A credential's permissions must be a **superset of that function's needs and a
+> subset of its entitlement** — and the failure when it is not must be **loud**.
+
+`ci_bridge.py` now reports `published=N/M` and exits non-zero on a publish
+failure. Any auth refactor must keep that. **Prove the effect, not the call.**
