@@ -152,6 +152,13 @@ SKIP_DIRS = {
 
 
 def iter_docs() -> list[Path]:
+    """Every file the rules apply to.
+
+    Scope is deliberately narrow: ``docs/**`` plus markdown at the repo root.
+    Files under ``prompts/`` are runtime prompt templates, not documentation —
+    a status header on them would be meaningless — and cache dirs are skipped
+    via ``SKIP_DIRS``.
+    """
     files: list[Path] = []
     for p in REPO_ROOT.rglob("*.md"):
         rel = p.relative_to(REPO_ROOT)
