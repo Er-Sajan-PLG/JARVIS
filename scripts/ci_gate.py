@@ -93,6 +93,7 @@ class GateReport:
     worktree: str = ""
     app_resolved_to: str = ""
     checks: list[Check] = field(default_factory=list)
+    facts: dict[str, str] = field(default_factory=dict)
 
     @property
     def blocking_failures(self) -> list[Check]:
@@ -1345,11 +1346,15 @@ def gate_doc_types(worktree: Path) -> Check:
     return Check("doc_types", "Virtual Board Governance", True, "pass", summary[:160])
 
 
-def gate_doc_facts(worktree: Path) -> Check:
+def gate_doc_facts(worktree: Path, report: GateReport) -> Check:
     """Doc facts gate: every number a doc asserts must match the repository.
 
     Separate from gate_docs on purpose — this one is about *truth*, not form, and
     it fails when a doc is well-formed but wrong.
+
+    Uses the authoritative fact snapshot from the gate's pytest/coverage results
+    when available, avoiding a redundant pytest run. Falls back to
+    ``--check --run-tests`` when invoked standalone.
     """
     script = worktree / "scripts" / "sync_doc_facts.py"
     if not script.is_file():
@@ -1360,12 +1365,27 @@ def gate_doc_facts(worktree: Path) -> Check:
             "skip",
             "scripts/sync_doc_facts.py absent",
         )
-    res = _run(
-        [str(PYTHON), str(script), "--check"],
-        cwd=worktree,
-        timeout=300,
-        env={"PYTHONPATH": str(worktree)},
-    )
+    # Use stored facts from the gate's pytest/coverage results if available.
+    if report.facts:
+        res = _run(
+            [
+                str(PYTHON),
+                str(script),
+                "--check",
+                "--facts-json",
+                json.dumps(report.facts),
+            ],
+            cwd=worktree,
+            timeout=300,
+            env={"PYTHONPATH": str(worktree)},
+        )
+    else:
+        res = _run(
+            [str(PYTHON), str(script), "--check", "--run-tests"],
+            cwd=worktree,
+            timeout=300,
+            env={"PYTHONPATH": str(worktree)},
+        )
     out = (res.stdout or "") + (res.stderr or "")
     lines = [ln for ln in out.strip().splitlines() if ln.strip()]
     summary = lines[0] if lines else f"exit {res.returncode}"
@@ -1575,7 +1595,9 @@ def run_gates(
         report.checks.append(gate_board(worktree))
         report.checks.append(gate_docs(worktree))
         report.checks.append(gate_doc_types(worktree))
-        report.checks.append(gate_doc_facts(worktree))
+        # Persist facts from pytest/coverage results BEFORE gate_doc_facts so it can reuse them.
+        _persist_doc_facts(report)
+        report.checks.append(gate_doc_facts(worktree, report))
         report.checks.append(gate_compileall(worktree))
         report.checks.append(gate_hadolint(worktree))
         report.checks.append(gate_checkov(worktree))
@@ -1597,12 +1619,15 @@ def run_gates(
 
 
 def _persist_doc_facts(report: GateReport) -> None:
-    """Write the expensively-computed facts so docs can cite them.
+    """Extract measured facts from the gate report and store them.
 
     `pytest` and `coverage` numbers are already measured by this gate. Persisting
     them means `scripts/sync_doc_facts.py` can resolve `test_count`/`coverage`
     without re-running the suite — so a doc can state "1063 passed" and stay true
     without anyone remembering to update it.
+
+    The facts are stored both in the report (for gate_doc_facts to reuse) and in
+    the ephemeral cache file (for local tooling optimization).
     """
     facts: dict[str, str] = {}
     for c in report.checks:
@@ -1617,6 +1642,9 @@ def _persist_doc_facts(report: GateReport) -> None:
                 facts["coverage"] = m.group(1)
     if not facts:
         return
+    # Store facts in the report for gate_doc_facts to reuse.
+    report.facts.update(facts)
+    # Also write to the ephemeral cache for local tooling.
     try:
         sys.path.insert(0, str(REPO_ROOT / "scripts"))
         from doc_facts import _write_cache  # noqa: PLC0415

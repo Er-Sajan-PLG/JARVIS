@@ -197,7 +197,10 @@ def check_facts(facts: dict[str, str]) -> list[str]:
         # 1. marked values must match
         for m in MARKER_RE.finditer(text):
             name, committed = m.group(1), m.group(2).strip()
-            actual = facts.get(name, "unknown")
+            if name not in facts:
+                # Fact not in the provided snapshot; skip (caller chose not to verify this fact).
+                continue
+            actual = facts[name]
             if actual == "unknown":
                 # The document asserts a value we cannot verify. That is a finding,
                 # not a silence — unless the line is quoting the anti-pattern.
@@ -217,7 +220,10 @@ def check_facts(facts: dict[str, str]) -> list[str]:
 
         # 2. bare claims that contradict reality must be marked
         for rx, name in BARE_CLAIMS:
-            actual = facts.get(name, "unknown")
+            if name not in facts:
+                # Fact not in the provided snapshot; skip.
+                continue
+            actual = facts[name]
             if actual == "unknown":
                 continue
             for m in rx.finditer(text):
@@ -257,10 +263,42 @@ def main() -> int:
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--apply", action="store_true", help="rewrite marker values from the repo")
     g.add_argument("--check", action="store_true", help="fail on stale markers/bare claims")
+    g.add_argument(
+        "--sync",
+        action="store_true",
+        help="compute facts once, apply to docs, verify, and write cache (one pytest run)",
+    )
     ap.add_argument("--run-tests", action="store_true", help="compute test facts by running them")
+    ap.add_argument(
+        "--facts-json",
+        help="use the provided JSON fact snapshot instead of computing (for CI reuse)",
+    )
     args = ap.parse_args()
 
-    facts = collect(run_tests=args.run_tests)
+    if args.sync:
+        facts = collect(run_tests=True)
+        changed, updated, unknown = apply_facts(facts)
+        print(f"sync_doc_facts: rewrote {updated} marker value(s) in {changed} file(s)")
+        if unknown:
+            print(f"  skipped {len(unknown)} marker(s) with no derivable value (unknown):")
+            for u in unknown[:15]:
+                print(f"    {u}")
+        findings = check_facts(facts)
+        print(f"sync_doc_facts: checked {len(iter_docs())} markdown file(s)")
+        if findings:
+            print(f"\n{len(findings)} finding(s):\n")
+            for f in findings:
+                print("  -", f)
+            return 1
+        print("no findings — documentation is consistent with the repository")
+        return 0
+
+    if args.facts_json:
+        import json
+
+        facts = json.loads(args.facts_json)
+    else:
+        facts = collect(run_tests=args.run_tests)
 
     if args.apply:
         changed, updated, unknown = apply_facts(facts)

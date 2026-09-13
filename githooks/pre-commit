@@ -39,11 +39,15 @@ fi
 
 # 3) Keep doc facts true to the code. Documents do not store numbers; they cite
 #    a fact name that is re-derived here, so "22 checks" cannot survive gate 23.
-#    --apply rewrites the marked values and we re-stage, so the corrected docs
-#    ride along in the same commit as the change that made them stale.
+#    --sync computes facts once, applies, verifies, and re-stages, so the corrected
+#    docs ride along in the same commit as the change that made them stale.
 if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/sync_doc_facts.py" ]; then
-  echo "🔄 Syncing doc facts with the code…"
-  "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --apply >/tmp/jarvis_doc_facts.log 2>&1 || true
+  echo "🔄 Synchronizing doc facts with the code…"
+  if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --sync >/tmp/jarvis_doc_facts.log 2>&1; then
+    echo "❌ Documentation fact sync failed:"
+    cat /tmp/jarvis_doc_facts.log
+    exit 1
+  fi
   # Re-stage only documents the sync actually touched.
   git diff --name-only -- docs '*.md' | while IFS= read -r f; do
     [ -n "$f" ] && git add -- "$f"
@@ -74,26 +78,6 @@ if [ -x "$REPO_ROOT/.venv/bin/pre-commit" ]; then
   }
 fi
 
-# 5) Backstop: refuse the commit if any doc still contradicts the repository.
-if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/sync_doc_facts.py" ]; then
-  if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --check >/tmp/jarvis_doc_facts_check.log 2>&1; then
-    echo "❌ Documentation contradicts the code:"
-    grep -E '^\s+-' /tmp/jarvis_doc_facts_check.log | head -20
-    # Two distinct failures, two distinct remedies. A stale value is fixed by
-    # --apply. An *unresolvable* fact (typically test_count/coverage with no
-    # measurement for this commit) cannot be fixed by editing prose — --apply
-    # refuses to write `unknown` on purpose — so point at the real remedy: run the
-    # gate to produce the measurement. Prescribing --apply here would send the
-    # author in a circle.
-    if grep -q "could not be verified" /tmp/jarvis_doc_facts_check.log; then
-      echo "   This is an unresolvable fact, not a stale one. Produce the measurement:"
-      echo "     .venv/bin/python scripts/ci_gate.py --sha HEAD --with-coverage"
-      echo "   (the gate writes .governance/doc_facts.json with this commit's numbers)"
-    else
-      echo "   Fix with: .venv/bin/python scripts/sync_doc_facts.py --apply"
-    fi
-    exit 1
-  fi
-fi
+
 
 exit 0

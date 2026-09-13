@@ -149,6 +149,7 @@ def check_domain_purity() -> tuple[bool, list[str]]:
                 and not node.module.startswith(".")
                 and node.module
                 not in {
+                    "__future__",
                     "dataclasses",
                     "datetime",
                     "enum",

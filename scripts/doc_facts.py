@@ -154,26 +154,48 @@ def collect_expensive(run_tests: bool = False) -> dict[str, str]:
     is the one being described. A mismatch, a missing field, or a malformed file all
     fall back to ``unknown`` — an admitted gap is recoverable, an invented number in
     a governance document is not.
+
+    CRITICAL: When called from inside a running pytest session (e.g. from
+    `test_real_repository_has_no_doc_drift`), this uses `--collect-only` to count
+    tests without executing them. Executing tests here would cause infinite
+    recursion (the test runs pytest which runs the test which runs pytest...).
+    Collection is deterministic and fast; execution is neither.
     """
     venv_py = REPO_ROOT / ".venv" / "bin" / "python"
     if run_tests and venv_py.is_file():
-        out = _run(
-            [
-                str(venv_py),
-                "-m",
-                "pytest",
-                "tests/",
-                "-q",
-                "--no-header",
-                "--cov=app",
-                "--cov-report=term",
-            ]
-        )
-        facts = {}
-        m = re.search(r"(\d+) passed", out)
-        facts["test_count"] = m.group(1) if m else "unknown"
-        m = re.search(r"^TOTAL\s+\d+\s+\d+\s+(\d+)%", out, re.M)
-        facts["coverage"] = m.group(1) if m else "unknown"
+        # Detect if we're inside a running pytest session to avoid recursion.
+        inside_pytest = "pytest" in sys.modules
+        cmd = [
+            str(venv_py),
+            "-m",
+            "pytest",
+            "tests/",
+        ]
+        if inside_pytest:
+            # Inside pytest: count only, no execution (avoids infinite recursion).
+            # Coverage is not available in this mode; it is computed by CI.
+            cmd.extend(["--collect-only", "-q"])
+            out = _run(cmd)
+            facts = {}
+            m = re.search(r"collected (\d+) items", out)
+            facts["test_count"] = m.group(1) if m else "unknown"
+            facts["coverage"] = "unknown"
+        else:
+            # Outside pytest (CI, pre-commit, manual): full run with coverage.
+            cmd.extend(
+                [
+                    "-q",
+                    "--no-header",
+                    "--cov=app",
+                    "--cov-report=term",
+                ]
+            )
+            out = _run(cmd)
+            facts = {}
+            m = re.search(r"(\d+) passed", out)
+            facts["test_count"] = m.group(1) if m else "unknown"
+            m = re.search(r"^TOTAL\s+\d+\s+\d+\s+(\d+)%", out, re.M)
+            facts["coverage"] = m.group(1) if m else "unknown"
         if facts.get("test_count") != "unknown":
             _write_cache(facts)
         return facts
