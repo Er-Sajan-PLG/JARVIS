@@ -42,6 +42,13 @@ repos:
         #   --disable-error-code=misc: FastAPI's @app.* decorators are untyped to
         #     mypy, producing "Untyped decorator makes fn untyped" false positives
         #     that are not real defects.
+        # Scope: app/ and scripts/ only. AGENTS.md §6.3 defines the standard as
+        # `mypy --strict app/` — tests/ was never in mypy scope, and the
+        # repo-wide ceiling is enforced separately by gate_mypy against
+        # .governance/mypy_baseline.txt. Without this exclude, the hook silently
+        # introduced a strict-typing requirement on the test suite the moment
+        # test files were first staged. See docs/DECISIONS-AUTONOMOUS-2026-09-10.md.
+        exclude: ^tests/
         args:
           - --strict
           - --ignore-missing-imports

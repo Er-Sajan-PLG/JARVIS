@@ -60,6 +60,7 @@ curl -H "Authorization: Bearer $JARVIS_API_KEY" http://localhost:8000/api/v1/hea
 | **CI/CD** | ✅ Local n8n plane | 22 checks in `scripts/ci_gate.py` → 8 published commit-status contexts. Actions billing-blocked, so `.github/workflows` are `workflow_dispatch`-only |
 | **Python Version** | ✅ 3.11 | 3.11/3.12 supported; 3.14 not |
 | **Capability Contract** | see [CAPABILITY_TRACKER.md](CAPABILITY_TRACKER.md) | Compliance tracked there |
+| **Orchestration authority** | ✅ Decided | [ADR-013](adr/ADR-013-jarvis-orchestrates-n8n-executes.md): JARVIS orchestrates, n8n executes |
 
 > This table was a **forensic audit snapshot**, not a live status board. Treating it
 > as current is how docs drift. For live state use the CI gate, `ACCEPTED_RISKS.md`,
@@ -119,7 +120,7 @@ ARCHITECTURE.md (System Topology)
 | ROADMAP.md | Sprint planning | Sprint boundary |
 | DEVELOPMENT.md | As needed | Tooling change |
 | API_CONTRACT.md | Per release | API change |
-| CAPABILITY_TRACKER.md | Quarterly | n8n `JARVIS-Capability-Sync` |
+| CAPABILITY_TRACKER.md | Quarterly | Manual review (no such workflow) |
 
 ---
 
@@ -140,7 +141,9 @@ ARCHITECTURE.md (System Topology)
 
 1. **Execute Sprint 0** (above) — unblocks everything
 2. **Commit these 6 documents** — freeze current governance
-3. **Create n8n workflows** — `JARVIS-Setup-Env`, `JARVIS-CI`, `JARVIS-Deploy`
+3. ~~Create n8n workflows~~ — **done**: the three that exist are `JARVIS-CI-Local`,
+   `JARVIS-HITL`, `JARVIS-Cleanup` (see `docs/GOVERNANCE.md` §3). No `JARVIS-CI`
+   or `JARVIS-Deploy` workflow is needed; the gate runs in `scripts/ci_gate.py`.
 4. **Run first USAT audit post-fix** — verify hygiene improvement
 5. **Sync with PROFESSOR-J** — Capability Contract alignment kickoff
 

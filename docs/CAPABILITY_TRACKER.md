@@ -1,10 +1,11 @@
 # JARVIS Capability Contract Tracker — Living Document v3.0.0
 
-**Status**: ACTIVE — Tracks compliance with CAPABILITY-CONTRACT.md v1.0 (JARVIS ↔ PROFESSOR-J)  
-**Contract Version**: 1.0.0  
-**Contract Source**: `docs/CAPABILITY-CONTRACT.md`  
-**Last Sync**: 2026-09-10  
-**Review Cadence**: Quarterly (n8n workflow `JARVIS-Capability-Sync`)
+**Status**: ACTIVE — Tracks compliance with CAPABILITY-CONTRACT.md v1.0 (JARVIS ↔ PROFESSOR-J)
+**Contract Version**: 1.0.0
+**Contract Source**: `docs/CAPABILITY-CONTRACT.md`
+**Last Sync**: 2026-09-10
+**Review Cadence**: Quarterly (manual review — no `JARVIS-Capability-Sync`
+workflow exists; see `docs/GOVERNANCE.md` §3)
 
 ---
 
@@ -139,7 +140,11 @@
 
 ---
 
-## 5. Compliance Verification (n8n Workflow: `JARVIS-Capability-Sync`)
+## 5. Compliance Verification (manual quarterly review)
+
+> No `JARVIS-Capability-Sync` n8n workflow exists. This section describes the
+> checks a reviewer runs by hand; the code block below is an illustration of the
+> checks, not a deployed workflow.
 
 ### 5.1 Automated Checks (Run Quarterly)
 
@@ -231,6 +236,6 @@ def verify_contract_compliance():
 
 ---
 
-**Next Review**: 2026-12-10 (n8n `JARVIS-Capability-Sync` workflow)  
-**Owner**: Architecture Review Board  
+**Next Review**: 2026-12-10 (manual quarterly review)
+**Owner**: Architecture Review Board
 **Escalation**: If compliance < 70% at Sprint 3 end → P2 incident

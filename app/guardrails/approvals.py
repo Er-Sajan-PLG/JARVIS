@@ -8,15 +8,28 @@ the runner *raises* ``HITLRequiredError`` and pauses the plan; this registry hol
 paused plan so an external actor (n8n → Slack/Telegram → ``POST /api/v1/hitl/approve``)
 can decide, after which the plan is resumed.
 
-Pure in-process state (no I/O), so it is trivially testable. It is intentionally *not*
-thread-safe; the FastAPI event loop is single-threaded and all mutations happen there.
+State lives in memory. When a ``store_path`` is supplied it is additionally mirrored to
+a JSON file, written atomically and re-read on construction, so a restart between a step
+pausing and a human deciding does not silently drop the approval *and* the paused plan --
+which is exactly what happened before this: the n8n polling loop saw an empty list, with
+no error anywhere, and the request simply vanished.
+
+Without ``store_path`` the registry stays pure in-process (no I/O), which is what the
+majority of call sites and unit tests want, so persistence is opt-in and the default is
+unchanged. It is intentionally *not* thread-safe; the FastAPI event loop is
+single-threaded and all mutations happen there.
 """
 
+import json
+import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
-from app.domain import ExecutionPlan, ExecutionStep, StepStatus
+from app.domain import ExecutionPlan, ExecutionStep, SafetyTier, StepStatus, ToolCall
+
+logger = logging.getLogger(__name__)
 
 #: Valid values for a decision.
 DECISION_APPROVE = "approve"
@@ -33,6 +46,84 @@ class ApprovalAlreadyDecidedError(ValueError):
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def _iso(value: datetime | None) -> str | None:
+    return value.isoformat() if value else None
+
+
+def _parse_dt(value: str | None) -> datetime | None:
+    return datetime.fromisoformat(value) if value else None
+
+
+def _step_to_dict(step: ExecutionStep) -> dict[str, Any]:
+    """Serializable form of one execution step (the domain entity has none)."""
+    call = step.tool_call
+    return {
+        "step_id": step.step_id,
+        "title": step.title,
+        "status": step.status.value,
+        "error": step.error,
+        "hitl_required": step.hitl_required,
+        "hitl_approved": step.hitl_approved,
+        "created_at": _iso(step.created_at),
+        "tool_call": (
+            {
+                "tool_name": call.tool_name,
+                "arguments": call.arguments,
+                "safety_tier": call.safety_tier.value,
+                "description": call.description,
+            }
+            if call is not None
+            else None
+        ),
+    }
+
+
+def _step_from_dict(raw: dict[str, Any]) -> ExecutionStep:
+    call_raw = raw.get("tool_call")
+    call = (
+        ToolCall(
+            tool_name=call_raw["tool_name"],
+            arguments=call_raw.get("arguments", {}),
+            safety_tier=SafetyTier(call_raw.get("safety_tier", SafetyTier.SAFE.value)),
+            description=call_raw.get("description", ""),
+        )
+        if call_raw
+        else None
+    )
+    return ExecutionStep(
+        step_id=raw["step_id"],
+        title=raw["title"],
+        tool_call=call,
+        status=StepStatus(raw.get("status", StepStatus.PENDING.value)),
+        error=raw.get("error"),
+        hitl_required=raw.get("hitl_required", False),
+        hitl_approved=raw.get("hitl_approved"),
+        created_at=_parse_dt(raw.get("created_at")) or _utcnow(),
+    )
+
+
+def _plan_to_dict(plan: ExecutionPlan) -> dict[str, Any]:
+    return {
+        "plan_id": plan.plan_id,
+        "goal": plan.goal,
+        "current_step_index": plan.current_step_index,
+        "created_at": _iso(plan.created_at),
+        "metadata": plan.metadata,
+        "steps": [_step_to_dict(s) for s in plan.steps],
+    }
+
+
+def _plan_from_dict(raw: dict[str, Any]) -> ExecutionPlan:
+    return ExecutionPlan(
+        plan_id=raw["plan_id"],
+        goal=raw.get("goal", ""),
+        steps=[_step_from_dict(s) for s in raw.get("steps", [])],
+        current_step_index=raw.get("current_step_index", 0),
+        created_at=_parse_dt(raw.get("created_at")) or _utcnow(),
+        metadata=raw.get("metadata", {}),
+    )
 
 
 @dataclass
@@ -65,21 +156,89 @@ class PendingApproval:
             "description": self.description,
             "safety_tier": self.safety_tier,
             "requested_at": self.requested_at.isoformat(),
-            "notified_at": self.notified_at.isoformat() if self.notified_at else None,
+            "notified_at": _iso(self.notified_at),
             "decided": self.decided,
             "decision": self.decision,
             "approver": self.approver,
             "reason": self.reason,
-            "decided_at": self.decided_at.isoformat() if self.decided_at else None,
+            "decided_at": _iso(self.decided_at),
         }
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "PendingApproval":
+        """Rebuild a record written by :meth:`to_dict`."""
+        return cls(
+            plan_id=raw["plan_id"],
+            step_id=raw["step_id"],
+            title=raw.get("title", ""),
+            tool_name=raw.get("tool_name"),
+            description=raw.get("description", ""),
+            safety_tier=raw.get("safety_tier", "unknown"),
+            requested_at=_parse_dt(raw.get("requested_at")) or _utcnow(),
+            notified_at=_parse_dt(raw.get("notified_at")),
+            decided=raw.get("decided", False),
+            decision=raw.get("decision"),
+            approver=raw.get("approver"),
+            reason=raw.get("reason", ""),
+            decided_at=_parse_dt(raw.get("decided_at")),
+        )
 
 
 @dataclass
 class ApprovalRegistry:
-    """In-process registry of paused plans and their approval decisions."""
+    """Registry of paused plans and their approval decisions.
 
+    Pass ``store_path`` to make the registry survive a process restart; omit it to
+    keep the original pure in-process behaviour.
+    """
+
+    store_path: Path | None = None
     _plans: dict[str, ExecutionPlan] = field(default_factory=dict)
     _pending: dict[tuple[str, str], PendingApproval] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.store_path is not None:
+            self.store_path = Path(self.store_path)
+            self._load()
+
+    # ------------------------------------------------------------------ storage
+
+    def _load(self) -> None:
+        """Read the store if it exists. A corrupt or absent store is not fatal."""
+        assert self.store_path is not None
+        if not self.store_path.is_file():
+            return
+        try:
+            raw = json.loads(self.store_path.read_text(encoding="utf-8"))
+            self._plans = {
+                plan_id: _plan_from_dict(data) for plan_id, data in (raw.get("plans") or {}).items()
+            }
+            self._pending = {
+                (rec["plan_id"], rec["step_id"]): PendingApproval.from_dict(rec)
+                for rec in (raw.get("pending") or [])
+            }
+        except Exception as err:  # noqa: BLE001 - a bad store must not stop startup
+            logger.error("Ignoring unreadable approval store %s: %s", self.store_path, err)
+            self._plans = {}
+            self._pending = {}
+
+    def _save(self) -> None:
+        """Mirror state to disk. No-op when no store path was configured."""
+        if self.store_path is None:
+            return
+        payload = {
+            "plans": {pid: _plan_to_dict(p) for pid, p in self._plans.items()},
+            "pending": [r.to_dict() for r in self._pending.values()],
+        }
+        try:
+            self.store_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.store_path.with_name(self.store_path.name + ".tmp")
+            tmp.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+            tmp.replace(self.store_path)
+        except OSError as err:
+            # Persistence is a durability improvement, not a correctness gate: if the
+            # disk is unavailable the in-process behaviour must still work.
+            logger.error("Failed to persist approval store %s: %s", self.store_path, err)
 
     # ------------------------------------------------------------------ register
 
@@ -113,6 +272,7 @@ class ApprovalRegistry:
             )
             self._pending[key] = record
             records.append(record)
+        self._save()
         return records
 
     # --------------------------------------------------------------------- query
@@ -132,6 +292,7 @@ class ApprovalRegistry:
         record = self.get(plan_id, step_id)
         if record.notified_at is None:
             record.notified_at = _utcnow()
+            self._save()
         return record
 
     def get(self, plan_id: str, step_id: str) -> PendingApproval:
@@ -200,4 +361,5 @@ class ApprovalRegistry:
         record.approver = approver
         record.reason = reason
         record.decided_at = _utcnow()
+        self._save()
         return record
