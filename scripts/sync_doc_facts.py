@@ -57,6 +57,32 @@ EXEMPT_FILES = {
     "docs/ACCEPTED_RISKS.md",  # risk rows carry dated measurements
 }
 
+# An author must be able to *quote* a stale claim to explain the rule — this very
+# document explains what the detector catches. A fenced code block, or a line
+# carrying this escape, is quoted material rather than a claim.
+ESCAPE = "<!--doc-facts:quoted-->"
+FENCE_RE = re.compile(r"^\s*(```|~~~)")
+
+
+def _line_is_quoted(lines: list[str], idx: int) -> bool:
+    """True when the line at ``idx`` is illustrative, not an assertion.
+
+    Two principled cases: inside a fenced code block (code is illustrative), or
+    carrying the explicit ESCAPE comment (the author is quoting an anti-pattern).
+    """
+    if ESCAPE in lines[idx]:
+        return True
+    open_fence: str | None = None
+    for i in range(idx):
+        m = FENCE_RE.match(lines[i])
+        if not m:
+            continue
+        if open_fence is None:
+            open_fence = m.group(1)
+        elif m.group(1) == open_fence:
+            open_fence = None
+    return open_fence is not None
+
 
 def iter_docs() -> list[Path]:
     out = list((REPO_ROOT / "docs").rglob("*.md"))
@@ -103,6 +129,7 @@ def check_facts(facts: dict[str, str]) -> list[str]:
         if is_exempt(path):
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
+        lines = text.splitlines()
 
         # 1. marked values must match
         for m in MARKER_RE.finditer(text):
@@ -112,6 +139,8 @@ def check_facts(facts: dict[str, str]) -> list[str]:
                 continue
             if committed != actual:
                 line = text[: m.start()].count("\n") + 1
+                if _line_is_quoted(lines, line - 1):
+                    continue
                 findings.append(
                     f"{rel}:{line}: fact '{name}' says {committed!r} but the repo says {actual!r} "
                     f"— run scripts/sync_doc_facts.py --apply"
@@ -128,6 +157,11 @@ def check_facts(facts: dict[str, str]) -> list[str]:
                 # ignore a number that is already inside a fact marker
                 line = text[: m.start()].count("\n") + 1
                 if any(fm.start() <= m.start() < fm.end() for fm in MARKER_RE.finditer(text)):
+                    continue
+                # ignore quoted/illustrative material (fenced code, or an explicit
+                # escape) — prose explaining the rule must be able to show the
+                # anti-pattern without tripping the rule itself.
+                if _line_is_quoted(lines, line - 1):
                     continue
                 findings.append(
                     f"{rel}:{line}: unmarked stale claim {m.group(0)!r} (repo says {actual}) "

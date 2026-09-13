@@ -89,6 +89,21 @@ def collect_cheap() -> dict[str, str]:
         len([p for p in (REPO_ROOT / "docs").rglob("*.md") if "archive" not in p.parts])
     )
 
+    # Review windows, read from the script that enforces them, so the cadence
+    # table in DOC-GOVERNANCE.md cannot drift from the code either.
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        from doc_review_due import CADENCE_DAYS, DEFAULT_CADENCE  # noqa: PLC0415
+
+        all_windows = sorted({*CADENCE_DAYS.values(), DEFAULT_CADENCE})
+        facts["cadence_fast"] = str(min(all_windows))
+        facts["cadence_default"] = str(DEFAULT_CADENCE)
+        facts["cadence_quarterly"] = "90"
+        facts["cadence_historical"] = str(max(all_windows))
+    except Exception:  # noqa: BLE001
+        for k in ("cadence_fast", "cadence_default", "cadence_quarterly", "cadence_historical"):
+            facts[k] = "unknown"
+
     py = REPO_ROOT / "pyproject.toml"
     if py.is_file():
         m = re.search(r'requires-python\s*=\s*"([^"]+)"', py.read_text())

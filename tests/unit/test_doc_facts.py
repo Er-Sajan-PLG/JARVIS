@@ -204,6 +204,45 @@ def test_changelog_is_exempt_because_release_notes_are_history(sync_mod, monkeyp
     assert sync_mod.check_facts({"test_count": "1063", "coverage": "98"}) == []
 
 
+def test_fenced_code_block_is_quoted_not_a_claim(sync_mod, monkeypatch, tmp_path):
+    """A document explaining the rule must be able to show the anti-pattern.
+    Code blocks are illustrative by definition."""
+    _write(
+        tmp_path / "docs" / "X.md",
+        "# T\n\nFor example:\n\n```\nThe gate runs 22 checks.\n```\n",
+    )
+    monkeypatch.setattr(sync_mod, "REPO_ROOT", tmp_path)
+    assert sync_mod.check_facts({"gate_count": "23"}) == []
+
+
+def test_escape_marker_exempts_an_inline_quote(sync_mod, monkeypatch, tmp_path):
+    _write(
+        tmp_path / "docs" / "X.md",
+        "# T\n\nWe used to write <!--doc-facts:quoted-->the gate runs 22 checks, wrongly.\n",
+    )
+    monkeypatch.setattr(sync_mod, "REPO_ROOT", tmp_path)
+    assert sync_mod.check_facts({"gate_count": "23"}) == []
+
+
+def test_claim_outside_a_fence_is_still_caught(sync_mod, monkeypatch, tmp_path):
+    """The fence exemption must not become a blanket amnesty: text after the
+    closing fence is prose again and is judged normally."""
+    _write(
+        tmp_path / "docs" / "X.md",
+        "# T\n\n```\nexample\n```\n\nThe gate runs 22 checks.\n",
+    )
+    monkeypatch.setattr(sync_mod, "REPO_ROOT", tmp_path)
+    findings = sync_mod.check_facts({"gate_count": "23"})
+    assert len(findings) == 1 and "22 checks" in findings[0]
+
+
+def test_line_is_quoted_unclosed_fence_stays_quoted(sync_mod):
+    """An unterminated fence is malformed markdown; treating the tail as quoted
+    is the safe direction (it cannot be a well-formed claim)."""
+    lines = ["# T", "```", "The gate runs 22 checks."]
+    assert sync_mod._line_is_quoted(lines, 2) is True
+
+
 # ── end-to-end: the real repository must be consistent ───────────────────────
 
 

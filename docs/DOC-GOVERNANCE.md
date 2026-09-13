@@ -95,8 +95,10 @@ recorded in §5.
    protection) and the 2026-09-13 token correction both turn on.
 7. **Update the doc in the same change as the code.** A PR that changes behaviour
    without touching its document is incomplete.
-8. **No version pinning in a living document's title** (§8). A doc edited across
+8. **No version pinning in a living document's title** (§9). A doc edited across
    releases cannot honestly carry "v3.0.0"; the release tag *is* the version.
+9. **No hand-written numbers** (§8). Counts, versions and paths are fact markers
+   derived from the repository; a typed number is a future lie.
 
 ---
 
@@ -135,7 +137,8 @@ claims: `README.md`, `docs/README.md`, `docs/ARCHITECTURE.md`,
 
 ## 6. The checker
 
-`scripts/check_docs.py` enforces rules 1-5 mechanically and runs in CI.
+`scripts/check_docs.py` enforces rules 1-5, and `scripts/sync_doc_facts.py`
+enforces rule 6 (§8). Both run in CI.
 
 ```bash
 .venv/bin/python scripts/check_docs.py          # report
@@ -149,8 +152,8 @@ It checks, for every `docs/**/*.md` plus the root-level markdown files:
 - every repo-relative path written in backticks resolves on disk
   (URLs, absolute paths and glob patterns are skipped);
 - `docs/README.md` is the only file whose title claims to be the navigation map;
-- no ACTIVE document pins a version in its **title** (rule 5 / §8) — version
-  numbers in the body are legitimate and are not flagged.
+- no ACTIVE document pins a version in its **title** (rule 5 / §9) — version
+  numbers in the body are legitimate and are not flagged;
 
 Adding a new exception is a code change with a rationale in the script, not a
 silent skip.
@@ -159,21 +162,113 @@ silent skip.
 
 ## 7. Review cadence
 
-| Document class | Cadence | Trigger |
-|---|---|---|
-| `ARCHITECTURE.md`, `GOVERNANCE.md` | Quarterly | Architectural or process change |
-| `ROADMAP.md`, `SPRINT_*` | Per sprint | Sprint boundary |
-| `API_CONTRACT.md` | Per release | API change |
-| `CI-GATE-SOTA.md`, `CI-TOKEN-PERMISSIONS.md` | Quarterly, or on any CI change | Token/permission change |
-| `CAPABILITY_TRACKER.md` | Quarterly | Manual review |
-| Everything in `archive/` | Never | Frozen by definition |
+There are two kinds of drift, and only one of them can be automated.
 
-A document past its review date without a re-read is a governance failure and
-belongs in `docs/ACCEPTED_RISKS.md`, not quietly ignored.
+**Machine-checkable drift is already automated and needs no human action.** A
+number, version, path or count that disagrees with the code fails
+`scripts/sync_doc_facts.py --check` / `scripts/check_docs.py`, which run in both
+`githooks/pre-commit` and the CI gate (`gate_docs`, `gate_doc_facts`). Those
+values live in `<!--fact:` + fact-name + `-->`…`<!--/fact-->` markers and are re-derived from the
+repository, so they cannot silently go stale. Nothing in this section is needed
+for them.
+
+**Semantic drift is what a human or agent must catch.** A document can be
+structurally valid and numerically exact while no longer describing how the
+system works. That is what the cadence below is for, and it is driven by
+`scripts/doc_review_due.py`, which is the single source of truth for these
+windows — the table is a readable mirror of `CADENCE_DAYS` in that script.
+
+| Cadence | Documents | Trigger |
+|---|---|---|
+| **<!--fact:cadence_fast-->30<!--/fact--> days** | `ROADMAP.md`, `ACCEPTED_RISKS.md` | These move fastest and drive decisions |
+| **<!--fact:cadence_quarterly-->90<!--/fact--> days** | `ARCHITECTURE.md`, `GOVERNANCE.md`, `API_CONTRACT.md`, `CAPABILITY-CONTRACT.md`, `CAPABILITY_TRACKER.md`, `CI-GATE-SOTA.md`, `CI-TOKEN-PERMISSIONS.md`, `DOC-GOVERNANCE.md` | Architectural, API, CI or process change |
+| **<!--fact:cadence_default-->180<!--/fact--> days** (default) | `DEVELOPMENT.md`, `CONFIG.md`, `DATABASE.md`, `LLM.md`, `MEMORY.md`, `TOOLS.md`, and any unlisted living doc | Reference material that changes slowly |
+| **<!--fact:cadence_historical-->365<!--/fact--> days** | `DEBUGGING.md` | Historical symptom log, kept for searchability |
+| **Never** | `docs/archive/`, `docs/adr/`, `docs/timelines/`, `CHANGELOG.md`, `AUDIT-USAT.md`, `SPRINT_1_2_COMPLETION.md`, `DECISIONS-AUTONOMOUS-*.md`, `SYMBOL_LINEAGE.md` | Frozen by definition — a cadence here would only create noise |
+
+**How the clock is measured.** From git history (the last commit that touched the
+file) and an explicit `**Reviewed**: YYYY-MM-DD` line. Deliberately not from the
+`**Last Updated**` field: a hand-maintained date is a claim someone must remember
+to change, and that is exactly the thing that rots. Adding `**Reviewed**:` is the
+deliberate act that resets the clock.
+
+**Enforcement and operation.**
+
+```
+.venv/bin/python scripts/doc_review_due.py            # what is due
+.venv/bin/python scripts/doc_review_due.py --packet   # bounded review task
+```
+
+A scheduled job (`JARVIS doc staleness review`, monthly) runs the packet and
+performs the re-read; automated drift is already covered by the gate, so the job
+does only the part machinery cannot judge. A document past its window without a
+re-read is a governance failure and belongs in `docs/ACCEPTED_RISKS.md`, not
+quietly ignored.
 
 ---
 
-## 8. Versioning documents
+## 8. Facts: numbers are derived, never remembered
+
+Structural rules cannot catch a document that is well-formed and wrong. Before
+this section existed, six documents asserted a gate count of 22 while the gate had grown to 24,
+and `ACCEPTED_RISKS.md` still claimed a test count of 1028 and coverage of ~36%
+after the real numbers were 1063 and 98%. Every one of those documents passed the
+structural checker.
+
+A number in a document is therefore not text — it is a **fact reference**:
+
+```markdown
+The gate runs <!--fact:gate_count-->24<!--/fact--> checks.
+```
+
+`scripts/doc_facts.py` derives the value from the repository;
+`scripts/sync_doc_facts.py` writes it between the markers (`--apply`) and fails
+when a committed value disagrees (`--check`).
+
+**Facts come in two costs.** Cheap facts (git, filesystem, grep) are always
+computable. Expensive facts need the test suite, so they are read from
+`.governance/doc_facts.json`, which `ci_gate.py` writes after running pytest and
+coverage. When no measurement exists the fact resolves to `unknown` and the
+marker is **left alone** — an admitted gap is always better than a guessed
+number, and `sync_doc_facts.py` will never write an invented value.
+
+| Fact | Source |
+|---|---|
+| `version` | latest `vX.Y.Z` tag |
+| `commit` | `git rev-parse --short HEAD` |
+| `gate_count` | count of `def gate_*` in `scripts/ci_gate.py` |
+| `context_count` | entries in `ci_bridge.CONTEXT_ORDER` |
+| `adr_count` | `docs/adr/ADR-*.md` |
+| `board_count` | `check_*` functions in `scripts/board/review.py` |
+| `cadence_*` | `CADENCE_DAYS` / `DEFAULT_CADENCE` in `scripts/doc_review_due.py` |
+| `doc_count` | living markdown files under `docs/` |
+| `test_count`, `coverage` | written by the gate from a real pytest run |
+
+**Bare claims are checked too.** The checker also flags an *unmarked* number that
+contradicts reality. A sentence such as the following is a claim, not prose:
+
+```
+The gate runs 22 checks.
+```
+
+That is what found the six stale gate-count claims: they were written long
+before markers existed, and the bare-claim rule is what reaches backwards and
+catches them. It is deliberately narrow — a small explicit list of patterns
+in `scripts/sync_doc_facts.py` — so it stays a drift alarm rather than a style
+linter. Section numbers (`### 5.2 ADR Template`) are explicitly not claims.
+
+**Exempt.** `docs/archive/`, `CHANGELOG.md`, `AUDIT-USAT.md`,
+`SPRINT_1_2_COMPLETION.md`, `DECISIONS-AUTONOMOUS-*.md` and `DEBUGGING.md` carry
+historical numbers on purpose; rewriting them would destroy the record.
+
+**Enforcement.** `githooks/pre-commit` runs `--apply`, re-stages the corrected
+documents, then runs `--check` as a backstop — so a stale number is fixed in the
+same commit that made it stale. The CI gate enforces `--check` as
+`gate_doc_facts`, blocking, under the Virtual Board Governance context.
+
+---
+
+## 9. Versioning documents
 
 Documents are versioned by **git and the release tag**, not by a number in the
 filename. There is exactly one exception.
