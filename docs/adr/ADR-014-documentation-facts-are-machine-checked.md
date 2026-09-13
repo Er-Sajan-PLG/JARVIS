@@ -127,8 +127,21 @@ document well-formed; this keeps it honest.
 No regex can decide whether a governance document still describes how the project
 actually works. `scripts/doc_review_due.py` assigns a review window per document class
 (strategy 30 days; governance and architecture 90; references 180; historical 365;
-`docs/archive/` and ADRs never) and measures it from **git history**, not from a
-hand-maintained `**Last Updated**` — that field is precisely the thing that rots.
+`docs/archive/` and ADRs never) and measures it from the explicit
+`**Reviewed**: YYYY-MM-DD` marker — deliberately **not** from git history.
+
+Git history was the first design, and it was wrong: a commit records that *something*
+changed, not that anyone re-read the document against the implementation. A typo fix,
+a formatting pass, or an automatic marker sync (`sync_doc_facts.py --apply` rewrites
+prose on every commit that moves a count) all touch the file without anyone having
+judged whether it is still true — so a git-based clock let mechanical edits silently
+mark a document as reviewed, which is the exact failure this script exists to prevent.
+Only the explicit `**Reviewed**` marker resets the clock, because it is the only
+signal that is a *claim of a semantic re-read*. Git activity is still shown, as
+advisory context (`last_modified`, `edits_since_review`): "this document has been
+mechanically edited six times since it was last reviewed" is precisely the signal that
+it needs reading — but it never moves the clock. A future-dated `**Reviewed**` line is
+rejected, so a typo cannot park a document permanently out of the queue.
 
 It emits a bounded review packet listing only the documents actually due, with three
 questions: still true, still useful, still complete. A monthly cron job runs it. When

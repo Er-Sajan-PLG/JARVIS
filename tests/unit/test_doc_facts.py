@@ -239,6 +239,58 @@ def test_section_number_is_not_a_claim(sync_mod, monkeypatch, tmp_path):
     assert sync_mod.check_facts({"adr_count": "13"}) == []
 
 
+def test_unresolvable_cited_fact_is_a_finding_not_a_silence(sync_mod, monkeypatch, tmp_path):
+    """The regression this whole hardening exists for.
+
+    When a document cites a fact the checker cannot derive, the document cannot be
+    certified. Returning no findings would report "clean" while the number beneath
+    may be arbitrarily stale — which is exactly how `docs/ROADMAP.md` came to assert
+    a test count 84 lower than the suite's real count while `--check` printed
+    "no findings".
+    """
+    _write(
+        tmp_path / "docs" / "X.md",
+        "# T\n\nThe suite runs <!--fact:test_count-->1063<!--/fact--> tests.\n",
+    )
+    monkeypatch.setattr(sync_mod, "REPO_ROOT", tmp_path)
+    findings = sync_mod.check_facts({"test_count": "unknown", "coverage": "unknown"})
+    assert findings, "an unresolvable cited fact must be reported, not skipped"
+    assert "could not be verified" in findings[-1]
+    assert "test_count" in findings[-1]
+
+
+def test_unresolvable_fact_can_still_be_quoted(sync_mod, monkeypatch, tmp_path):
+    """Prose explaining the anti-pattern may cite a fact in a fence without tripping."""
+    _write(
+        tmp_path / "docs" / "X.md",
+        "# T\n\n```\n<!--fact:test_count-->1063<!--/fact-->\n```\n",
+    )
+    monkeypatch.setattr(sync_mod, "REPO_ROOT", tmp_path)
+    assert sync_mod.check_facts({"test_count": "unknown"}) == []
+
+
+def test_marker_naming_an_unknown_fact_is_flagged(sync_mod, monkeypatch, tmp_path):
+    """A typo'd marker name would otherwise resolve to `unknown` and never be checked."""
+    _write(
+        tmp_path / "docs" / "X.md",
+        "# T\n\nThe gate runs <!--fact:gate_countt-->25<!--/fact--> checks.\n",
+    )
+    monkeypatch.setattr(sync_mod, "REPO_ROOT", tmp_path)
+    findings = sync_mod.check_facts({"gate_count": "25"})
+    assert any("not a known fact" in f for f in findings), findings
+
+
+def test_every_declared_known_fact_is_actually_producible(sync_mod):
+    """KNOWN_FACTS must not drift from what collect() can derive, or a legitimate
+    marker would be rejected as a typo."""
+    produced = set(sync_mod.collect())
+    assert produced == sync_mod.KNOWN_FACTS, (
+        f"KNOWN_FACTS != collected facts; "
+        f"only-in-KNOWN={sync_mod.KNOWN_FACTS - produced}, "
+        f"only-in-collect={produced - sync_mod.KNOWN_FACTS}"
+    )
+
+
 def test_correct_marker_is_not_also_flagged_as_bare_claim(sync_mod, monkeypatch, tmp_path):
     """A marked claim must be counted once, not twice."""
     _write(
@@ -305,8 +357,22 @@ def test_line_is_quoted_unclosed_fence_stays_quoted(sync_mod):
 
 def test_real_repository_has_no_doc_drift(sync_mod):
     """HEAD's documentation must agree with HEAD's code. This is the regression
-    guard for the whole mechanism."""
-    findings = sync_mod.check_facts(sync_mod.collect())
+    guard for the whole mechanism.
+
+    It also asserts the guard has *teeth*: the expensive facts must resolve, so
+    this test cannot pass by measuring nothing. Without that assertion the test is
+    self-defeating — an unresolvable `test_count` used to make `check_facts` skip
+    the marker entirely, so this test would report success precisely when it had
+    verified the least.
+    """
+    facts = sync_mod.collect()
+    for expensive in ("test_count", "coverage"):
+        assert facts.get(expensive) not in (None, "unknown"), (
+            f"'{expensive}' did not resolve, so the drift guard cannot verify anything "
+            f"that cites it — run the gate to produce .governance/doc_facts.json "
+            f"for this commit before trusting a green run"
+        )
+    findings = sync_mod.check_facts(facts)
     assert findings == [], "doc drift:\n" + "\n".join(findings)
 
 

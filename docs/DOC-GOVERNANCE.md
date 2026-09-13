@@ -188,11 +188,21 @@ windows — the table is a readable mirror of `CADENCE_DAYS` in that script.
 | **<!--fact:cadence_historical-->365<!--/fact--> days** | `DEBUGGING.md` | Historical symptom log, kept for searchability |
 | **Never** | `docs/archive/`, `docs/adr/`, `docs/timelines/`, `CHANGELOG.md`, `AUDIT-USAT.md`, `SPRINT_1_2_COMPLETION.md`, `DECISIONS-AUTONOMOUS-*.md`, `SYMBOL_LINEAGE.md` | Frozen by definition — a cadence here would only create noise |
 
-**How the clock is measured.** From git history (the last commit that touched the
-file) and an explicit `**Reviewed**: YYYY-MM-DD` line. Deliberately not from the
-`**Last Updated**` field: a hand-maintained date is a claim someone must remember
-to change, and that is exactly the thing that rots. Adding `**Reviewed**:` is the
-deliberate act that resets the clock.
+**How the clock is measured.** From the explicit `**Reviewed**: YYYY-MM-DD` line
+only — deliberately **not** from git history and **not** from the `**Last Updated**`
+field. Both `git log` and a hand-maintained `Last Updated` record that *something*
+changed, which is not the same as a re-read: a typo fix, a formatting pass, or an
+automatic marker sync (`sync_doc_facts.py --apply` rewrites prose whenever a count
+moves) all touch the file without anyone having judged whether it is still true.
+Treating any of those as review evidence would let mechanical edits silently reset a
+document's clock — the exact failure this cadence exists to prevent. Only
+`**Reviewed**:` is a claim that a semantic re-read happened, so only it resets the
+clock. Git activity is reported alongside it as *context* (`last_modified`,
+`edits_since_review`): a document mechanically edited many times since its last
+review is the strongest re-read candidate, but the count never moves the date. A
+future-dated `**Reviewed**:` is rejected — it cannot evidence a review that has not
+happened, and accepting it would let a typo park a document out of the queue
+indefinitely.
 
 **Enforcement and operation.**
 
@@ -262,6 +272,22 @@ linter. Section numbers (`### 5.2 ADR Template`) are explicitly not claims.
 **Exempt.** `docs/archive/`, `CHANGELOG.md`, `AUDIT-USAT.md`,
 `SPRINT_1_2_COMPLETION.md`, `DECISIONS-AUTONOMOUS-*.md` and `DEBUGGING.md` carry
 historical numbers on purpose; rewriting them would destroy the record.
+
+**An unresolvable fact is a failure, not a silence.** This is the subtlest rule
+here and the one that was got wrong first. When a document cites a fact the
+checker cannot derive — typically `test_count`/`coverage` with no measurement for
+this commit — the checker cannot certify the document. An earlier revision
+skipped such citations and printed "no findings", which was actively harmful: the
+run *looked* verified while the underlying number could be arbitrarily stale, and
+it was: `ROADMAP.md` asserted a test count 84 lower than the suite's real count
+while `--check` reported clean. A check that reports success when it has measured
+nothing is worse than no check, so a citation of an unresolvable fact is now a
+blocking finding. The remedy is to produce the measurement (run the gate so
+`.governance/doc_facts.json` carries this commit's numbers), never to edit prose.
+A marker naming a fact that does not exist is flagged the same way, so a typo
+cannot hide a claim from the checker forever. `--apply` still refuses to write
+`unknown`, and leaves such markers untouched — the writer never invents a value;
+only the *checker* treats the unresolvable as a defect.
 
 **Enforcement.** `githooks/pre-commit` runs `--apply`, re-stages the corrected
 documents, then runs `--check` as a backstop — so a stale number is fixed in the
