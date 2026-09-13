@@ -1,7 +1,9 @@
 # JARVIS Development Workflow — Living Document v3.0.0
+
 **Status**: ACTIVE
-**Orchestration**: JARVIS decides, n8n schedules (ADR-013)
 **Last Updated**: 2026-09-13
+
+**Orchestration**: JARVIS decides, n8n schedules (ADR-013)
 
 ---
 

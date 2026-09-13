@@ -1,5 +1,8 @@
 # Documentation Governance
+
 **Status**: ACTIVE
+**Last Updated**: 2026-09-13
+
 **Created**: 2026-09-13
 **Authority**: `docs/GOVERNANCE.md`; repo-root `AGENTS.md` §Documentation
 **Reviewed**: 2026-12-13
@@ -31,8 +34,6 @@ Every file under `docs/` **must** begin with a level-1 heading followed by a
 status block containing at least:
 
 ```
-**Status**: <one of the four statuses below>
-**Last Updated**: 2026-09-13
 ```
 
 Documents that assert behaviour **must** additionally name their source, e.g.

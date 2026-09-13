@@ -2,6 +2,7 @@
 
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
+
 **Method**: every row below was measured with a live API probe against
 `api.github.com` on 2026-09-13, not read off the GitHub UI. Token values are
 never printed — only prefixes and SHA-256 identity hashes.

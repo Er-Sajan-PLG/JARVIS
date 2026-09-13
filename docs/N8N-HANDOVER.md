@@ -1,8 +1,8 @@
 # n8n Handover — How This Works and How to Take Over
 
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
+
 **Audience**: the human owner of this repo. Written after an autonomous session that built
 the CI gate and the HITL loop. **New working agreement**: you edit workflows in the n8n
 UI; the agent reads your edits back out of the database, diffs them, and commits them.

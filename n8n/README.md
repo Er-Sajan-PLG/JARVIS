@@ -1,11 +1,11 @@
 # n8n — JARVIS Local Automation
 
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+
 > Canonical beginner guide: [`docs/N8N-SETUP.md`](../docs/N8N-SETUP.md).
 > This file is the short technical reference for the `n8n/` directory.
 
-
-**Status**: ACTIVE
-**Last Updated**: 2026-09-13
 ## Why n8n (not GitHub Actions)
 
 GitHub Actions on a **private** repository is paid. n8n runs locally, for free, so it

@@ -1,8 +1,8 @@
 # JARVIS Release Changelog
 
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
+
 All notable changes to the JARVIS project from the initial commit (`1999e53`) to the
 current release are recorded here. Entries are newest-first. Versions below `v3.0.0`
 are retained history and are **not** rewritten; see also

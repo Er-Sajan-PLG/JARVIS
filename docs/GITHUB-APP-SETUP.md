@@ -1,9 +1,8 @@
 # GitHub App setup (ADR-012 migration)
 
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
-**Source**: `scripts/github_app_token.py` at HEAD
+
 The CI gate currently publishes with a fine-grained PAT (`JARVIS_CI_TOKEN`). That
 works — verified: `published=8/8`, and GitHub read-back returns
 `state=success, total_count=8`. This document is the next step: moving each

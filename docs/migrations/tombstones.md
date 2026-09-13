@@ -1,8 +1,8 @@
 # Deleted & Deprecated Symbol Tombstone Registry
 
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
+
 | Symbol Name | Removal Commit | Last Active Commit | Reason for Removal | Replacement Symbol |
 | :--- | :--- | :--- | :--- | :--- |
 | `app.prompt.builder.PromptBuilder` | `ec0dc4e` | `f9fa068` | Obsolete monolithic prompt builder; superseded by Jinja2 template loader & ContextBuilder | `app.prompt.loader.PromptLoader`, `app.context.builder.ContextBuilder` |

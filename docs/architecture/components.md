@@ -1,12 +1,12 @@
 # JARVIS — Master Architecture & Component Topology (`v3.0.0 Refactored`)
 
-> **Source of Truth**: Running implementation under `app/` at `HEAD` (`v3.0.0 Refactored`, commit `ec0dc4e`).
-> **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`c5a97b4` - `ec0dc4e`) | Tag Release Date: 2026-07-28*
-
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
 **Source**: `app/` at HEAD
+
+> **Source of Truth**: Running implementation under `app/` at `HEAD` (`v3.0.0 Refactored`, commit `ec0dc4e`).
+> **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`c5a97b4` - `ec0dc4e`) | Tag Release Date: 2026-07-28*
+
 ---
 
 ## 1. High-Level Pragmatic Hybrid Architecture

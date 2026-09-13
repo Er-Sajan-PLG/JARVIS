@@ -1,8 +1,8 @@
 # CAPABILITY CONTRACT — JARVIS ↔ PROFESSOR-J Shared AI Capability Surface
 
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
+
 **Version:** 1.0.0
 **Status:** Contract definition (not code). Both repos implement to this contract.
 **Authority:** JARVIS repository governance. Per-repo governance overrides implementation detail; contract interface is binding.

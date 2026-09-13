@@ -1,9 +1,9 @@
 # JARVIS Versioning
 
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
 **Source**: `app/config/version.py`, `scripts/version_bump.py`
+
 How the version number is produced, and why it is built this way.
 
 ## Source of truth: git tags

@@ -1,12 +1,12 @@
 # Cognitive Brain Engine & Agent Architecture (`v3.0.0 Refactored`)
 
-> **Source of Truth**: `app/brain/` and `app/guardrails/` at `HEAD`.
-> **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`f4d5e01`) | Tag Release Date: 2026-07-28*
-
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
 **Source**: `app/brain/`, `app/guardrails/` at HEAD
+
+> **Source of Truth**: `app/brain/` and `app/guardrails/` at `HEAD`.
+> **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`f4d5e01`) | Tag Release Date: 2026-07-28*
+
 ---
 
 ## 1. Cognitive Brain Execution Cycle

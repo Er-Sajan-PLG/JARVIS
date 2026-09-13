@@ -1,8 +1,10 @@
 # JARVIS Capability Contract Tracker — Living Document v3.0.0
+
 **Status**: ACTIVE
+**Last Updated**: 2026-09-13
+
 **Contract Version**: 1.0.0
 **Contract Source**: `docs/CAPABILITY-CONTRACT.md`
-**Last Updated**: 2026-09-13
 **Review Cadence**: Quarterly (manual review — no `JARVIS-Capability-Sync`
 workflow exists; see `docs/GOVERNANCE.md` §3)
 

@@ -1,5 +1,8 @@
 # Contributing to JARVIS
 
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+
 Thanks for contributing. This project follows strict governance — read
 `AGENTS.md` at the repo root **before** making any change. Key rules are
 summarized below; `AGENTS.md` is authoritative.

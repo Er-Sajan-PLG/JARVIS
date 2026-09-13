@@ -1,7 +1,8 @@
 # JARVIS Documentation Guide
 
-**Status**: ACTIVE — this file is the single navigation map for `docs/`.
+**Status**: ACTIVE
 **Last Updated**: 2026-09-13
+
 **Source of truth**: the repository state. If a document and the code disagree,
 the code wins — and the document is a bug.
 

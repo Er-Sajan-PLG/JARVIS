@@ -1,9 +1,12 @@
 # JARVIS Governance — Living Document v3.0.0
+
 **Status**: ACTIVE
+**Last Updated**: 2026-09-13
+**Source**: `AGENTS.md`, `docs/adr/`
+
 **Authority**: This document governs all changes to JARVIS repository
 **Workflow Orchestration**: n8n (external) **schedules**; JARVIS **decides**.
 See `docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md`.
-**Last Updated**: 2026-09-13
 
 ---
 

@@ -2,6 +2,7 @@
 
 **Status**: HISTORICAL
 **Last Updated**: 2026-07-26
+
 **Period:** v2.5.0 → v3.0.0 (Jul 19 – Jul 26, 2026)
 **Commits:** 9 | **Files:** 91 | **Lines:** +9,054 / -7,804
 **Test Count:** 99 (4 skipped for missing deps)

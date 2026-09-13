@@ -1,8 +1,8 @@
 # ADR-013 — JARVIS orchestrates its own work; n8n is a workflow executor it drives
 
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-12
+
 - Status: Accepted
 - Date: 2026-09-12
 - Related: ADR-011 (tool wiring + HITL gate), ADR-012 (GitHub identity per function),

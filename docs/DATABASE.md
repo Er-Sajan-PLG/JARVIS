@@ -1,9 +1,8 @@
 # JARVIS Database
 
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
-**Source**: `app/memory/`, `app/conversation/` at HEAD
+
 This document describes how JARVIS persists data. Every statement below was
 checked against the source code at the time of writing. Files inspected:
 

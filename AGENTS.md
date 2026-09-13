@@ -1,14 +1,14 @@
 # JARVIS Agent Standards & Governance
 
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+
 > **Not to be confused with [`docs/AGENTS.md`](docs/AGENTS.md).** That file
 > documents the `app/agents/` package. This file is the authoritative
 > governance standard every agent must follow.
 
-
 **Version**: 1.0.0
-**Status**: ACTIVE
 **Authority**: Architecture Review Board
-**Last Updated**: 2026-09-13
 
 ---
 
@@ -160,7 +160,6 @@ stops on red, and a human does not press merge. See `docs/ACCEPTED_RISKS.md`
 ```markdown
 # ADR-XXX: <Title>
 
-**Status**: Proposed | Accepted | Superseded
 **Date**: YYYY-MM-DD
 **Author**: <name>
 

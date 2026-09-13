@@ -1,6 +1,9 @@
 # 🤖 JARVIS — Modular Personal AI Platform
 
-[![Version](https://img.shields.io/badge/version-v3.0.1-blue.svg)](docs/CHANGELOG.md)
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+
+[![Version](https://img.shields.io/badge/version-v3.2.2-blue.svg)](docs/CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.11%2B-brightgreen.svg)](https://www.python.org/)
 [![Architecture](https://img.shields.io/badge/architecture-Pragmatic%20Hybrid-orange.svg)](docs/ARCHITECTURE.md)
 [![CI](https://img.shields.io/badge/CI-local%20n8n%20plane-blueviolet.svg)](docs/CI-GATE-SOTA.md)
@@ -275,7 +278,7 @@ static data does not persist reliably across restarts in this n8n build.
 
 - **8 governance checks** run in CI: import layering, domain purity, schema drift,
   prerequisite graph, safety-gate coverage, MCP tool search, OTEL spans, LangGraph checkpoint.
-- **12 ADRs** in `docs/adr/` (ADR-001 → ADR-012), including
+- **13 ADRs** in `docs/adr/` (ADR-001 → ADR-013), including
   [ADR-011](docs/adr/ADR-011-tool-wiring-and-hitl-gate.md) (tool wiring + HITL) and
   [ADR-012](docs/adr/ADR-012-github-auth-identity-per-function.md) (one GitHub identity per function).
 - **16 tracked risks** in [`docs/ACCEPTED_RISKS.md`](docs/ACCEPTED_RISKS.md) — every
@@ -307,7 +310,7 @@ Start at **[`docs/INDEX.md`](docs/INDEX.md)** — the master navigation map.
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Sprint plan and technical debt register |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Release notes |
 | [docs/DEVLOG.md](docs/DEVLOG.md) | Why decisions were made, alternatives rejected |
-| [docs/adr/](docs/adr/) | Architecture Decision Records (ADR-001 → ADR-012) |
+| [docs/adr/](docs/adr/) | Architecture Decision Records (ADR-001 → ADR-013) |
 
 Repository: <https://github.com/Er-Sajan-PLG/JARVIS>
 

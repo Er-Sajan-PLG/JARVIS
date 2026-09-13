@@ -1,6 +1,5 @@
 ## JARVIS Documentation Agent — Tool System (app/tools/)
 
-
 > Source-verified documentation. Every claim below was checked against the code in
 > `app/tools/` (`base.py`, `executor.py`, `file_tools.py`, `git_tools.py`, `__init__.py`)
 > and the consuming code in `app/agents/doc_agent.py` and `app/main.py`, plus the
@@ -422,10 +421,9 @@ Reviewer:
 
 # Notes by AI:
 
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
-**Source**: `app/tools/` at HEAD
+
 d but unused in the current code (forward-compat for v3.0).
 format_for_prompt() -> str — builds a human-readable tool list for the system prompt. Tools whose risk_level is not "none"/"low" get a [<risk> risk] suffix (so write_file shows [medium risk]; git tools and read_file do not).
 Registered tools (verified)
@@ -441,7 +439,6 @@ So 7 tools are registered: 5 git + 2 file.
 
 Tool registration
 Registration is hardcoded and happens only in DocumentationAgent.__init__ (app/agents/doc_agent.py):
-
 
 Apply
 self._registry = ToolRegistry()

@@ -1,8 +1,8 @@
 # Autonomous Session Decisions — 2026-09-10
 
-
-**Status**: HISTORICAL
+**Status**: SNAPSHOT
 **Last Updated**: 2026-09-10
+
 Recorded because these calls were made while the user was away, under the standing
 instruction: *decide, write down why, and note what else was on the table.*
 Each entry: **Decision → Why → Alternatives → Verification**.

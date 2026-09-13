@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
-"""Apply/normalise the required status header on every doc (docs/DOC-GOVERNANCE.md §2).
+"""Apply the required status header to every doc (docs/DOC-GOVERNANCE.md §2).
 
-Idempotent: re-running replaces the existing Status/Last Updated lines rather than
-appending duplicates.
+This is a migration tool for the 2026-09-13 documentation pass. It is
+**idempotent**: running it twice produces the same bytes, because it strips any
+existing canonical header lines and re-emits them in a fixed shape.
+
+Fixed shape, immediately after the H1::
+
+    # Title
+
+    **Status**: ACTIVE
+    **Last Updated**: 2026-09-13
+
+    Body...
+
+`PLAN` carries the status, date and optional source line per document. Documents
+not listed in `PLAN` are left untouched.
 """
 
 from __future__ import annotations
@@ -11,57 +24,56 @@ import re
 import sys
 from pathlib import Path
 
-REPO = (
-    Path(__file__).resolve().parents[1]
-    if "__file__" in globals()
-    else Path("/home/sajan/Projects/JARVIS")
-)
+REPO = Path(__file__).resolve().parents[1]
 
+# rel path -> (status, last_updated, source_line_or_None)
 PLAN: dict[str, tuple[str, str, str | None]] = {
+    # ── root ────────────────────────────────────────────────────────────────
     "README.md": ("ACTIVE", "2026-09-13", None),
     "CONTRIBUTING.md": ("ACTIVE", "2026-09-13", None),
     "SECURITY.md": ("ACTIVE", "2026-09-13", None),
     "CODE_OF_CONDUCT.md": ("ACTIVE", "2026-09-13", None),
-    "AGENTS.md": ("ACTIVE", "2026-09-13", "repo-root governance standard"),
-    "docs/ACCEPTED_RISKS.md": ("ACTIVE", "2026-09-13", None),
-    "docs/AGENTS.md": ("ACTIVE", "2026-09-13", "`app/agents/` at HEAD"),
-    "docs/API_CONTRACT.md": (
+    "AGENTS.md": ("ACTIVE", "2026-09-13", None),
+    # ── docs/ living ────────────────────────────────────────────────────────
+    "docs/README.md": ("ACTIVE", "2026-09-13", None),
+    "docs/DOC-GOVERNANCE.md": ("ACTIVE", "2026-09-13", None),
+    "docs/GOVERNANCE.md": ("ACTIVE", "2026-09-13", "`AGENTS.md`, `docs/adr/`"),
+    "docs/DEVELOPMENT.md": ("ACTIVE", "2026-09-13", None),
+    "docs/ARCHITECTURE.md": (
         "ACTIVE",
         "2026-09-13",
-        "`app/adapters/http/router.py`, `app/adapters/websocket/stream.py`",
+        "`app/` at HEAD (this document describes HEAD, not a pinned commit)",
     ),
-    "docs/ARCHITECTURE.md": ("ACTIVE", "2026-09-13", None),
-    "docs/AUDIT-USAT.md": ("SNAPSHOT", "2026-09-10", None),
+    "docs/ROADMAP.md": ("ACTIVE", "2026-09-13", None),
+    "docs/ACCEPTED_RISKS.md": ("ACTIVE", "2026-09-13", None),
+    "docs/CI-GATE-SOTA.md": ("ACTIVE", "2026-09-13", None),
+    "docs/CI-TOKEN-PERMISSIONS.md": ("ACTIVE", "2026-09-13", None),
+    "docs/API_CONTRACT.md": ("ACTIVE", "2026-09-13", None),
     "docs/CAPABILITY-CONTRACT.md": ("ACTIVE", "2026-09-13", None),
     "docs/CAPABILITY_TRACKER.md": ("ACTIVE", "2026-09-13", None),
     "docs/CHANGELOG.md": ("ACTIVE", "2026-09-13", None),
-    "docs/CI-GATE-SOTA.md": (
-        "ACTIVE",
-        "2026-09-13",
-        "`scripts/ci_gate.py`, `scripts/ci_bridge.py`",
-    ),
-    "docs/CI-TOKEN-PERMISSIONS.md": ("ACTIVE", "2026-09-13", None),
-    "docs/CONFIG.md": ("ACTIVE", "2026-09-13", "`app/config/settings.py` at HEAD"),
-    "docs/DATABASE.md": ("ACTIVE", "2026-09-13", "`app/memory/`, `app/conversation/` at HEAD"),
+    "docs/CONFIG.md": ("ACTIVE", "2026-09-13", None),
+    "docs/DATABASE.md": ("ACTIVE", "2026-09-13", None),
     "docs/DEBUGGING.md": ("ACTIVE", "2026-09-13", None),
-    "docs/DECISIONS-AUTONOMOUS-2026-09-10.md": ("HISTORICAL", "2026-09-10", None),
-    "docs/DEVELOPMENT.md": ("ACTIVE", "2026-09-13", None),
-    "docs/DOC-GOVERNANCE.md": ("ACTIVE", "2026-09-13", None),
-    "docs/GITHUB-APP-SETUP.md": ("ACTIVE", "2026-09-13", "`scripts/github_app_token.py` at HEAD"),
-    "docs/GOVERNANCE.md": ("ACTIVE", "2026-09-13", None),
-    "docs/LLM.md": ("ACTIVE", "2026-09-13", "`app/models/` at HEAD"),
-    "docs/MEMORY.md": ("ACTIVE", "2026-09-13", "`app/memory/` at HEAD"),
+    "docs/GITHUB-APP-SETUP.md": ("ACTIVE", "2026-09-13", None),
+    "docs/LLM.md": ("ACTIVE", "2026-09-13", None),
+    "docs/MEMORY.md": ("ACTIVE", "2026-09-13", None),
     "docs/N8N-HANDOVER.md": ("ACTIVE", "2026-09-13", None),
     "docs/N8N-SETUP.md": ("ACTIVE", "2026-09-13", None),
-    "docs/ROADMAP.md": ("ACTIVE", "2026-09-13", None),
-    "docs/SPRINT_1_2_COMPLETION.md": ("SNAPSHOT", "2026-09-13", None),
-    "docs/SYMBOL_LINEAGE.md": ("SNAPSHOT", "2026-09-13", None),
-    "docs/TOOLS.md": ("ACTIVE", "2026-09-13", "`app/tools/` at HEAD"),
+    "docs/SPRINT_1_2_COMPLETION.md": ("ACTIVE", "2026-09-13", None),
+    "docs/TOOLS.md": ("ACTIVE", "2026-09-13", None),
     "docs/VERSIONING.md": (
         "ACTIVE",
         "2026-09-13",
         "`app/config/version.py`, `scripts/version_bump.py`",
     ),
+    "docs/AGENTS.md": ("ACTIVE", "2026-09-13", "`AGENTS.md` at the repo root"),
+    # ── snapshots ───────────────────────────────────────────────────────────
+    "docs/AUDIT-USAT.md": ("SNAPSHOT", "2026-09-10", None),
+    "docs/DECISIONS-AUTONOMOUS-2026-09-10.md": ("SNAPSHOT", "2026-09-10", None),
+    "docs/timelines/evolution_timeline.md": ("SNAPSHOT", "2026-09-13", None),
+    "docs/timelines/symbol_timeline.md": ("SNAPSHOT", "2026-09-13", None),
+    # ── reference / module ──────────────────────────────────────────────────
     "docs/architecture/cognitive_brain.md": (
         "ACTIVE",
         "2026-09-13",
@@ -97,8 +109,7 @@ PLAN: dict[str, tuple[str, str, str | None]] = {
     "docs/modules/models.md": ("ACTIVE", "2026-09-13", "`app/models/` at HEAD"),
     "docs/migrations/tombstones.md": ("ACTIVE", "2026-09-13", None),
     "docs/migrations/v2_to_v3_migration.md": ("ACTIVE", "2026-09-13", None),
-    "docs/timelines/evolution_timeline.md": ("SNAPSHOT", "2026-09-13", None),
-    "docs/timelines/symbol_timeline.md": ("SNAPSHOT", "2026-09-13", None),
+    # ── ADRs: historical decisions, each frozen on its own date ─────────────
     "docs/adr/ADR-001-ollama-cli-integration.md": ("HISTORICAL", "2026-06-27", None),
     "docs/adr/ADR-002-json-file-persistent-memory.md": ("HISTORICAL", "2026-06-28", None),
     "docs/adr/ADR-003-multi-model-task-router.md": ("HISTORICAL", "2026-07-03", None),
@@ -112,60 +123,63 @@ PLAN: dict[str, tuple[str, str, str | None]] = {
     "docs/adr/ADR-011-tool-wiring-and-hitl-gate.md": ("ACTIVE", "2026-09-10", None),
     "docs/adr/ADR-012-github-auth-identity-per-function.md": ("ACTIVE", "2026-09-11", None),
     "docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md": ("ACTIVE", "2026-09-12", None),
+    # ── archive: frozen, never edited again ─────────────────────────────────
     "docs/archive/CHANGELOG_v3.0.0.md": ("HISTORICAL", "2026-07-26", None),
     "docs/archive/DEVLOG_v3.0.0.md": ("HISTORICAL", "2026-07-26", None),
     "docs/archive/API_SIGNATURE_HISTORY.md": ("HISTORICAL", "2026-07-28", None),
     "docs/archive/DEVLOG.md": ("HISTORICAL", "2026-07-28", None),
     "docs/archive/HISTORY.md": ("HISTORICAL", "2026-09-10", None),
     "docs/archive/HEALTH_REPORT_2026-07-28.md": ("HISTORICAL", "2026-07-28", None),
+    # ── other trees ─────────────────────────────────────────────────────────
     "n8n/README.md": ("ACTIVE", "2026-09-13", None),
 }
 
-STATUS_LINE = re.compile(r"^\s*\*\*Status\*\*\s*:.*$", re.M)
-UPDATED_LINE = re.compile(r"^\s*\*\*(Last Updated|Last Sync|Last reviewed)\*\*\s*:.*$", re.M | re.I)
+# Canonical header lines. `^\s*` does NOT match a leading "- ", so an ADR's own
+# "- **Status**: Approved" bullet is left alone — that is decision history, not
+# this header.
+STATUS_RE = re.compile(r"^\s*\*\*Status\*\*\s*:.*$", re.M)
+UPDATED_RE = re.compile(r"^\s*\*\*(Last Updated|Last Sync|Last reviewed)\*\*\s*:.*$", re.M | re.I)
+SOURCE_RE = re.compile(r"^\s*\*\*Source( of Truth)?\*\*\s*:.*$", re.M)
 
 
-def insert(path: Path, status: str, updated: str, source: str | None) -> str:
-    text = path.read_text(encoding="utf-8", errors="replace")
+def render(text: str, status: str, updated: str, source: str | None) -> str:
+    """Return `text` with exactly one canonical header, placed after the H1."""
     lines = text.splitlines()
-    # find H1
     h1 = next((i for i, ln in enumerate(lines) if ln.startswith("# ")), None)
     if h1 is None:
-        return "no-h1"
+        return text
+
+    # Drop every existing canonical header line, wherever it sits. This is what
+    # makes the operation idempotent and independent of where the previous pass
+    # happened to leave things.
+    cleaned = [
+        ln
+        for ln in lines
+        if not (STATUS_RE.match(ln) or UPDATED_RE.match(ln) or SOURCE_RE.match(ln))
+    ]
+    h1 = next(i for i, ln in enumerate(cleaned) if ln.startswith("# "))
+
     block = [f"**Status**: {status}", f"**Last Updated**: {updated}"]
     if source:
         block.append(f"**Source**: {source}")
 
-    # existing Status line anywhere? replace it + adjacent Last Updated
-    if STATUS_LINE.search(text):
-        text2 = STATUS_LINE.sub(f"**Status**: {status}", text, count=1)
-        if UPDATED_LINE.search(text2):
-            text2 = UPDATED_LINE.sub(f"**Last Updated**: {updated}", text2, count=1)
-        else:
-            # put Last Updated right after the Status line
-            text2 = text2.replace(
-                f"**Status**: {status}", f"**Status**: {status}\n**Last Updated**: {updated}", 1
-            )
-        if source and "**Source**:" not in text2:
-            text2 = text2.replace(
-                f"**Last Updated**: {updated}",
-                f"**Last Updated**: {updated}\n**Source**: {source}",
-                1,
-            )
-        path.write_text(text2, encoding="utf-8")
-        return "renormalised"
-
-    # skip past the H1 and any immediately-following blockquote/banner lines,
-    # inserting the header *after* the title but before the first blank-separated para.
+    # Preserve an immediately-following blockquote banner (some docs open with
+    # one), placing the header below it.
     j = h1 + 1
-    while j < len(lines) and (lines[j].startswith(">") or lines[j].strip() == ""):
-        # stop after the first blockquote block ends
-        if lines[j].strip() == "" and j > h1 + 1 and not lines[j - 1].startswith(">"):
-            break
+    while j < len(cleaned) and cleaned[j].startswith(">"):
         j += 1
-    new = lines[:j] + [""] + block + lines[j:]
-    path.write_text("\n".join(new) + "\n", encoding="utf-8")
-    return "inserted"
+
+    out = cleaned[:j] + [""] + block + [""] + cleaned[j:]
+
+    # Exactly one blank line between every block: collapse blank runs.
+    final: list[str] = []
+    for ln in out:
+        if ln.strip() == "" and (not final or final[-1].strip() == ""):
+            continue
+        final.append(ln)
+    while final and final[0].strip() == "":
+        final.pop(0)
+    return "\n".join(final) + "\n"
 
 
 def main() -> int:
@@ -176,15 +190,17 @@ def main() -> int:
             missing.append(rel)
             continue
         before = p.read_text(encoding="utf-8", errors="replace")
-        action = insert(p, status, updated, source)
-        after = p.read_text(encoding="utf-8", errors="replace")
+        after = render(before, status, updated, source)
         if before != after:
-            touched.append((rel, action))
-    print(f"touched {len(touched)} file(s)")
-    for rel, a in touched:
-        print(f"  {a:14s} {rel}")
+            p.write_text(after, encoding="utf-8")
+            touched.append(rel)
+    print(f"updated {len(touched)} file(s)")
+    for rel in touched:
+        print(f"  {rel}")
     if missing:
-        print("\nmissing (skipped):", missing)
+        print("\nmissing (skipped):")
+        for rel in missing:
+            print(f"  {rel}")
     return 0
 
 

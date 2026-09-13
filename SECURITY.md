@@ -1,5 +1,8 @@
 # Security Policy
 
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+
 ## Supported Versions
 
 | Version | Supported          |

@@ -1,5 +1,8 @@
 # Contributor Covenant Code of Conduct
 
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+
 ## Our Pledge
 
 We as members, contributors, and leaders pledge to make participation in our

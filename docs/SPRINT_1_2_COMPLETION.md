@@ -1,8 +1,8 @@
 # Sprint 1 (Foundation) + Sprint 2 (Hardening) — Verified Completion Record
 
-
-**Status**: SNAPSHOT
+**Status**: ACTIVE
 **Last Updated**: 2026-09-13
+
 **Recorded**: 2026-09-11  (+05:45, session FF5D759)
 **Method**: Verified against source files / running services / git tags / grep / file reads — NOT copied from `docs/ROADMAP.md` checkboxes. Only real evidence used.
 **Status principle**: Only items verified by real evidence are marked green; BLOCKED / MISSING / PARTIAL stay labeled with their real reason (GitHub 403, missing file, partial implementation). No fabricated green.

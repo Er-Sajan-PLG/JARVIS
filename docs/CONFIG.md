@@ -1,9 +1,8 @@
 # Configuration
 
-
 **Status**: ACTIVE
 **Last Updated**: 2026-09-13
-**Source**: `app/config/settings.py` at HEAD
+
 The configuration of JARVIS v2.1 is managed through a centralized system designed for clarity, modularity, and easy overrides.
 
 ## Configuration Architecture

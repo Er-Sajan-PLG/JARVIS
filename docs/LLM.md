@@ -1,5 +1,8 @@
 # LLM — Model Architecture, Selection & Inference
 
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+
 > **Scope / verification note.** Every statement below was verified against the
 > source code in `app/`.
 >
@@ -15,10 +18,6 @@
 > is the `app/models/` package plus its callers in `app/main.py` and
 > `app/agents/doc_agent.py`.
 
-
-**Status**: ACTIVE
-**Last Updated**: 2026-09-13
-**Source**: `app/models/` at HEAD
 ---
 
 ## 1. Model architecture
