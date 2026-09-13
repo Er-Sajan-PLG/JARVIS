@@ -1,5 +1,10 @@
 # Configuration
 
+**Status**: ACTIVE
+**Type**: reference
+**Source**: `app/config/` at HEAD
+**Last Updated**: 2026-09-13
+
 The configuration of JARVIS v2.1 is managed through a centralized system designed for clarity, modularity, and easy overrides.
 
 ## Configuration Architecture
@@ -24,13 +29,31 @@ The primary source for external configuration is the `config.yaml` file located 
 
 -   **Loading Mechanism**: The `Settings.load()` class method attempts to read and parse `config.yaml`.
 -   **Default Fallback**: If `config.yaml` is not found, the application gracefully falls back to using hardcoded default values defined within the `Settings` dataclass and its nested configuration classes.
--   **Security Note**: The content of `config.yaml` is protected and cannot be directly inspected by automated agents. Information about its role is inferred from the `Settings.load()` implementation.
+-   **Verified**: `config.yaml` is a normal tracked file in this repository and is
+    read directly by `Settings.load()`. An earlier revision of this document
+    claimed the file could not be inspected by automated agents and inferred its
+    behaviour instead — that was a tooling artefact of the session that wrote it,
+    not a property of the repository.
 
 ## Environment Variables
 
-The `app/config/settings.py` module imports `load_dotenv` from `dotenv` and `os`, indicating the capability to load environment variables (e.g., from a `.env` file) and access them via `os.getenv()`.
+`app/config/settings.py` imports `load_dotenv` (from `python-dotenv`) and `yaml`.
 
-However, as of the current implementation in `app/config/settings.py`, there are no explicit calls to `load_dotenv()` within the `Settings` class or `get_settings()` function, nor are there direct `os.getenv()` calls used to override the configuration values defined in the `Settings` dataclasses. This suggests that while the infrastructure for environment variable loading is present, it is not actively used by this specific configuration module to modify the settings described herein. Environment variables might be utilized in other parts of the application.
+**Verified against `app/config/settings.py` at HEAD:** `Settings` itself does not
+call `os.getenv()` — environment overrides are not applied inside the dataclasses
+described here. Instead the split is:
+
+- **`config.yaml`** supplies structural configuration (models, paths, limits) via
+  `Settings.load()` → `yaml.safe_load()`. A missing file, an unreadable file, or a
+  YAML error each degrade to the built-in defaults with a logged warning — startup
+  never fails on configuration.
+- **Environment variables** are consumed by the layer *above* settings — API keys
+  and service wiring in `app/bootstrap.py` and the adapters — not by `Settings`.
+  `load_dotenv()` is called during application startup so a `.env` file populates
+  `os.environ` before that wiring runs.
+
+So: environment variables do affect the running system, but they are read where
+the credentials and endpoints are used, not inside `app/config/settings.py`.
 
 ## Default Values
 

@@ -1,5 +1,10 @@
 # JARVIS Versioning
 
+**Status**: ACTIVE
+**Type**: reference
+**Last Updated**: 2026-09-13
+**Source**: `app/config/version.py`, `scripts/version_bump.py`
+
 How the version number is produced, and why it is built this way.
 
 ## Source of truth: git tags
@@ -25,8 +30,8 @@ The implementation is `app/config/version.py`. It runs
 | N commits ahead of the nearest tag | `vA.B.C+dev.N` |
 | working tree dirty | `... .dirty` |
 
-Example, as of this writing: HEAD is 136 commits past the `v3.0.1` tag, so the
-app reports `v3.0.1+dev.136`.
+Example, as of 2026-09-13: HEAD sits exactly on the `v3.2.2` tag, so the app
+reports `v3.2.2` with no `+dev.N` suffix.
 
 Fallbacks, in order, only when git is truly absent:
 
@@ -57,24 +62,43 @@ does not change — only the frequency of tagging does.
 All of them report the *same* git-derived string. There is deliberately no
 second source of truth to drift.
 
-## What `scripts/bump_version.py` does
+## What actually cuts a release tag
 
-`bump_version.py [patch|minor|major]` is a **convenience**, not the authority:
+**Automatic (the normal path).** `githooks/pre-push` runs on every push to the
+default branch. If commits exist since the latest `vA.B.C` tag, it calls
+`scripts/version_bump.py --apply --tag-only`, which:
 
-1. bumps the `project.version` line in `pyproject.toml` (metadata courtesy),
-2. commits that change,
-3. creates the `vX.Y.Z` tag — which is what actually moves the version.
+1. computes the bump from the conventional-commit types since that tag
+   (breaking → MAJOR, `feat` → MINOR, anything else → PATCH),
+2. creates the annotated `vX.Y.Z` tag at HEAD,
+3. pushes the tag, then publishes the matching GitHub Release
+   (`scripts/publish_release.py`) — because a tag is not a release.
 
-It tries an annotated+signed tag (`-s`) first, and falls back to an unsigned
-annotated tag when no GPG key is present, because the tag is what matters, not
-the signature.
+If there are **no** conventional commits since the last tag it refuses to bump,
+rather than minting an empty patch tag. A bump failure never blocks the push; it
+warns and continues.
+
+> **Ordering trap (fixed 2026-09-13):** the hook originally published the release
+> *before* pushing the tag, and `gh` refuses to release a tag the remote does not
+> have yet. The tag is now pushed first. Pushing a tag re-enters the hook with
+> `local_ref=refs/tags/…`, which the branch guard skips, so there is no recursion.
+>
+> Tags still need to be pushed explicitly if you are not going through the hook:
+> `git push origin --tags`.
+
+**Manual (rare).** `scripts/bump_version.py [patch|minor|major]` bumps the
+`project.version` line in `pyproject.toml`, commits it, and creates the tag. It is
+a **convenience for the metadata**, not the authority — two scripts exist and
+`version_bump.py` is the one wired into the hook. It tries an annotated+signed
+tag (`-s`) first and falls back to an unsigned annotated tag when no GPG key is
+present, because the tag is what matters, not the signature.
 
 ## What must NOT happen (regressions to watch for)
 
 - **Do not hardcode a version string in the API layer.** The correct pattern
   is `from app.config.version import VERSION as __version__`; a bare
   `version="3.0.0"` is a bug — it is how the `/health` endpoint silently
-  reported `3.0.0` while the app knew `v3.0.1+dev.136`.
+  reported `3.0.0` while the app knew `v3.0.1+dev.136` (fixed 2026-09-11).
 - **Do not treat `pyproject.toml` as the version.** It is metadata; the tag is
   the number. `package.json` under the frontend is likewise not authoritative.
 - **Do not edit `app/config/version.py` to change the number.** It has no
@@ -86,5 +110,9 @@ the signature.
   development staging markers, not releases. They are retained as-is; the
   history is not being rewritten.
 - `v3.0.0` (2026-07-26) and `v3.0.1` (2026-07-28) are the first stable tags.
+- **Every `v3.1.0`+ tag was cut automatically** by the push hook described above,
+  starting 2026-09-13. The current line is `v3.2.x`.
 - The API hardcoded `version="3.0.0"` until 2026-09-11, when it was wired to
   the git-derived `VERSION` (the defect described above).
+- `app/config/version.py`'s `_FALLBACK_VERSION` is `v3.0.1` — it is only read when
+  git is unavailable, and is deliberately *not* bumped on every release.

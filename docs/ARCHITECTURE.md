@@ -1,9 +1,11 @@
-# JARVIS Architecture — Living Document v3.0.0
+# JARVIS Architecture
 
-**Status**: IMPLEMENTED (forensic-verified)
-**Source of Truth**: `/home/sajan/Projects/JARVIS` @ `e8bef8f`
-**Last Updated**: 2026-09-10
-**Workflow Orchestration**: n8n (external)
+**Status**: ACTIVE
+**Type**: architecture
+**Last Updated**: 2026-09-13
+**Source**: `app/` at HEAD (this document describes HEAD, not a pinned commit)
+
+**Workflow Orchestration**: JARVIS orchestrates; n8n schedules and notifies (ADR-013)
 
 ---
 
@@ -13,7 +15,7 @@ JARVIS is a **single-tenant personal AI platform** built on a **Pragmatic Hybrid
 
 - **Direct Async Execution Loops** — Core cognitive orchestration (Intent → Plan → Execute → Synthesize) uses direct `async/await` interface calls for minimum latency
 - **InMemoryAsyncBus** — Passive event bus for telemetry, token metrics, step execution logs, background job notifications (never the data path for state)
-- **External Workflow Orchestration** — n8n handles all workflow automation, scheduling, and integration flows (not embedded)
+- **External Scheduling & Notification** — n8n owns *when* scheduled work runs and *how the outside world is told* (ADR-013). It is not the policy engine and not the state store: every deterministic decision lives in version-controlled Python under `scripts/` and `app/`.
 
 ---
 
@@ -290,8 +292,10 @@ ModelRouter
 | **Endpoints** | `POST /api/v1/chat/completions`, `GET /api/v1/health`, `WS /ws/chat` |
 | **Workflow Triggers** | n8n webhook nodes → JARVIS REST API |
 | **Human-in-the-Loop** | n8n "Wait for Webhook" / "Manual Approval" nodes → JARVIS HITL endpoints |
-| **State** | n8n owns workflow state; JARVIS is stateless per request (session via `session_id`) |
+| **State** | n8n owns *scheduling* state. JARVIS owns domain state (memory, sessions, approvals) and is request-scoped per call (`session_id`). |
 | **Error Handling** | n8n retries with exponential backoff; JARVIS returns structured errors |
+| **Who decides CI** | `scripts/ci_gate.py` — **not** n8n. n8n's CI workflow only *calls* the bridge that invokes the gate (ADR-013). |
+| **HITL direction** | One-way: n8n **polls** `GET /api/v1/hitl/pending`. The app never calls into n8n, so n8n can be stopped without breaking JARVIS. |
 
 ---
 
@@ -299,10 +303,10 @@ ModelRouter
 
 | Component | Location | Reason |
 |-----------|----------|--------|
-| Workflow engine | **n8n (external)** | Separation of concerns |
-| Scheduler/cron | **n8n** | n8n handles scheduling |
+| Workflow *engine* (decisions) | **This repo** — `scripts/ci_gate.py`, `app/` | Enforcement must be in code we own and can test (ADR-013) |
+| Scheduler/cron | **n8n** | Durable scheduling the owner can edit in a UI |
+| Persistent *workflow* state | **n8n** | JARVIS is request-scoped; domain state stays in JARVIS |
 | Multi-agent orchestration | **PROFESSOR-J (separate repo)** | Capability Contract defines interface |
-| Persistent workflow state | **n8n** | JARVIS is request-scoped |
 | UI/UX flows | **Frontend (separate)** | JARVIS serves API only |
 
 ---
@@ -311,23 +315,41 @@ ModelRouter
 
 | Component | Version | Notes |
 |-----------|---------|-------|
-| JARVIS Runtime | 3.0.0 | `app/config/version.py` |
+| JARVIS Runtime | git-tag derived (currently `v3.2.2`) | `app/config/version.py` derives it; see `docs/VERSIONING.md` |
 | Python | **3.11/3.12** (NOT 3.14) | 3.14 breaks ML deps |
 | FastAPI | 0.115+ | |
-| ChromaDB | 0.5+ | Vector backend |
-| n8n | Latest stable | External orchestration |
+| ChromaDB | 1.5.9 (pinned) | Vector backend — 4 known CVEs, RISK-001 |
+| n8n | 2.34.6 | Scheduler + notifier (ADR-013) |
 
 ---
 
 ## 12. Architectural Decisions (ADR Index)
 
+All thirteen decisions live in [`adr/`](adr/). This is the index; the ADR files are
+authoritative.
+
 | ADR | Title | Status |
 |-----|-------|--------|
-| ADR-006 | Pragmatic Hybrid Architecture | ✅ IMPLEMENTED |
-| ADR-007 | Domain Purity & Dataclasses | ✅ IMPLEMENTED |
-| ADR-008 | Tiered Tool Safety Policy | ✅ IMPLEMENTED |
-| ADR-009 | Multi-Provider Circuit Breaker | ✅ IMPLEMENTED |
-| ADR-010 | n8n External Orchestration | 🟡 PROPOSED |
+| ADR-001 | Direct Ollama Integration & Interactive CLI Loop | Superseded by ADR-006 |
+| ADR-002 | JSON File Persistent Memory Core | Superseded by ADR-004 & ADR-007 |
+| ADR-003 | Multi-Model Task Router & Classification | Evolved into ADR-009 |
+| ADR-004 | ChromaDB Semantic Vector Memory & Hybrid BM25 Retrieval | Evolved into ADR-010 |
+| ADR-005 | FastAPI Web API Server & Single-Page App | Evolved into ADR-010 |
+| ADR-006 | Pragmatic Hybrid Architecture | ✅ Accepted |
+| ADR-007 | Domain Purity & Dataclasses | ✅ Accepted |
+| ADR-008 | Tiered Tool Safety Policy & HITL Gates | ✅ Accepted |
+| ADR-009 | Multi-Provider Failover & Circuit Breaker | ✅ Accepted |
+| ADR-010 | Adapters & Integrations Boundary Isolation | ✅ Accepted |
+| ADR-011 | Tool Wiring, the Destructive-Action Gate, and the HITL Trigger | ✅ Accepted |
+| ADR-012 | One GitHub identity per function, short-lived tokens | ✅ Accepted |
+| ADR-013 | JARVIS orchestrates its own work; n8n is a workflow executor it drives | ✅ Accepted |
+| ADR-014 | Documentation facts are machine-synced and machine-checked | ✅ Accepted |
+
+> **Corrected 2026-09-13.** This table previously listed **ADR-010 as "n8n External
+> Orchestration — PROPOSED"**. That was wrong on both counts: ADR-010 is *Adapters
+> & Integrations Boundary Isolation*, and the orchestration question was settled by
+> **ADR-013** (Accepted, 2026-09-12) in the opposite direction — JARVIS orchestrates.
+> The table also stopped at ADR-010, hiding ADR-011/012/013 entirely.
 
 ---
 

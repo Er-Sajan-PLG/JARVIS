@@ -1,5 +1,9 @@
 # n8n — JARVIS Local Automation
 
+**Status**: ACTIVE
+**Type**: guide
+**Last Updated**: 2026-09-13
+
 > Canonical beginner guide: [`docs/N8N-SETUP.md`](../docs/N8N-SETUP.md).
 > This file is the short technical reference for the `n8n/` directory.
 

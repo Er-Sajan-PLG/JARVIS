@@ -1,5 +1,9 @@
 # ADR-013 — JARVIS orchestrates its own work; n8n is a workflow executor it drives
 
+**Status**: ACTIVE
+**Type**: adr
+**Last Updated**: 2026-09-12
+
 - Status: Accepted
 - Date: 2026-09-12
 - Related: ADR-011 (tool wiring + HITL gate), ADR-012 (GitHub identity per function),
@@ -19,7 +23,7 @@ What actually exists:
 | Thing | Reality |
 |---|---|
 | n8n workflows in the live DB | `JARVIS-CI-Local`, `JARVIS-HITL`, `JARVIS-Cleanup` — three, not seven |
-| The CI decision | `scripts/ci_gate.py` — 22 checks against a detached worktree, publishing 8 commit-status contexts |
+| The CI decision | `scripts/ci_gate.py` — <!--fact:gate_count-->25<!--/fact--> checks against a detached worktree, publishing <!--fact:context_count-->9<!--/fact--> commit-status contexts |
 | Who invokes it | `scripts/ci_bridge.py`, reached over a localhost HTTP bridge |
 | What n8n does for CI | schedules the poll; receives the result. It does not run the checks. |
 | Branch protection | `GET /branches/main/protection` → **403** on this private free-tier repo (RISK-012) |

@@ -1,9 +1,10 @@
-# JARVIS Roadmap — Living Document v3.0.0
+# JARVIS Roadmap
 
-**Status**: ACTIVE — Prioritized from forensic audit findings
-**Source**: Forensic Architecture Audit (2026-09-10) + USAT Audit
+**Status**: ACTIVE
+**Type**: roadmap
+**Last Updated**: 2026-09-13
+
 **Workflow Orchestration**: n8n (all CI/CD, automation, approval flows)
-**Last Updated**: 2026-09-10
 
 ---
 
@@ -47,7 +48,7 @@
 | Task | Owner | n8n Workflow | Status |
 |------|-------|--------------|--------|
 | **CI Pipeline** | | | |
-|| Create the local CI plane (`JARVIS-CI-Local` -> `scripts/ci_bridge.py` -> `scripts/ci_gate.py`) | Dev | `JARVIS-CI-Local` | ✅ VERIFIED (22 gates; 8/8 contexts published; Actions billing-blocked) ||
+|| Create the local CI plane (`JARVIS-CI-Local` -> `scripts/ci_bridge.py` -> `scripts/ci_gate.py`) | Dev | `JARVIS-CI-Local` | ✅ VERIFIED (<!--fact:gate_count-->25<!--/fact--> gates; <!--fact:context_count-->9<!--/fact-->/<!--fact:context_count-->9<!--/fact--> contexts published; Actions billing-blocked) ||
 || Configure branch protection via GitHub API | Dev | *(GitHub API — 403)* | ⛔ BLOCKED (GitHub 403 free-tier repo; RISK-012; `.github/workflows/release.yml` exists as dispatch fallback) ||
 || Enable Dependabot (grouped PRs, weekly) | Dev | *(GitHub, no n8n workflow)* | ✅ VERIFIED (.github/dependabot.yml; PR #23-#36 merged via SSH) ||
 | **Security** | | | |
@@ -87,7 +88,7 @@
 | Configure conventional commits enforcement | Dev | *(pre-commit hook)* | 🟡 PARTIAL (`.pre-commit-config.yaml`: `commitlint` v9.26.0 + conventional config; `scripts/commit.sh` handles two-pass commit; enforcement is pre-commit layer, verified working — no separate GitHub Actions check due to Actions block) |
 | Add SBOM generation (CycloneDX) | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — **not missing.** `gate_sbom` produces a real CycloneDX 1.7 SBOM (`artifacts/sbom-<sha>.cdx.json`, 172 components); **57 artifacts** exist on disk and `syft` is installed. RISK-003 was already closed 2026-09-10; this row's ❌ was a doc lag |
 | **Testing** | | | |
-| Achieve 80% coverage threshold | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — **98%** measured 2026-09-13 (`pytest tests/ -q --cov=app --cov-report=term` → `TOTAL 6215 141 98%`, 1028 passed); floor 80% exceeded. RISK-004's "~36%" figure was stale and has been corrected |
+| Achieve 80% coverage threshold | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — **<!--fact:coverage-->98<!--/fact-->%** measured (`pytest tests/ -q --cov=app --cov-report=term`), <!--fact:test_count-->1063<!--/fact--> passed; floor 80% exceeded. RISK-004's "~36%" figure was stale and has been corrected |
 | Add integration tests for critical paths | Dev | *(in `ci_gate.py`)* | ✅ VERIFIED — `tests/integration/test_ci_bridge_gate_loop.py` (12 tests, 2026-09-13) pins the CI-bridge → `ci_gate` → status-publish contract: blocking failures redden their context, reported-only failures (mypy/RISK-005, coverage/RISK-004) stay green but visible in the description, every gate maps to a published context, a 403'd publish is reported as `publish-failed` rather than announced as success, gate JSON is parsed, and bridge state round-trips + degrades on corruption. Mutation-checked: reverting the reported-only rule fails 2 of them. `tests/e2e/` remains empty (no live-instance DAST — that is RISK-006, still open) |
 
 **Exit Criteria**: Docker image builds, deploys to staging; release automation works; 80% coverage
@@ -131,7 +132,7 @@
 | TD-002 | Legacy servers in namespace (archive) | ✅ RESOLVED — moved to `legacy/` | 0 | Dev |
 | TD-003 | Missing `JARVIS_API_KEY` | ✅ RESOLVED | 0 | Dev |
 | TD-004 | WS auth bypass | ✅ RESOLVED | 0 | Dev |
-| TD-005 | No CI pipeline | ✅ RESOLVED — local n8n plane, 22 checks, 8 published contexts (Actions billing-blocked) | 1 | Dev |
+| TD-005 | No CI pipeline | ✅ RESOLVED — local n8n plane, <!--fact:gate_count-->25<!--/fact--> checks, <!--fact:context_count-->9<!--/fact--> published contexts (Actions billing-blocked) | 1 | Dev |
 | TD-006 | No branch protection | ⛔ BLOCKED — GitHub returns 403 on a private free-tier repo (RISK-012) | 1 | Dev |
 | TD-007 | No security scanning | ✅ RESOLVED — gitleaks, trufflehog, bandit, semgrep, trivy, osv, pip-audit in the gate | 1 | Dev |
 | TD-008 | No container image | ✅ RESOLVED — multi-stage Dockerfile + hadolint gate | 2 | Dev |

@@ -1,9 +1,11 @@
-# JARVIS Capability Contract Tracker — Living Document v3.0.0
+# JARVIS Capability Contract Tracker
 
-**Status**: ACTIVE — Tracks compliance with CAPABILITY-CONTRACT.md v1.0 (JARVIS ↔ PROFESSOR-J)
+**Status**: ACTIVE
+**Type**: register
+**Last Updated**: 2026-09-13
+
 **Contract Version**: 1.0.0
 **Contract Source**: `docs/CAPABILITY-CONTRACT.md`
-**Last Sync**: 2026-09-10
 **Review Cadence**: Quarterly (manual review — no `JARVIS-Capability-Sync`
 workflow exists; see `docs/GOVERNANCE.md` §3)
 

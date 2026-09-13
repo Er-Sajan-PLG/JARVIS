@@ -1,7 +1,28 @@
-# Cognitive Brain Engine & Agent Architecture (`v3.0.0 Refactored`)
+# Cognitive Brain Engine & Agent Architecture
+
+**Status**: ACTIVE
+**Type**: architecture
+**Last Updated**: 2026-09-13
+**Source**: `app/brain/`, `app/guardrails/` at HEAD
 
 > **Source of Truth**: `app/brain/` and `app/guardrails/` at `HEAD`.
 > **Timeline Metadata**: *Feature Author Date: 2026-07-28 (`f4d5e01`) | Tag Release Date: 2026-07-28*
+
+---
+
+## 0. System Overview
+
+The cognitive brain is the request-processing core: a fixed, four-stage direct
+async pipeline that turns a user turn into a response. It is deliberately not a
+message bus — `app/brain/` calls each stage with `await`, and the `InMemoryAsyncBus`
+is reserved for passive telemetry (ADR-006). The guardrails in `app/guardrails/`
+wrap the stages rather than sitting beside them, so a tool call cannot bypass the
+safety tier policy on its way through.
+
+The invariant this document exists to protect: **the execution order is fixed and
+each stage is independently replaceable**. Reordering them, or letting a stage
+publish to the bus instead of returning, breaks the contract that
+`docs/CAPABILITY-CONTRACT.md` §1 binds both repositories to.
 
 ---
 

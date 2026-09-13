@@ -1,10 +1,15 @@
 # JARVIS Database
 
+**Status**: ACTIVE
+**Type**: reference
+**Source**: `app/memory/` at HEAD
+**Last Updated**: 2026-09-13
+
 This document describes how JARVIS persists data. Every statement below was
 checked against the source code at the time of writing. Files inspected:
 
 - `app/config/settings.py` (paths + config defaults)
-- `app/config/version.py` (`VERSION = "v.2.4.0"`)
+- `app/config/version.py` (derives `VERSION` from git tags at import; `_FALLBACK_VERSION = "v3.0.1"`)
 - `app/memory/schema.py` (`Memory`, `MemoryResult`, constants)
 - `app/memory/store.py` (`MemoryStore` — JSON CRUD + persistence)
 - `app/memory/manager.py` (`MemoryManager` — orchestration)
@@ -20,9 +25,12 @@ checked against the source code at the time of writing. Files inspected:
 - `requirements.txt` (chroma dependency)
 - `.continue/agents/*.yaml` (inspected; see note in AI Unverified)
 
-> Version note: `config/version.py` reports `VERSION = "v.2.4.0"`. Other
-> source files carry older version strings (`store.py` docstring "v2.0",
-> `settings.py` docstring "v2.1"). The runtime banner uses `v.2.4.0`.
+> Version note: `app/config/version.py` **derives** the version from git tags at
+> import time (`git describe --tags --long`), so it reports the current tag (e.g.
+> the current tag, e.g. `v3.3.1`), not a hardcoded string. `_FALLBACK_VERSION = "v3.0.1"` is used only
+> when git is unavailable. Some module docstrings still carry older hand-written
+> version strings ("v2.0", "v2.1") — those are cosmetic and are not the version.
+> See `docs/VERSIONING.md`.
 
 ---
 
@@ -336,7 +344,7 @@ Top-level object:
 ```
 Written by `MemoryStore.save()` as `json.dump(data, f, indent=2)` when
 dirty. `version` string is `"2.0"` (hardcoded in `store.py`, independent of
-the app `v.2.4.0` version). Loader accepts v1 shapes for backward
+the git-derived app version). Loader accepts v1 shapes for backward
 compatibility.
 
 ### `data/conversations/default.json`
@@ -450,7 +458,8 @@ source during this task:
   and derives `pair_id` via md5 of timestamp + first 20 chars.
   (`conversation_store.py`)
 - `chromadb==1.5.9` is a pinned dependency. (`requirements.txt`)
-- Runtime `VERSION` is `"v.2.4.0"`. (`config/version.py`)
+- Runtime `VERSION` is derived from git tags at import (`config/version.py`);
+  see `docs/VERSIONING.md`.
 - `_memory_to_text()` is defined nested inside
   `VectorRetriever.on_index_rebuilt` and is never called. (`vector_retriever.py`)
 

@@ -1,5 +1,9 @@
 # ADR-004: ChromaDB Semantic Vector Memory & Hybrid BM25 Retrieval
 
+**Status**: HISTORICAL
+**Type**: adr
+**Last Updated**: 2026-07-05
+
 - **Status**: Evolved into ADR-010
 - **Date**: 2026-07-05
 - **Version Tag**: `v2.2.0`

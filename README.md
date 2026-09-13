@@ -1,6 +1,10 @@
 # 🤖 JARVIS — Modular Personal AI Platform
 
-[![Version](https://img.shields.io/badge/version-v3.0.1-blue.svg)](docs/CHANGELOG.md)
+**Status**: ACTIVE
+**Type**: guide
+**Last Updated**: 2026-09-13
+
+[![Version](https://img.shields.io/badge/version-v3.3.4-blue.svg)](docs/CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.11%2B-brightgreen.svg)](https://www.python.org/)
 [![Architecture](https://img.shields.io/badge/architecture-Pragmatic%20Hybrid-orange.svg)](docs/ARCHITECTURE.md)
 [![CI](https://img.shields.io/badge/CI-local%20n8n%20plane-blueviolet.svg)](docs/CI-GATE-SOTA.md)
@@ -100,7 +104,7 @@ flowchart TB
     subgraph AUTOMATION["Automation Plane (n8n :5678 + bridge :8770)"]
         N8N["n8n workflows<br/>CI-Local · HITL · Cleanup"]
         BRIDGE["ci_bridge_server.py"]
-        CGATE["ci_gate.py (22 checks)"]
+        CGATE["ci_gate.py (<!--fact:gate_count-->25<!--/fact--> checks)"]
     end
 
     HTTP --> AUTH
@@ -212,7 +216,7 @@ to `127.0.0.1:8770`, token-authenticated). The bridge runs `scripts/ci_bridge.py
 which lists open PRs, gates each **merge result** in a shadow worktree, and
 publishes the outcome.
 
-**22 checks** in `scripts/ci_gate.py`:
+**<!--fact:gate_count-->25<!--/fact--> checks** in `scripts/ci_gate.py`:
 
 ```
 ruff_ratchet  mypy  pytest  contract  coverage  mutation
@@ -275,7 +279,7 @@ static data does not persist reliably across restarts in this n8n build.
 
 - **8 governance checks** run in CI: import layering, domain purity, schema drift,
   prerequisite graph, safety-gate coverage, MCP tool search, OTEL spans, LangGraph checkpoint.
-- **12 ADRs** in `docs/adr/` (ADR-001 → ADR-012), including
+- **<!--fact:adr_count-->14<!--/fact--> ADRs** in `docs/adr/` (ADR-001 → ADR-013), including
   [ADR-011](docs/adr/ADR-011-tool-wiring-and-hitl-gate.md) (tool wiring + HITL) and
   [ADR-012](docs/adr/ADR-012-github-auth-identity-per-function.md) (one GitHub identity per function).
 - **16 tracked risks** in [`docs/ACCEPTED_RISKS.md`](docs/ACCEPTED_RISKS.md) — every
@@ -292,7 +296,7 @@ Run the governance suite:
 
 ## 📚 Documentation
 
-Start at **[`docs/INDEX.md`](docs/INDEX.md)** — the master navigation map.
+Start at **[`docs/README.md`](docs/README.md)** — the master navigation map.
 
 | Document | Purpose |
 |---|---|
@@ -306,8 +310,8 @@ Start at **[`docs/INDEX.md`](docs/INDEX.md)** — the master navigation map.
 | [docs/ACCEPTED_RISKS.md](docs/ACCEPTED_RISKS.md) | Risk register with owners and review dates |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Sprint plan and technical debt register |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Release notes |
-| [docs/DEVLOG.md](docs/DEVLOG.md) | Why decisions were made, alternatives rejected |
-| [docs/adr/](docs/adr/) | Architecture Decision Records (ADR-001 → ADR-012) |
+| [docs/DECISIONS-AUTONOMOUS-2026-09-10.md](docs/DECISIONS-AUTONOMOUS-2026-09-10.md) | Why decisions were made, alternatives rejected |
+| [docs/adr/](docs/adr/) | Architecture Decision Records (ADR-001 → ADR-013) |
 
 Repository: <https://github.com/Er-Sajan-PLG/JARVIS>
 
