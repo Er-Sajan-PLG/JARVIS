@@ -114,11 +114,46 @@ def collect_cheap() -> dict[str, str]:
     return facts
 
 
+def _head_commit() -> str | None:
+    """The commit these facts describe.
+
+    Resolved from the tree the module is *running in*, not from the main checkout.
+    That distinction matters: ``ci_gate.py`` measures a detached worktree at
+    ``--sha`` and invokes this module with that worktree as cwd, so asking the
+    directory that merely contains the script would answer with the wrong commit.
+    ``REPO_ROOT`` is derived from ``__file__``, which under the gate is the file
+    inside the worktree, so git is asked about that path explicitly.
+    """
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):  # pragma: no cover - git absent
+        return None
+    commit = r.stdout.strip()
+    return commit or None
+
+
 def collect_expensive(run_tests: bool = False) -> dict[str, str]:
     """Facts that need the test suite.
 
-    Preference order: run them (`run_tests=True`), else read the gate's cache,
-    else ``unknown``. Never invent a number.
+    Preference order: run them (`run_tests=True`), else read the gate's cache **when
+    that cache is proven to describe this commit**, else ``unknown``. Never invent a
+    number.
+
+    Provenance is the whole point of the cache check. The cache is written by the CI
+    gate after it runs pytest, and a gate run is expensive, so reusing it is right.
+    But a cache is a *claim about a past tree*: consuming it against a newer checkout
+    would report a test count and coverage that describe code which no longer exists,
+    and the documentation would then assert a stale measurement as current truth.
+
+    So the cache carries the commit it measured, and is only trusted when that commit
+    is the one being described. A mismatch, a missing field, or a malformed file all
+    fall back to ``unknown`` — an admitted gap is recoverable, an invented number in
+    a governance document is not.
     """
     venv_py = REPO_ROOT / ".venv" / "bin" / "python"
     if run_tests and venv_py.is_file():
@@ -143,27 +178,49 @@ def collect_expensive(run_tests: bool = False) -> dict[str, str]:
             _write_cache(facts)
         return facts
 
-    if FACTS_CACHE.is_file():
-        try:
-            data = json.loads(FACTS_CACHE.read_text())
-            return {
-                "test_count": str(data.get("test_count", "unknown")),
-                "coverage": str(data.get("coverage", "unknown")),
-            }
-        except (OSError, json.JSONDecodeError):
-            pass
-    return {"test_count": "unknown", "coverage": "unknown"}
+    return _read_cache()
+
+
+def _read_cache() -> dict[str, str]:
+    """Read the gate's measured facts, but only for the commit they measured."""
+    unknown = {"test_count": "unknown", "coverage": "unknown"}
+    if not FACTS_CACHE.is_file():
+        return unknown
+    try:
+        data = json.loads(FACTS_CACHE.read_text())
+    except (OSError, json.JSONDecodeError):
+        return unknown
+    if not isinstance(data, dict):
+        return unknown
+
+    cached_commit = data.get("commit")
+    head = _head_commit()
+    if not cached_commit or not head or cached_commit != head:
+        # The cache describes a different tree. Reporting it as current would be
+        # exactly the silent staleness this system exists to catch.
+        return unknown
+
+    return {
+        "test_count": str(data.get("test_count", "unknown")),
+        "coverage": str(data.get("coverage", "unknown")),
+    }
 
 
 def _write_cache(facts: dict[str, str]) -> None:
+    """Record measured facts together with the commit they describe."""
     FACTS_CACHE.parent.mkdir(parents=True, exist_ok=True)
     existing: dict[str, str] = {}
     if FACTS_CACHE.is_file():
         try:
-            existing = json.loads(FACTS_CACHE.read_text())
+            loaded = json.loads(FACTS_CACHE.read_text())
+            if isinstance(loaded, dict):
+                existing = loaded
         except (OSError, json.JSONDecodeError):
             existing = {}
     existing.update(facts)
+    head = _head_commit()
+    if head:
+        existing["commit"] = head
     FACTS_CACHE.write_text(json.dumps(existing, indent=2, sort_keys=True) + "\n")
 
 

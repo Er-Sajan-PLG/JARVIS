@@ -13,6 +13,7 @@ these fail.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -92,11 +93,36 @@ def test_expensive_facts_are_unknown_without_a_cache(facts_mod, tmp_path, monkey
 
 
 def test_expensive_facts_read_the_gate_cache(facts_mod, tmp_path, monkeypatch):
+    """A cache is a claim about a past tree. It is only trusted when its recorded
+    commit matches the one being described — otherwise it describes code that no
+    longer exists and would assert a stale measurement as current truth."""
     cache = tmp_path / "doc_facts.json"
-    cache.write_text('{"test_count": "4242", "coverage": "77"}')
+    current = facts_mod._head_commit()
+    cache.write_text(json.dumps({"test_count": "4242", "coverage": "77", "commit": current}))
     monkeypatch.setattr(facts_mod, "FACTS_CACHE", cache)
     got = facts_mod.collect_expensive(run_tests=False)
     assert got == {"test_count": "4242", "coverage": "77"}
+
+
+def test_cache_with_mismatched_commit_is_not_trusted(facts_mod, tmp_path, monkeypatch):
+    """A cache describing a different commit is stale truth, not current truth.
+    The fact must degrade to 'unknown' rather than be reported as current."""
+    cache = tmp_path / "doc_facts.json"
+    cache.write_text(
+        json.dumps({"test_count": "4242", "coverage": "77", "commit": "deadbeefdeadbeef"})
+    )
+    monkeypatch.setattr(facts_mod, "FACTS_CACHE", cache)
+    got = facts_mod.collect_expensive(run_tests=False)
+    assert got == {"test_count": "unknown", "coverage": "unknown"}
+
+
+def test_cache_missing_commit_field_is_not_trusted(facts_mod, tmp_path, monkeypatch):
+    """A cache with no provenance field at all cannot be proven current."""
+    cache = tmp_path / "doc_facts.json"
+    cache.write_text(json.dumps({"test_count": "4242", "coverage": "77"}))
+    monkeypatch.setattr(facts_mod, "FACTS_CACHE", cache)
+    got = facts_mod.collect_expensive(run_tests=False)
+    assert got == {"test_count": "unknown", "coverage": "unknown"}
 
 
 def test_corrupt_cache_degrades_to_unknown_not_a_crash(facts_mod, tmp_path, monkeypatch):
@@ -134,6 +160,37 @@ def test_apply_is_idempotent(sync_mod, monkeypatch, tmp_path):
     monkeypatch.setattr(sync_mod, "REPO_ROOT", tmp_path)
     changed, _, _ = sync_mod.apply_facts({"gate_count": "23"})
     assert changed == 0
+
+
+def test_apply_counts_only_changed_markers_not_all(sync_mod, monkeypatch, tmp_path):
+    """D4: `updated` must count markers whose value changed, not every marker in
+    a file that happened to be rewritten. The old code did
+    `updated += len(MARKER_RE.findall(text))`, reporting N markers updated even
+    when only 1 changed — training the author to ignore the count."""
+    doc = _write(
+        tmp_path / "docs" / "X.md",
+        "# T\n\n<!--fact:gate_count-->23<!--/fact--> checks.\n"
+        "<!--fact:coverage-->98<!--/fact--> coverage.\n",
+    )
+    monkeypatch.setattr(sync_mod, "REPO_ROOT", tmp_path)
+    changed, updated, _ = sync_mod.apply_facts({"gate_count": "24", "coverage": "98"})
+    # Only gate_count changed; coverage was already correct.
+    assert (changed, updated) == (1, 1)
+    text = doc.read_text()
+    assert "<!--fact:gate_count-->24<!--/fact-->" in text
+    assert "<!--fact:coverage-->98<!--/fact-->" in text
+
+
+def test_apply_reports_zero_updated_when_nothing_changed(sync_mod, monkeypatch, tmp_path):
+    """A file rewritten for another marker's sake must not inflate `updated`."""
+    _write(
+        tmp_path / "docs" / "X.md",
+        "# T\n\n<!--fact:gate_count-->23<!--/fact--> checks.\n"
+        "<!--fact:coverage-->98<!--/fact--> coverage.\n",
+    )
+    monkeypatch.setattr(sync_mod, "REPO_ROOT", tmp_path)
+    changed, updated, _ = sync_mod.apply_facts({"gate_count": "23", "coverage": "98"})
+    assert (changed, updated) == (0, 0)
 
 
 def test_apply_leaves_unknown_facts_alone(sync_mod, monkeypatch, tmp_path):

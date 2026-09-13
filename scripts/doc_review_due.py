@@ -93,17 +93,52 @@ def last_touched(rel: str) -> date | None:
         return None
 
 
+def commits_since(since_iso: str) -> int | None:
+    """How many commits have touched the tree since a date.
+
+    Reported as *context* on a review row, never used as review evidence. A
+    document that has been mechanically edited many times since it was last read
+    against the implementation is the strongest candidate for a re-read, which is
+    precisely why the count is surfaced rather than the date being trusted.
+    """
+    out = _git("rev-list", "--count", f"--since={since_iso}", "HEAD")
+    try:
+        return int(out.splitlines()[0])
+    except (IndexError, ValueError):
+        return None
+
+
 def reviewed_in_text(text: str) -> date | None:
-    """Honour an explicit `**Reviewed**: YYYY-MM-DD` line when present — that is a
-    deliberate acknowledgement of a re-read, stronger evidence than a commit."""
+    """The explicit `**Reviewed**: YYYY-MM-DD` line — the ONLY signal that resets
+    the semantic-review clock.
+
+    This is deliberately the sole authority. A git commit records that *something*
+    changed, which is not the same as a human or agent re-reading the document
+    against the implementation. A typo fix, a marker sync (`sync_doc_facts --apply`
+    rewrites prose on every commit that moves a count), or a formatting pass all
+    touch the file without anyone having judged whether the document is still true.
+
+    Using the last-touched date as review evidence would therefore let mechanical
+    edits silently mark documents as reviewed — the exact failure this script exists
+    to prevent. Git history is still reported, as *context* for the reviewer.
+
+    A **future** date is rejected. It cannot be evidence of a review that has
+    happened, and accepting it would let a typo (2026-12-13 for 2026-09-13) park a
+    document permanently out of the review queue. Rejecting it fails safe: the
+    document stays due.
+    """
+    today = datetime.now(UTC).date()
     for line in text.splitlines()[:25]:
         if "Reviewed" in line and ":" in line:
             tail = line.split(":", 1)[1].strip()
             token = tail.split()[0].strip("*_`()[]")
             try:
-                return date.fromisoformat(token)
+                parsed = date.fromisoformat(token)
             except ValueError:
                 continue
+            if parsed > today:
+                continue
+            return parsed
     return None
 
 
@@ -112,6 +147,21 @@ def iter_docs() -> list[Path]:
 
 
 def assess(today: date | None = None) -> list[dict[str, object]]:
+    """Which living documents are due for a deliberate semantic re-read?
+
+    The clock is driven by **explicit review evidence only** (`**Reviewed**`), never
+    by the last commit. See `reviewed_in_text` for why: git records that something
+    changed, which is not a semantic re-read, and treating it as one lets a typo fix
+    or an automatic marker sync silently reset a document's review status.
+
+    `last_touched` and `commits_since` are reported as *context* for the reviewer —
+    "this document has been mechanically edited 6 times since it was last reviewed"
+    is exactly the signal that it needs reading — but they never move the clock.
+
+    A document with no `**Reviewed**` line at all is due. That is the safe direction:
+    an unclaimed review is not a review, and this is a prompt for work, not a
+    judgement that the document is wrong.
+    """
     today = today or datetime.now(UTC).date()
     rows: list[dict[str, object]] = []
     for p in iter_docs():
@@ -123,19 +173,30 @@ def assess(today: date | None = None) -> list[dict[str, object]]:
             continue
         cadence = CADENCE_DAYS.get(rel, DEFAULT_CADENCE)
         touched = last_touched(rel)
-        explicit = reviewed_in_text(text)
-        basis = max([d for d in (touched, explicit) if d], default=None)
-        age = (today - basis).days if basis else None
+        reviewed = reviewed_in_text(text)
+
+        # The clock: explicit evidence only.
+        age = (today - reviewed).days if reviewed else None
+        due = age is None or age > cadence
+
+        # Context for the reviewer, never the clock.
+        edits_since = commits_since(reviewed.isoformat()) if reviewed else None
+
         rows.append(
             {
                 "doc": rel,
                 "cadence_days": cadence,
-                "last_reviewed": basis.isoformat() if basis else None,
+                "last_reviewed": reviewed.isoformat() if reviewed else None,
+                "review_evidence": "**Reviewed**" if reviewed else None,
                 "age_days": age,
-                "due": age is None or age > cadence,
+                "due": due,
                 "overdue_by": (age - cadence) if age is not None else None,
+                "last_modified": touched.isoformat() if touched else None,
+                "edits_since_review": edits_since,
             }
         )
+    # Most overdue first; documents never reviewed sort ahead of everything, since
+    # "no evidence at all" is a weaker state than "evidence that is old".
     rows.sort(key=lambda r: -(r["overdue_by"] if isinstance(r["overdue_by"], int) else 10**6))
     return rows
 
@@ -149,14 +210,25 @@ def packet(rows: list[dict[str, object]]) -> str:
         "",
         f"{len(due)} of {len(rows)} living documents are due for a re-read.",
         "",
+        "This packet asks for a **semantic** re-read: deciding whether a document",
+        "still describes the system, is still useful, and is still complete. That is",
+        "a judgement no check in this repository can make — which is why it is a",
+        "prompt for a person rather than a gate.",
+        "",
         "For each, answer three questions and record the outcome **in the doc**:",
         "",
         "1. **Still true?** Does it describe how the system works at `HEAD`?",
         "2. **Still useful?** Does anyone act on it, or is it decoration?",
         "3. **Still complete?** Has something been added that it now omits?",
         "",
-        "Then set `**Last Updated**: <today>` and, if you re-read it against the",
-        "code, add `**Reviewed**: <today>` (that is what resets this clock).",
+        "Then set `**Last Updated**: <today>` (the content changed today) and add",
+        "**`**Reviewed**: <today>`**. Only `**Reviewed**` resets the review clock —",
+        "it is the explicit claim that a semantic re-read happened. `**Last Updated**`",
+        "records an edit and does *not* reset the clock, because a typo fix or an",
+        "automatic marker sync is an edit, not a review.",
+        "",
+        "If a re-read concludes the document is still correct, adding `**Reviewed**`",
+        "is the complete and correct outcome. Nothing needs to change.",
         "",
         "---",
         "",
@@ -164,12 +236,20 @@ def packet(rows: list[dict[str, object]]) -> str:
     for r in due:
         age = r["age_days"]
         over = r["overdue_by"]
+        edits = r["edits_since_review"]
         age_s = f"{age} days old" if age is not None else "never reviewed"
         over_s = f" (overdue by {over} days)" if isinstance(over, int) and over > 0 else ""
         out.append(f"## {r['doc']}")
         out.append("")
         out.append(f"- cadence: {r['cadence_days']} days")
-        out.append(f"- last reviewed: {r['last_reviewed'] or 'unknown'} — {age_s}{over_s}")
+        out.append(
+            f"- last reviewed: {r['last_reviewed'] or 'no recorded review'} — {age_s}{over_s}"
+        )
+        if isinstance(edits, int):
+            out.append(
+                f"- edited {edits} time(s) in the tree since that review "
+                f"(mechanical edits do not count as review; they are why this is due)"
+            )
         out.append(
             f"- re-read with: `git log -5 --oneline -- {r['doc']}` then compare against `HEAD`"
         )
