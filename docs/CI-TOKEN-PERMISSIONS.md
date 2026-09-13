@@ -22,17 +22,23 @@ local gate merge its own green PRs.
 | `POST /repos/{o}/{r}/git/refs` (contents:write) | **403** | **201** |
 | `PUT /repos/{o}/{r}/pulls/{n}/merge` (contents:write) | 403 | now permitted |
 | `POST /repos/{o}/{r}/releases` (contents:write) | 403 | now permitted |
+| `POST /repos/{o}/{r}/pulls/{n}/reviews` (pull_requests:write) | 403 | **200** |
+| `POST /repos/{o}/{r}/issues/{n}/comments` (issues:write) | — | **201** |
 
 The 201 on ref creation is the proof: contents:write is genuinely held, not just
 absent from a 403 body. (The probe ref was deleted immediately; `DELETE` → 204,
 then `GET` → 404.)
 
-> **Note on the name.** No credential named `JARVIS_CI_N8N` exists anywhere in
-> this repository, in `~/.hermes/.env`, in `~/Projects/.env`, or as an n8n
-> credential name. The token that was actually updated is
-> **`JARVIS_CI_TOKEN`** in `/home/sajan/Projects/JARVIS/.ci-bridge.env`. If a
-> second token was created under a different name it is not referenced by any
-> code path in this repo.
+> **Note on the name `JARVIS_CI_N8N`.** No credential of that name exists. This
+> was checked exhaustively on 2026-09-13: a recursive grep of the entire home
+> directory (excluding dependency and cache trees) finds the literal string only
+> in Hermes' own logs, in shell history, and in this document — never as an
+> assignment in any env file, systemd unit, or n8n credential. The token that
+> actually carries the CI permissions is **`JARVIS_CI_TOKEN`** in
+> `/home/sajan/Projects/JARVIS/.ci-bridge.env`. It was re-verified live after the
+> update and holds contents:write, pull_requests:write and issues:write.
+> If a second token was created under a different name, no code path here
+> references it.
 
 ---
 

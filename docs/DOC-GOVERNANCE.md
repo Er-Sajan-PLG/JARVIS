@@ -33,7 +33,13 @@ mechanically checkable instead of aspirational.
 Every file under `docs/` **must** begin with a level-1 heading followed by a
 status block containing at least:
 
-```
+```markdown
+# Title
+
+**Status**: ACTIVE
+**Last Updated**: 2026-09-13
+
+Body…
 ```
 
 Documents that assert behaviour **must** additionally name their source, e.g.
@@ -160,3 +166,40 @@ silent skip.
 
 A document past its review date without a re-read is a governance failure and
 belongs in `docs/ACCEPTED_RISKS.md`, not quietly ignored.
+
+---
+
+## 8. Versioning documents
+
+Documents are versioned by **git and the release tag**, not by a number in the
+filename. There is exactly one exception.
+
+**The rule.** A living document is never renamed to carry a version.
+`docs/ARCHITECTURE.md` stays `docs/ARCHITECTURE.md` across every release; its
+history is the file's git log, and the version a reader should assume it
+describes is the latest release tag on the branch (`docs/VERSIONING.md`). This is
+why the old `# JARVIS Architecture — Living Document v3.0.0` title was wrong: a
+v3.0.0 banner on a document edited through v3.3.0 told readers it was frozen when
+it was not.
+
+**The exception.** A document that is *replaced* rather than updated is frozen
+under a versioned name in `docs/archive/`, and its successor is created fresh:
+
+| Pattern | Example | Meaning |
+|---|---|---|
+| `docs/archive/<NAME>_v<X.Y.Z>.md` | `docs/archive/CHANGELOG_v3.0.0.md`, `docs/archive/DEVLOG_v3.0.0.md` | The complete document as it stood at that release cycle. Never edited again. |
+| `docs/archive/<NAME>_<YYYY-MM-DD>.md` | `docs/archive/HEALTH_REPORT_2026-07-28.md` | A dated measurement not tied to a release. |
+
+**What this means in practice:**
+
+1. To change a living doc, edit it in place and update `**Last Updated**`. Do not
+   create `ARCHITECTURE_v3.4.0.md` — that is what the archive naming is for, and
+   only when the whole document is being retired.
+2. To retire a living doc, copy it to `docs/archive/` with the version suffix and
+   state in the commit message what supersedes it. Never silently overwrite
+   history in place.
+3. `docs/CHANGELOG.md` is the single place release notes accumulate; the archived
+   `CHANGELOG_v3.0.0.md` is the pre-split artefact retained for history.
+4. Every release tag must have a matching GitHub Release (automated by
+   `githooks/pre-push` → `scripts/publish_release.py`), so "which docs described
+   release X" is answerable by checking out that tag.
