@@ -15,7 +15,7 @@ from app.adapters.security import is_authorized
 from app.bootstrap import bootstrap_system
 
 # Load .env file from project root
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 load_dotenv(_PROJECT_ROOT / ".env")
 
 logger = logging.getLogger(__name__)
@@ -36,32 +36,25 @@ async def list_models() -> dict[str, Any]:
     from app.utils.provider_catalog import get_all_providers
     providers = get_all_providers()
     
-    # Add Google Gemini models if authenticated
+    # Add AGY (Antigravity) models if available
     try:
-        from app.integrations.google_oauth import get_google_oauth
-        oauth = get_google_oauth()
-        if oauth.is_authenticated:
-            # Insert Google Gemini at the beginning
-            providers.insert(0, {
-                "key": "google_gemini",
-                "name": "Google Gemini (AI Pro Account)",
-                "status": "available",
-                "has_key": True,
-                "model_count": 6,
-                "categories": ["reasoning", "code", "general"],
-                "is_openai_compatible": False,
-                "free_models_available": False,
-                "models": [
-                    {"id": "gemini-3.1-pro", "name": "Gemini 3.1 Pro", "description": "Most capable model", "context_length": 1000000, "pricing": {}},
-                    {"id": "gemini-3.1-flash", "name": "Gemini 3.1 Flash", "description": "Fast model", "context_length": 1000000, "pricing": {}},
-                    {"id": "gemini-3.1-flash-lite", "name": "Gemini 3.1 Flash Lite", "description": "Lightweight", "context_length": 1000000, "pricing": {}},
-                    {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "description": "Previous gen capable", "context_length": 1000000, "pricing": {}},
-                    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "description": "Previous gen fast", "context_length": 1000000, "pricing": {}},
-                    {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "description": "Fast and efficient", "context_length": 1000000, "pricing": {}},
-                ],
-            })
+        from app.adapters.integrations.agy import is_available, get_models
+        if is_available():
+            agy_models = get_models()
+            if agy_models:
+                providers.insert(0, {
+                    "key": "agy",
+                    "name": "AGY (Google AI Pro / Antigravity)",
+                    "status": "available",
+                    "has_key": True,
+                    "model_count": len(agy_models),
+                    "categories": ["reasoning", "code", "general"],
+                    "is_openai_compatible": False,
+                    "free_models_available": False,
+                    "models": agy_models,
+                })
     except Exception as e:
-        logger.debug(f"Google OAuth check failed: {e}")
+        logger.debug(f"AGY check failed: {e}")
     
     return {"providers": providers}
 
@@ -102,18 +95,23 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
 
     # Get model client
     try:
-        from app.models.factory import create_client
+        from app.adapters.integrations.agy import chat as agy_chat, is_available
         from app.config.settings import ModelConfig
+        from app.models.factory import create_client
 
         provider = model_info.get("provider", "openrouter")
         model_id = model_info.get("id", "deepseek/deepseek-v4-flash-0731")
 
-        # Handle Google Gemini
-        if provider == "google_gemini":
-            from app.integrations.google_genai import get_gemini_client
-            client = get_gemini_client(model_id)
-            if not client:
-                return {"error": "Google Gemini not authenticated. Please login first."}
+        # Handle AGY
+        if provider == "agy":
+            if not is_available():
+                return {"error": "AGY CLI not found. Install from https://antigravity.google/"}
+            response = agy_chat(
+                messages=[{"role": "user", "content": full_message}],
+                model=model_id,
+            )
+            response_content = response.get("content", "")
+            response_tokens = response.get("tokens_used")
         else:
             provider_config = {
                 "nvidia": {"key": "NVIDIA_API_KEY", "url": "https://integrate.api.nvidia.com/v1"},
@@ -143,42 +141,35 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
                 base_url=base_url,
             )
             client = create_client(config)
+            response = client.generate([{"role": "user", "content": full_message}])
+            response_content = response.get("content", "") if isinstance(response, dict) else getattr(response, "content", "")
+            response_tokens = response.get("tokens_used", None) if isinstance(response, dict) else getattr(response, "tokens_used", None)
     except Exception as e:
         logger.error(f"Failed to create model client: {e}")
         return {"error": f"Model initialization failed: {str(e)}"}
 
-    # Generate response
-    try:
-        messages = [{"role": "user", "content": full_message}]
-        response = client.generate(messages)
-        response_content = response.get("content", "") if isinstance(response, dict) else getattr(response, "content", "")
-        response_tokens = response.get("tokens_used", None) if isinstance(response, dict) else getattr(response, "tokens_used", None)
+    # Store in memory
+    if memory_enabled:
+        try:
+            await container.memory_service.store_memory(
+                key=f"user_{session_id}",
+                value=message,
+                category="conversation",
+            )
+            await container.memory_service.store_memory(
+                key=f"assistant_{session_id}",
+                value=response_content,
+                category="conversation",
+            )
+        except Exception as e:
+            logger.warning(f"Memory store failed: {e}")
 
-        # Store in memory
-        if memory_enabled:
-            try:
-                await container.memory_service.store_memory(
-                    key=f"user_{session_id}",
-                    value=message,
-                    category="conversation",
-                )
-                await container.memory_service.store_memory(
-                    key=f"assistant_{session_id}",
-                    value=response_content,
-                    category="conversation",
-                )
-            except Exception as e:
-                logger.warning(f"Memory store failed: {e}")
-
-        return {
-            "response": response_content,
-            "model": model_info,
-            "session_id": session_id,
-            "tokens_used": response_tokens,
-        }
-    except Exception as e:
-        logger.error(f"Chat generation failed: {e}")
-        return {"error": f"Generation failed: {str(e)}"}
+    return {
+        "response": response_content,
+        "model": model_info,
+        "session_id": session_id,
+        "tokens_used": response_tokens,
+    }
 
 
 @web_router.post("/upload")
@@ -200,7 +191,7 @@ async def upload_file(
     extracted_text = ""
     content_type = file.content_type or ""
 
-    if content_type == "application/pdf" or file.filename.lower().endswith(".pdf"):
+    if content_type == "application/pdf" or (file.filename and file.filename.lower().endswith(".pdf")):
         try:
             import pymupdf
             doc = pymupdf.open(stream=content, filetype="pdf")
@@ -210,7 +201,7 @@ async def upload_file(
             logger.warning(f"PDF extraction failed: {e}")
             extracted_text = f"[PDF: {file.filename} - extraction failed]"
 
-    elif content_type.startswith("text/") or file.filename.lower().endswith((".txt", ".md", ".csv", ".json", ".py", ".js", ".html", ".css")):
+    elif content_type.startswith("text/") or (file.filename and file.filename.lower().endswith((".txt", ".md", ".csv", ".json", ".py", ".js", ".html", ".css"))):
         try:
             extracted_text = content.decode("utf-8", errors="replace")
         except Exception:
@@ -303,60 +294,39 @@ async def delete_conversation(session_id: str) -> dict[str, Any]:
         return {"error": str(e)}
 
 
-# ── Google OAuth ─────────────────────────────────────────────────
+# ── AGY (Antigravity) ──────────────────────────────────────────
 
-@web_router.get("/google/auth/status")
-async def google_auth_status() -> dict[str, Any]:
-    """Check if Google OAuth is authenticated."""
-    from app.integrations.google_oauth import get_google_oauth
-    oauth = get_google_oauth()
-    return {
-        "authenticated": oauth.is_authenticated,
-        "models": oauth.get_models() if oauth.is_authenticated else [],
-    }
+@web_router.get("/agy/status")
+async def agy_status() -> dict[str, Any]:
+    """Check if AGY CLI is available."""
+    from app.adapters.integrations.agy import is_available
+    return {"available": is_available()}
 
 
-@web_router.post("/google/auth/login")
-async def google_auth_login(payload: dict[str, Any]) -> dict[str, Any]:
-    """Login with Google OAuth.
+@web_router.get("/agy/models")
+async def agy_models() -> dict[str, Any]:
+    """List available AGY models."""
+    from app.adapters.integrations.agy import get_models
+    return {"models": get_models()}
+
+
+@web_router.post("/agy/analyze-file")
+async def agy_analyze_file(payload: dict[str, Any]) -> dict[str, Any]:
+    """Analyze a file using AGY."""
+    from app.adapters.integrations.agy import analyze_file
     
-    Body:
-        client_id (str): Google OAuth client ID
-        client_secret (str): Google OAuth client secret
-    """
-    from app.integrations.google_oauth import get_google_oauth
-    client_id = payload.get("client_id", "")
-    client_secret = payload.get("client_secret", "")
+    file_path = payload.get("file_path", "")
+    query = payload.get("query", "What is this file about?")
+    model = payload.get("model", "gemini-3.1-pro-high")
     
-    if not client_id or not client_secret:
-        raise HTTPException(status_code=400, detail="client_id and client_secret required")
+    if not file_path:
+        raise HTTPException(status_code=400, detail="file_path required")
     
-    oauth = get_google_oauth()
-    success = oauth.login(client_id, client_secret)
-    
-    return {
-        "success": success,
-        "authenticated": oauth.is_authenticated,
-    }
-
-
-@web_router.post("/google/auth/logout")
-async def google_auth_logout() -> dict[str, Any]:
-    """Logout and remove stored credentials."""
-    from app.integrations.google_oauth import get_google_oauth
-    oauth = get_google_oauth()
-    oauth.logout()
-    return {"success": True}
-
-
-@web_router.get("/google/models")
-async def google_models() -> dict[str, Any]:
-    """List available Gemini models from user's account."""
-    from app.integrations.google_oauth import get_google_oauth
-    oauth = get_google_oauth()
-    if not oauth.is_authenticated:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return {"models": oauth.get_models()}
+    try:
+        result = analyze_file(file_path, query, model=model)
+        return {"response": result}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @web_router.get("/health")
