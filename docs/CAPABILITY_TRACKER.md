@@ -16,7 +16,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 | Capability Area | Contract Requirement | JARVIS Current | PROFESSOR-J Reference | Compliance | Sprint Target |
 |-----------------|---------------------|----------------|----------------------|------------|---------------|
 | **Cognitive Engine** | LangGraph orchestration | ✅ StateGraph + 5 nodes + streaming + OTel | ✅ ADR-003, ADR-006 | 🟢 **95%** | Done |
-| **Memory Subsystem** | 4-stage pipeline + rich schema | 4-stage + `MemoryItem` + dedup | PR #75 | 🟢 **90%** | Sprint 3 |
+| **Memory Subsystem** | 4-stage pipeline + rich schema | 4-stage + `MemoryItem` + dedup | PR #75 | 🟢 **90%** | Done |
 | **Provider Routing** | Multi-provider + circuit breakers | ✅ Implemented | ✅ Implemented | ✅ **100%** | Done |
 | **Safety Gate (HITL)** | Tiered + DESTRUCTIVE blocks | ✅ Implemented | ✅ Implemented | ✅ **100%** | Done |
 | **MCP Client** | stdio + Streamable HTTP | ✅ Implemented | PR #86 | ✅ **100%** | Done |
@@ -46,7 +46,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 
 | Contract Requirement | JARVIS Current | Gap | Action | Sprint |
 |---------------------|----------------|-----|--------|--------|
-| 4-stage pipeline: extract→manage→store→retrieve | Hybrid retriever + MemoryService | extract (LLM) + dedup added | `FactExtractor` + `MemoryManager` pipeline | 3 |
+| 4-stage pipeline: extract→manage→store→retrieve | ✅ `MemoryPipeline` + `LLMFactExtractor` + dedup | — | Implemented | Done |
 | `MemoryItem` schema (fact/episode/procedure/preference/conversation) | ✅ `app.domain.memory.MemoryItem` | — | Implemented (`MemoryKind`/`MemoryScope`/`DraftStatus`) | Done |
 | Scope: session/user/global | ✅ `MemoryScope` enum | — | Implemented | Done |
 | Dense retrieval (embeddings) + sparse (BM25) | ✅ Hybrid retriever | ✅ Implemented | — | Done |
@@ -92,7 +92,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 | Session lifecycle (create/resume/fork/archive/delete) | ✅ fork/archive/delete in SessionManager | — | Implemented | Done |
 | Token-aware context trimming | ✅ app/session/context.py (recent > pinned > summary) | — | Implemented | Done |
 | Checkpointing (MemorySaver/PostgresCheckpointer) | ✅ MemorySaverAdapter (in-memory, real) | — | Implemented | Done |
-| Workspace awareness (cwd, git, file tree) | WorkspaceManager | Basic | Enhance with git state | 3 |
+| Workspace awareness (cwd, git, file tree) | ✅ `WorkspaceManager.get_git_state()` + `get_file_tree()` | — | Implemented | Done |
 
 ---
 
@@ -116,7 +116,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 
 ### Sprint 3 (Weeks 5-8): Capability Contract Alignment
 - [ ] **Cognitive Engine**: Port LangGraph orchestration from PROFESSOR-J
-- [ ] **Memory**: Full 4-stage pipeline with `MemoryItem` schema
+- [x] **Memory**: Full 4-stage pipeline with `MemoryItem` schema
 - [x] **MCP Client**: stdio + Streamable HTTP
 - [ ] **Session**: LangGraph checkpointers (MemorySaver/Postgres)
 - [ ] **OTel**: Spans with semantic conventions
