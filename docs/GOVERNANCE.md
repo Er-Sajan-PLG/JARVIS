@@ -1,5 +1,11 @@
 # JARVIS Documentation Governance
 
+**Type**: governance
+**Status**: ACTIVE
+**Last Updated**: 2026-09-14
+**Reviewed**: 2026-09-14
+**Source**: `scripts/doc_governance.py` + `scripts/doc_review_due.py` + `scripts/doc_type_table.py` + `scripts/check_docs.py` at HEAD
+
 Inspired by [Universal_Software_Auditor](https://github.com/Er-Sajan-PLG/Universal_Software_Auditor)'s docs-sync system (ADR-0020), adapted to JARVIS's Python conventions.
 
 ## Two failure classes

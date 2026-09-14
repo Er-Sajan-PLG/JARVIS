@@ -2,7 +2,9 @@
 
 **Date**: 2026-09-14
 **Version**: v3.15.4.dirty (git-derived, source=git)
-**Status**: ALL SPRINTS COMPLETE
+**Status**: SNAPSHOT
+**Type**: snapshot
+**Reviewed**: 2026-09-14
 
 ---
 

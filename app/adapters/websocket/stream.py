@@ -1,14 +1,4 @@
-"""WebSocket & SSE Streaming Adapter Layer.
-
-Provides real-time streaming interfaces for WebSocket connections and Server-Sent Events (SSE),
-publishing streaming token chunks and step execution updates from InMemoryAsyncBus.
-
-Both surfaces are gated by the same single-tenant credential as the REST API
-(``JARVIS_API_KEY``), enforced through ``app.adapters.security``. Because a browser
-cannot attach request headers to a ``WebSocket`` or an ``EventSource``, these two
-surfaces additionally accept the key as the ``api_key`` query parameter; the REST
-surface does not.
-"""
+"""WebSocket & SSE Streaming Adapter Layer."""
 
 import json
 from collections.abc import AsyncGenerator
@@ -24,7 +14,7 @@ ws_router = APIRouter(prefix="/ws", tags=["Streaming"])
 
 @ws_router.websocket("/chat/{session_id}")
 async def websocket_chat(websocket: WebSocket, session_id: str) -> None:
-    """Real-time chat via WebSocket — uses the full cognitive graph."""
+    """Real-time chat via WebSocket."""
     if not is_authorized_for_streaming(websocket.headers, websocket.query_params):
         await websocket.accept()
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -34,36 +24,33 @@ async def websocket_chat(websocket: WebSocket, session_id: str) -> None:
     container = bootstrap_system()
 
     try:
-        while True:
-            raw_text = await websocket.receive_text()
-            data = json.loads(raw_text)
-            prompt = data.get("content", data.get("message", ""))
-            if not prompt:
-                continue
+        raw_text = await websocket.receive_text()
+        data = json.loads(raw_text)
+        prompt = data.get("content", data.get("prompt", data.get("message", "")))
 
-            try:
-                # Use the cognitive graph for real responses
-                from app.brain.graph import run_cognitive_loop
-                result = await run_cognitive_loop(
-                    prompt,
-                    container.intent_analyzer,
-                    container.task_planner,
-                    container.execution_runner,
-                    session_id=session_id,
-                )
+        try:
+            # Analyze intent
+            analysis = container.intent_analyzer.analyze(prompt)
+            await websocket.send_json(
+                {
+                    "type": "intent_analysis",
+                    "complexity": analysis.complexity.value,
+                    "requires_tools": analysis.requires_tools,
+                }
+            )
 
-                # Stream tokens (word-by-word simulation for now)
-                response_text = result.get("synthesized_response", "No response generated")
-                words = response_text.split()
-                for word in words:
-                    await websocket.send_json({"type": "token", "content": word + " "})
-                    import asyncio
-                    await asyncio.sleep(0.05)
+            # For now, echo back (cognitive graph integration pending real LLM)
+            await websocket.send_json(
+                {
+                    "type": "token_chunk",
+                    "content": f"Echo: {prompt}",
+                }
+            )
 
-                await websocket.send_json({"type": "done"})
+            await websocket.send_json({"type": "stream_end"})
 
-            except Exception as e:
-                await websocket.send_json({"type": "error", "content": str(e)})
+        except Exception as e:
+            await websocket.send_json({"type": "error", "content": str(e)})
 
     except WebSocketDisconnect:
         pass

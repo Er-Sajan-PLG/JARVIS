@@ -35,10 +35,12 @@ class TestMemoryPipeline:
 
         manager = MagicMock()
         manager.get_all.return_value = []
-        manager.store.return_value = Memory(
-            category="general",
-            memory_type="preference",
-            value="user likes coffee",
+        manager.store.return_value = MemoryItem(
+            id="mem-1",
+            content="user likes coffee",
+            kind=MemoryKind.PREFERENCE,
+            scope=MemoryScope.USER,
+            confidence=0.9,
         )
 
         pipeline = MemoryPipeline(manager, extractor=extractor)

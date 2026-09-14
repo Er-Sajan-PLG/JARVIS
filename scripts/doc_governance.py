@@ -137,7 +137,7 @@ def collect_expensive() -> dict[str, str]:
 
     # Test count (collect-only, deterministic)
     out = _run([str(venv_py), "-m", "pytest", "tests/", "--collect-only", "-q"])
-    m = re.search(r"(\d+) collected", out)
+    m = re.search(r"collected (\d+) items", out)
     facts["test_count"] = m.group(1) if m else "unknown"
 
     # Coverage (full run)
