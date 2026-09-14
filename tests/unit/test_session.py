@@ -32,9 +32,9 @@ def test_checkpoint_dataclass_and_adapter() -> None:
 
     adapter = MemorySaverAdapter()
     saved = adapter.save({"state": 1}, "t1")
-    assert saved == "memory-t1"
+    assert saved == "t1"
     loaded = adapter.load("t1")
-    assert loaded == {"thread_id": "t1", "state": {}}
+    assert loaded == {"state": 1}
 
 
 def test_langgraph_checkpointer_sqlite(tmp_path: Path) -> None:

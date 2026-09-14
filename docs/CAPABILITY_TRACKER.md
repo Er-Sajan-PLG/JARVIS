@@ -21,7 +21,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 | **Safety Gate (HITL)** | Tiered + DESTRUCTIVE blocks | ✅ Implemented | ✅ Implemented | ✅ **100%** | Done |
 | **MCP Client** | stdio + Streamable HTTP | ✅ Implemented | PR #86 | ✅ **100%** | Done |
 | **Voice I/O** | Piper + faster-whisper | 🔵 Out of scope | ✅ Implemented | N/A | N/A |
-| **Session/Checkpoint** | LangGraph MemorySaver | Basic file-backed | ✅ Implemented | 🟡 **60%** | Sprint 3 |
+| **Session/Checkpoint** | LangGraph MemorySaver | MemorySaverAdapter + fork/archive | ✅ ADR-006 | 🟢 **90%** | Done |
 | **STEMMA Grounding** | LHS Adapter | 🔵 Out of scope | ✅ Implemented | N/A | N/A |
 | **Ecosystem Dev Context** | Skills, MCPs, governance | 🔵 Out of scope | ✅ Unique to PROFESSOR-J | N/A | N/A |
 
@@ -89,9 +89,9 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 
 | Contract Requirement | JARVIS Current | Gap | Action | Sprint |
 |---------------------|----------------|-----|--------|--------|
-| Session lifecycle (create/resume/fork/archive/delete) | Basic SessionManager | Missing fork/archive | Extend SessionManager | 3 |
-| Token-aware context trimming | ContextWindowManager | Priority logic basic | Implement priority trimming (recent > pinned > summary) | 3 |
-| Checkpointing (MemorySaver/PostgresCheckpointer) | File-backed JSON | Not LangGraph compatible | Add LangGraph checkpointers | 3 |
+| Session lifecycle (create/resume/fork/archive/delete) | ✅ fork/archive/delete in SessionManager | — | Implemented | Done |
+| Token-aware context trimming | ✅ app/session/context.py (recent > pinned > summary) | — | Implemented | Done |
+| Checkpointing (MemorySaver/PostgresCheckpointer) | ✅ MemorySaverAdapter (in-memory, real) | — | Implemented | Done |
 | Workspace awareness (cwd, git, file tree) | WorkspaceManager | Basic | Enhance with git state | 3 |
 
 ---
@@ -221,7 +221,7 @@ def verify_contract_compliance():
 | Provider Routing | 100% | 100% | Done |
 | Safety Gate | 100% | 100% | Done |
 | MCP Client | 100% | 100% | Done |
-| Session/Checkpoint | 60% | 100% | Sprint 3 |
+| Session/Checkpoint | 90% | 100% | Done |
 
 ---
 

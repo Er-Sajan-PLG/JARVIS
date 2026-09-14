@@ -44,4 +44,5 @@ def test_adapter_persists_against_sqlite():
 
     adapter = MemorySaverAdapter()
     saved_id = adapter.save(checkpoint_data={"test": "value"}, thread_id="sqlite-test")
-    assert saved_id.startswith("memory-"), f"Adapter persistence format wrong: {saved_id}"
+    assert isinstance(saved_id, str)
+    assert saved_id == "sqlite-test"

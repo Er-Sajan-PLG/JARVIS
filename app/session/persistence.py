@@ -7,7 +7,6 @@ local file fallback for standalone execution.
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
 from app.domain import ConversationState, Message, Role, SessionState, UserPreferences
 
@@ -115,4 +114,11 @@ class SessionPersistence:
 
     async def _save_session_pg(self, session: SessionState) -> None:
         """Placeholder for asyncpg PostgreSQL JSONB session write."""
-        pass
+
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete a persisted session; return whether it existed on disk."""
+        dest = self.data_dir / f"session_{session_id}.json"
+        if dest.exists():
+            dest.unlink()
+            return True
+        return False

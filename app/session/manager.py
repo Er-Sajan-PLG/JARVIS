@@ -1,11 +1,12 @@
 """Live Session Manager.
 
-Manages active sessions, active conversation bindings, user preferences, and persistence orchestration.
+Manages active sessions, active conversation bindings, user preferences, and
+persistence orchestration.
 """
 
 import logging
-from datetime import datetime, timezone
 import uuid
+from datetime import UTC, datetime
 
 from app.domain import ConversationState, SessionState, UserPreferences
 from app.session.persistence import SessionPersistence
@@ -25,7 +26,7 @@ class SessionManager:
         """Retrieve existing active session or load/create one."""
         if session_id in self._active_sessions:
             session = self._active_sessions[session_id]
-            session.last_active_at = datetime.now(timezone.utc)
+            session.last_active_at = datetime.now(UTC)
             return session
 
         loaded = await self.persistence.load_session(session_id)
@@ -67,9 +68,47 @@ class SessionManager:
         await self.persistence.save_conversation(new_conv)
         return new_conv
 
-    async def update_preferences(self, session_id: str, preferences: UserPreferences) -> SessionState:
+    async def update_preferences(
+        self, session_id: str, preferences: UserPreferences
+    ) -> SessionState:
         """Update preferences for active session."""
         session = await self.get_or_create_session(session_id)
         session.preferences = preferences
         await self.persistence.save_session(session)
         return session
+
+    async def fork_session(
+        self,
+        session_id: str,
+        new_session_id: str | None = None,
+    ) -> SessionState:
+        """Fork an existing session into a new, independent session.
+
+        Copies the source session's preferences and metadata, but starts the
+        fork with a fresh conversation binding so the two sessions can diverge.
+        """
+        source = await self.get_or_create_session(session_id)
+        target_id = new_session_id or f"{session_id}-fork-{uuid.uuid4().hex[:8]}"
+
+        forked = SessionState(
+            session_id=target_id,
+            user_id=source.user_id,
+            preferences=source.preferences,
+            metadata={**source.metadata, "forked_from": session_id},
+        )
+        self._active_sessions[target_id] = forked
+        await self.persistence.save_session(forked)
+        return forked
+
+    async def archive_session(self, session_id: str) -> SessionState:
+        """Mark a session as archived (keeps it out of the active set)."""
+        session = await self.get_or_create_session(session_id)
+        session.metadata["archived"] = True
+        await self.persistence.save_session(session)
+        self._active_sessions.pop(session_id, None)
+        return session
+
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete a session from the active set and persistence."""
+        self._active_sessions.pop(session_id, None)
+        return await self.persistence.delete_session(session_id)
