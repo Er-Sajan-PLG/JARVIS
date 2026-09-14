@@ -66,16 +66,16 @@ def get_models() -> list[dict[str, Any]]:
             line = line.strip()
             if not line or line.startswith(("Name", "Model", "──", "Usage", "Featured")):
                 continue
-            # Parse tab-separated format: "display name\tslug"
+            # Parse tab-separated format: "slug\tDisplay Name"
             parts = line.split("\t")
             if len(parts) >= 2:
-                name = parts[0].strip()
-                slug = parts[1].strip()
+                slug = parts[0].strip()
+                display_name = parts[1].strip()
                 if slug:
                     models.append({
                         "id": slug,
-                        "name": slug,
-                        "description": f"AGY model: {name}",
+                        "name": display_name,
+                        "description": f"AGY model: {display_name}",
                         "context_length": 1000000,
                         "pricing": {},
                     })
@@ -121,10 +121,10 @@ def chat(
     
     prompt = "\n\n".join(prompt_parts)
     
-    # Build command
+    # Build command - prompt must be attached to --print with =
     cmd = [
         exe,
-        "--print",
+        f"--print={prompt}",
         "--output-format", "json",
         "--print-timeout", f"{timeout // 60}m",
         "--model", model,
@@ -132,8 +132,6 @@ def chat(
     
     if effort:
         cmd += ["--effort", effort]
-    
-    cmd += [prompt]
     
     try:
         result = subprocess.run(
