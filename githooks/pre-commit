@@ -47,7 +47,8 @@ if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/sync_doc_fac
   # Slow path (--sync) only runs when cache is missing or stale
   FACTS_CACHE="$REPO_ROOT/.governance/doc_facts.json"
   if [ -f "$FACTS_CACHE" ]; then
-    if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --apply --facts-json "$(cat $FACTS_CACHE)" >/tmp/jarvis_doc_facts.log 2>&1; then
+    # Fast path: use cached facts for verification (no pytest run)
+    if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --check --facts-json "$(cat $FACTS_CACHE)" >/tmp/jarvis_doc_facts.log 2>&1; then
       echo "Documentation fact check failed (run gate to refresh):"
       cat /tmp/jarvis_doc_facts.log
       exit 1
