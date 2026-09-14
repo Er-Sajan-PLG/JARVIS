@@ -13,9 +13,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from app.adapters.security import is_authorized
 from app.bootstrap import bootstrap_system
+from app.domain import MemoryRecord
 
 # Load .env file from project root
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(_PROJECT_ROOT / ".env")
 
 logger = logging.getLogger(__name__)
@@ -47,9 +48,16 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
     session_id = payload.get("session_id", str(uuid.uuid4()))
     memory_enabled = payload.get("memory_enabled", True)
     files = payload.get("files", [])
+    file_contents = payload.get("file_contents", [])
 
     if not message and not files:
         raise HTTPException(status_code=400, detail="Message or files required")
+
+    # Build file context
+    file_context = ""
+    if file_contents:
+        for fname, fcontent in file_contents:
+            file_context += f"\n\n[File: {fname}]\n{fcontent}"
 
     # Get memory context
     memory_context = ""
@@ -63,17 +71,16 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
         except Exception as e:
             logger.warning(f"Memory search failed: {e}")
 
-    full_message = f"{message}{memory_context}" if memory_context else message
+    full_message = f"{message}{memory_context}{file_context}"
 
     # Get model client
     try:
         from app.models.factory import create_client
         from app.config.settings import ModelConfig
 
-        provider = model_info.get("provider", "nvidia")
-        model_id = model_info.get("id", "deepseek-ai/deepseek-v4-flash-0731")
+        provider = model_info.get("provider", "openrouter")
+        model_id = model_info.get("id", "deepseek/deepseek-v4-flash-0731")
 
-        # Map provider to its API key env var and base URL
         provider_config = {
             "nvidia": {"key": "NVIDIA_API_KEY", "url": "https://integrate.api.nvidia.com/v1"},
             "openrouter": {"key": "OPENROUTER_API_KEY", "url": "https://openrouter.ai/api/v1"},
@@ -89,11 +96,11 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
             "cohere": {"key": "COHERE_API_KEY", "url": "https://api.cohere.ai/v1"},
             "zhipu": {"key": "ZHIPU_API_KEY", "url": "https://open.bigmodel.cn/api/paas/v4"},
         }
-        
+
         cfg = provider_config.get(provider, provider_config["openrouter"])
         api_key_env = cfg["key"]
         base_url = cfg["url"]
-        
+
         config = ModelConfig(
             name=model_id,
             role="general",
@@ -143,6 +150,7 @@ async def upload_file(
     file: UploadFile = File(...),
     __=Depends(_validate_api_key),
 ) -> dict[str, Any]:
+    """Upload a file and extract its content."""
     upload_dir = Path("data/uploads")
     upload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -152,11 +160,42 @@ async def upload_file(
     content = await file.read()
     file_path.write_bytes(content)
 
+    # Extract text based on file type
+    extracted_text = ""
+    content_type = file.content_type or ""
+
+    if content_type == "application/pdf" or file.filename.lower().endswith(".pdf"):
+        try:
+            import pymupdf
+            doc = pymupdf.open(stream=content, filetype="pdf")
+            extracted_text = "\n".join(page.get_text() for page in doc)
+            doc.close()
+        except Exception as e:
+            logger.warning(f"PDF extraction failed: {e}")
+            extracted_text = f"[PDF: {file.filename} - extraction failed]"
+
+    elif content_type.startswith("text/") or file.filename.lower().endswith((".txt", ".md", ".csv", ".json", ".py", ".js", ".html", ".css")):
+        try:
+            extracted_text = content.decode("utf-8", errors="replace")
+        except Exception:
+            extracted_text = content.decode("latin-1", errors="replace")
+
+    elif content_type.startswith("image/"):
+        extracted_text = f"[Image: {file.filename} - image content cannot be extracted as text]"
+
+    else:
+        # Try as text
+        try:
+            extracted_text = content.decode("utf-8", errors="replace")
+        except Exception:
+            extracted_text = f"[File: {file.filename} - binary content]"
+
     return {
         "file_id": file_id,
         "filename": file.filename,
         "size": len(content),
-        "content_type": file.content_type,
+        "content_type": content_type,
+        "extracted_text": extracted_text[:50000],  # Limit to 50KB of text
     }
 
 
@@ -164,7 +203,22 @@ async def upload_file(
 async def list_memories(session_id: str | None = None, limit: int = 50) -> dict[str, Any]:
     container = bootstrap_system()
     try:
-        memories = await container.memory_service.search_memories("", limit=limit)
+        if session_id:
+            memories = await container.memory_service.search_memories(session_id, limit=limit)
+        else:
+            # Return all memories
+            all_mems = container.memory_service._manager.get_all()
+            from app.domain import MemoryRecord
+            memories = [
+                MemoryRecord(
+                    id=m.id,
+                    key=getattr(m, "memory_type", ""),
+                    value=getattr(m, "value", ""),
+                    category=getattr(m, "category", "general"),
+                    confidence=getattr(m, "confidence", 1.0),
+                )
+                for m in all_mems[:limit]
+            ]
         return {
             "memories": [
                 {
@@ -176,6 +230,39 @@ async def list_memories(session_id: str | None = None, limit: int = 50) -> dict[
                 for m in memories[:limit]
             ]
         }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@web_router.delete("/memory/{memory_id}")
+async def delete_memory(memory_id: str) -> dict[str, Any]:
+    container = bootstrap_system()
+    try:
+        success = container.memory_service._manager.delete(memory_id)
+        return {"success": success}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@web_router.delete("/conversations/{session_id}")
+async def delete_conversation(session_id: str) -> dict[str, Any]:
+    """Delete a conversation and wipe all associated memories."""
+    container = bootstrap_system()
+    try:
+        all_memories = container.memory_service._manager.get_all()
+        deleted_count = 0
+        to_delete = []
+        for mem in all_memories:
+            # Check if this memory belongs to this session
+            mem_type = getattr(mem, "memory_type", "") or ""
+            if session_id in mem_type:
+                to_delete.append(mem.id)
+        
+        for mem_id in to_delete:
+            if container.memory_service._manager.delete(mem_id):
+                deleted_count += 1
+
+        return {"success": True, "deleted_memories": deleted_count}
     except Exception as e:
         return {"error": str(e)}
 

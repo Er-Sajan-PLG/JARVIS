@@ -90,6 +90,17 @@
         }
         .conv-item:hover { background: var(--surface-2); color: var(--text); }
         .conv-item.active { background: var(--surface-3); color: var(--text); }
+        .conv-action-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 2px 4px;
+            border-radius: 4px;
+            transition: var(--transition);
+        }
+        .conv-action-btn:hover { background: var(--surface-3); color: var(--text); }
         .sidebar-footer {
             padding: 12px 16px;
             border-top: 1px solid var(--border);
@@ -767,10 +778,73 @@
             for (const conv of conversations) {
                 const item = document.createElement('div');
                 item.className = 'conv-item' + (conv.id === currentConvId ? ' active' : '');
-                item.textContent = conv.title || 'New Chat';
-                item.onclick = () => loadConversation(conv.id);
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.textContent = conv.title || 'New Chat';
+                titleSpan.style.flex = '1';
+                titleSpan.style.overflow = 'hidden';
+                titleSpan.style.textOverflow = 'ellipsis';
+                titleSpan.onclick = () => loadConversation(conv.id);
+                
+                const actions = document.createElement('span');
+                actions.className = 'conv-actions';
+                actions.style.display = 'none';
+                actions.style.gap = '4px';
+                actions.style.marginLeft = '4px';
+                
+                const renameBtn = document.createElement('button');
+                renameBtn.textContent = '✏️';
+                renameBtn.className = 'conv-action-btn';
+                renameBtn.title = 'Rename';
+                renameBtn.onclick = (e) => { e.stopPropagation(); renameConversation(conv.id); };
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '🗑️';
+                deleteBtn.className = 'conv-action-btn';
+                deleteBtn.title = 'Delete';
+                deleteBtn.onclick = (e) => { e.stopPropagation(); deleteConversation(conv.id); };
+                
+                actions.appendChild(renameBtn);
+                actions.appendChild(deleteBtn);
+                item.appendChild(titleSpan);
+                item.appendChild(actions);
+                
+                item.onmouseenter = () => { actions.style.display = 'inline-flex'; };
+                item.onmouseleave = () => { actions.style.display = 'none'; };
+                
                 list.appendChild(item);
             }
+        }
+
+        function renameConversation(convId) {
+            const conv = conversations.find(c => c.id === convId);
+            if (!conv) return;
+            const newTitle = prompt('Rename conversation:', conv.title);
+            if (newTitle && newTitle.trim()) {
+                conv.title = newTitle.trim();
+                saveConversations();
+                renderConvList();
+            }
+        }
+
+        async function deleteConversation(convId) {
+            if (!confirm('Delete this conversation? This will also wipe all associated memories.')) return;
+            
+            try {
+                await fetch(`/api/conversations/${convId}`, { method: 'DELETE' });
+            } catch (e) {}
+            
+            conversations = conversations.filter(c => c.id !== convId);
+            if (currentConvId === convId) {
+                currentConvId = conversations.length > 0 ? conversations[0].id : null;
+                if (currentConvId) {
+                    loadConversation(currentConvId);
+                } else {
+                    newChat();
+                }
+            }
+            saveConversations();
+            renderConvList();
         }
 
         function newChat() {
@@ -909,6 +983,22 @@
             input.style.height = 'auto';
             document.getElementById('sendBtn').disabled = true;
 
+            // Upload files first
+            const uploadedFiles = [];
+            for (const file of attachedFiles) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (data.extracted_text) {
+                        uploadedFiles.push([data.filename, data.extracted_text]);
+                    }
+                } catch (e) {
+                    console.error('Upload failed:', e);
+                }
+            }
+
             // Build message content
             let content = text;
             if (attachedFiles.length > 0) {
@@ -936,7 +1026,8 @@
                         model: selectedModel,
                         session_id: currentConvId,
                         memory_enabled: memoryEnabled,
-                        files: attachedFiles.map(f => f.name)
+                        files: attachedFiles.map(f => f.name),
+                        file_contents: uploadedFiles
                     })
                 });
 

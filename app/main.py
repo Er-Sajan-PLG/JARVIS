@@ -16,10 +16,10 @@ from fastapi.staticfiles import StaticFiles
 # Load .env before anything else
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-from app.adapters import http_router, ws_router
-from app.adapters.web.router import web_router
-from app.bootstrap import bootstrap_system
-from app.config.version import VERSION as __version__
+from app.adapters import http_router, ws_router  # noqa: E402
+from app.adapters.web.router import web_router  # noqa: E402
+from app.bootstrap import bootstrap_system  # noqa: E402
+from app.config.version import VERSION as __version__  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -101,6 +101,7 @@ if FRONTEND_DIR.exists():
 @app.get("/")
 async def serve_frontend():
     from fastapi.responses import FileResponse
+
     index_path = FRONTEND_DIR / "index.html"
     if index_path.exists():
         return FileResponse(str(index_path))
@@ -115,6 +116,7 @@ async def health_check() -> dict[str, object]:
 @app.get("/ready")
 async def readiness_check() -> Response:
     import json as _json
+
     try:
         container = bootstrap_system()
         checks = {
@@ -154,4 +156,5 @@ async def metrics_endpoint() -> Response:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
