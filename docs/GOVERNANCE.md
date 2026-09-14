@@ -91,11 +91,11 @@ The automation that actually runs:
 
 | Workflow | Trigger | What it actually does |
 |----------|---------|------------------------|
-| `JARVIS-CI-Local` | Schedule (poll) | Calls `scripts/ci_bridge.py`, which gates each PR's head SHA with `scripts/ci_gate.py` (<!--fact:gate_count-->25<!--/fact--> checks) and publishes <!--fact:context_count-->9<!--/fact--> commit-status contexts |
+| `JARVIS-CI-Local` | Schedule (poll) | Calls `scripts/ci_bridge.py`, which gates each PR's head SHA with `scripts/ci_gate.py` (<!--fact:gate_count-->26<!--/fact--> checks) and publishes <!--fact:context_count-->9<!--/fact--> commit-status contexts |
 | `JARVIS-HITL` | Schedule (poll `GET /api/v1/hitl/pending`) | Notifies a human that a DESTRUCTIVE step is paused; calls the decision webhook |
 | `JARVIS-Cleanup` | Schedule (weekly) | Deletes merged branches and stale workflow runs |
 
-**The decision is not in n8n.** `scripts/ci_gate.py` runs the <!--fact:gate_count-->25<!--/fact--> checks and decides
+**The decision is not in n8n.** `scripts/ci_gate.py` runs the <!--fact:gate_count-->26<!--/fact--> checks and decides
 pass/fail; `ci_bridge.py` records the result. n8n's CI workflow only *calls* the
 bridge and relays the outcome. A workflow that named itself the decision-maker
 was never the one making the decision.
@@ -120,7 +120,7 @@ was never the one making the decision.
 ### 4.1 Required Checks (All Must Pass)
 
 There is no `JARVIS-CI` n8n workflow and no YAML describing one. The real gate is
-`scripts/ci_gate.py` — **<!--fact:gate_count-->25<!--/fact--> checks** run against a detached worktree of the target
+`scripts/ci_gate.py` — **<!--fact:gate_count-->26<!--/fact--> checks** run against a detached worktree of the target
 commit, grouped into **8 published commit-status contexts**:
 
 | Published context | Checks behind it |

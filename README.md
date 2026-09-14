@@ -104,7 +104,7 @@ flowchart TB
     subgraph AUTOMATION["Automation Plane (n8n :5678 + bridge :8770)"]
         N8N["n8n workflows<br/>CI-Local · HITL · Cleanup"]
         BRIDGE["ci_bridge_server.py"]
-        CGATE["ci_gate.py (<!--fact:gate_count-->25<!--/fact--> checks)"]
+        CGATE["ci_gate.py (<!--fact:gate_count-->26<!--/fact--> checks)"]
     end
 
     HTTP --> AUTH
@@ -216,7 +216,7 @@ to `127.0.0.1:8770`, token-authenticated). The bridge runs `scripts/ci_bridge.py
 which lists open PRs, gates each **merge result** in a shadow worktree, and
 publishes the outcome.
 
-**<!--fact:gate_count-->25<!--/fact--> checks** in `scripts/ci_gate.py`:
+**<!--fact:gate_count-->26<!--/fact--> checks** in `scripts/ci_gate.py`:
 
 ```
 ruff_ratchet  mypy  pytest  contract  coverage  mutation

@@ -120,7 +120,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 - [x] **MCP Client**: stdio + Streamable HTTP
 - [ ] **Session**: LangGraph checkpointers (MemorySaver/Postgres)
 - [ ] **OTel**: Spans with semantic conventions
-- [ ] **Eval Suite**: Regression suite for model behavior
+- [x] **Eval Suite**: Regression suite for model behavior
 
 **Target Compliance**: 90%
 

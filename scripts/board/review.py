@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """JARVIS Virtual Board Governance Checks.
 
-Runs 8 governance checks:
+Runs N governance checks (board gates — see scripts/board/review.py for the full list).
 1. import_layering - Verify package boundaries respected
 2. domain_purity - Domain models have no external deps
 3. schema_drift - Database schema matches models
@@ -10,6 +10,7 @@ Runs 8 governance checks:
 6. mcp_tool_search - MCP components exist
 7. otel_spans - OpenTelemetry spans present
 8. langgraph_checkpoint - LangGraph checkpointing configured
+9. eval_suite - Eval suite exists and is runnable
 
 Exit code 0 = all pass, non-zero = failures
 """
@@ -266,6 +267,27 @@ def check_langgraph_checkpoint() -> tuple[bool, list[str]]:
     return len(errors) == 0, errors
 
 
+def check_eval_suite() -> tuple[bool, list[str]]:
+    """Verify the eval suite exists and is runnable."""
+    errors = []
+    evals_dir = REPO_ROOT / "evals"
+    if not evals_dir.exists():
+        errors.append("evals/ directory missing")
+        return False, errors
+    if not (evals_dir / "eval.py").exists():
+        errors.append("evals/eval.py missing")
+    if not (evals_dir / "runner.py").exists():
+        errors.append("evals/runner.py missing")
+    if not (evals_dir / "reporters.py").exists():
+        errors.append("evals/reporters.py missing")
+    evals_pkg = evals_dir / "evals"
+    if not evals_pkg.exists() or not any(evals_pkg.glob("*.py")):
+        errors.append("evals/evals/ package missing or empty")
+    if not (REPO_ROOT / "scripts" / "run_evals.py").exists():
+        errors.append("scripts/run_evals.py missing")
+    return len(errors) == 0, errors
+
+
 def main():
     checks = [
         ("import_layering", check_import_layering),
@@ -276,6 +298,7 @@ def main():
         ("mcp_tool_search", check_mcp_tool_search),
         ("otel_spans", check_otel_spans),
         ("langgraph_checkpoint", check_langgraph_checkpoint),
+        ("eval_suite", check_eval_suite),
     ]
 
     all_pass = True
@@ -290,7 +313,7 @@ def main():
             all_pass = False
 
     if all_pass:
-        print("\n🎉 All 8 governance checks passed!")
+        print(f"\n🎉 All {len(checks)} governance checks passed!")
         return 0
     else:
         print("\n💥 Some governance checks failed!")

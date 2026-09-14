@@ -37,7 +37,7 @@ python3.11 -m venv .venv
 ```
 
 5. **Commit** — conventional commits (`feat:`, `fix:`, `chore:`, etc.), small scope.
-6. **PR** — describe what/why; CI runs all <!--fact:gate_count-->25<!--/fact--> gates.
+6. **PR** — describe what/why; CI runs all <!--fact:gate_count-->26<!--/fact--> gates.
 
 ## Standards
 
