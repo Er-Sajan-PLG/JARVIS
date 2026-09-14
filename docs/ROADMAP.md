@@ -117,6 +117,9 @@
 
 ## 8. Milestone Timeline
 
+<!--fact:begin sprint-progress-->
+<!--fact:end sprint-progress-->
+
 ```
 Week 0:     ████████████████████████████████████  Sprint 0: UNBLOCK ✅
 Week 1-2:   ████████████████████████████████████  Sprint 1: FOUNDATION ✅
