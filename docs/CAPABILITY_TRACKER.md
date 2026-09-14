@@ -16,7 +16,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 | Capability Area | Contract Requirement | JARVIS Current | PROFESSOR-J Reference | Compliance | Sprint Target |
 |-----------------|---------------------|----------------|----------------------|------------|---------------|
 | **Cognitive Engine** | LangGraph orchestration | Direct async loop | ADR-003, PR #75 | 🟡 **30%** | Sprint 3 |
-| **Memory Subsystem** | 4-stage pipeline + rich schema | Hybrid BM25+Chroma | PR #75 | 🟡 **45%** | Sprint 3 |
+| **Memory Subsystem** | 4-stage pipeline + rich schema | 4-stage + `MemoryItem` + dedup | PR #75 | 🟢 **90%** | Sprint 3 |
 | **Provider Routing** | Multi-provider + circuit breakers | ✅ Implemented | ✅ Implemented | ✅ **100%** | Done |
 | **Safety Gate (HITL)** | Tiered + DESTRUCTIVE blocks | ✅ Implemented | ✅ Implemented | ✅ **100%** | Done |
 | **MCP Client** | stdio + Streamable HTTP | ✅ Implemented | PR #86 | ✅ **100%** | Done |
@@ -46,15 +46,15 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 
 | Contract Requirement | JARVIS Current | Gap | Action | Sprint |
 |---------------------|----------------|-----|--------|--------|
-| 4-stage pipeline: extract→manage→store→retrieve | Hybrid retriever + MemoryService | Missing extract + manage stages | Add `FactExtractor` + `MemoryManager` pipeline | 3 |
-| `MemoryItem` schema (fact/episode/procedure/preference/conversation) | Basic `MemoryRecord` | Schema too simple | Implement full `MemoryItem` with all fields | 3 |
-| Scope: session/user/global | No scope concept | Missing scope | Add `scope` field to memory | 3 |
+| 4-stage pipeline: extract→manage→store→retrieve | Hybrid retriever + MemoryService | extract (LLM) + dedup added | `FactExtractor` + `MemoryManager` pipeline | 3 |
+| `MemoryItem` schema (fact/episode/procedure/preference/conversation) | ✅ `app.domain.memory.MemoryItem` | — | Implemented (`MemoryKind`/`MemoryScope`/`DraftStatus`) | Done |
+| Scope: session/user/global | ✅ `MemoryScope` enum | — | Implemented | Done |
 | Dense retrieval (embeddings) + sparse (BM25) | ✅ Hybrid retriever | ✅ Implemented | — | Done |
-| Hybrid ranker (0.6 dense + 0.4 sparse configurable) | Basic hybrid | Weights not configurable | Make weights configurable | 3 |
-| Time-decay + confidence weighting | No | Missing | Add decay + confidence to ranker | 3 |
-| Fact extraction via LLM | Basic extractor | Not LLM-based | Port PROFESSOR-J LLM extractor | 3 |
-| Near-duplicate deduplication | No | Missing | Add embedding-based deduplication | 3 |
-| Provenance tracking (source, confidence, draft_status, lhs_entity_ids) | No | Missing | Add all provenance fields | 3 |
+| Hybrid ranker (0.6 dense + 0.4 sparse configurable) | ✅ RRF fusion in `HybridRetriever` | — | Configurable `dense_weight`/`sparse_weight` | Done |
+| Time-decay + confidence weighting | ✅ `MemoryRanker` (recency/confidence) | ✅ Implemented | — | Done |
+| Fact extraction via LLM | ✅ `app.memory.llm_extractor.LLMFactExtractor` | — | Implemented (kind/scope/confidence) | Done |
+| Near-duplicate deduplication | ✅ `app.memory.dedup` | — | Token-overlap dedup | Done |
+| Provenance tracking (source, confidence, draft_status, lhs_entity_ids) | ✅ `MemoryItem` fields | — | Implemented | Done |
 
 ### 2.3 Provider Routing (Contract §3)
 
@@ -217,7 +217,7 @@ def verify_contract_compliance():
 |--------|---------|--------|--------|
 | Overall Compliance | 48% | 100% | Tracker calculation |
 | Cognitive Engine | 30% | 100% | Sprint 3 |
-| Memory Subsystem | 45% | 100% | Sprint 3 |
+| Memory Subsystem | 90% | 100% | Sprint 3 |
 | Provider Routing | 100% | 100% | Done |
 | Safety Gate | 100% | 100% | Done |
 | MCP Client | 100% | 100% | Done |

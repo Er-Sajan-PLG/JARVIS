@@ -7,7 +7,15 @@ from app.domain.cognitive_state import CognitiveState
 from app.domain.content import ArtifactHandle, ContentSource, ContentType, DocumentReference
 from app.domain.conversation import ConversationState, Message, MessageAttachment, Role
 from app.domain.intent import IntentAnalysis, IntentComplexity
-from app.domain.memory import FactExtractionResult, MemoryRecord, MemoryType
+from app.domain.memory import (
+    DraftStatus,
+    FactExtractionResult,
+    MemoryItem,
+    MemoryKind,
+    MemoryRecord,
+    MemoryScope,
+    MemoryType,
+)
 from app.domain.plan import ExecutionPlan, ExecutionStep, SafetyTier, StepStatus, ToolCall
 from app.domain.safety_flag import SafetyFlag
 from app.domain.session import SessionState, UserPreferences
@@ -28,6 +36,10 @@ __all__ = [
     "MemoryType",
     "MemoryRecord",
     "FactExtractionResult",
+    "MemoryKind",
+    "MemoryScope",
+    "DraftStatus",
+    "MemoryItem",
     # Plan
     "SafetyTier",
     "StepStatus",

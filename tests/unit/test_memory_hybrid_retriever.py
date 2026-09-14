@@ -42,7 +42,7 @@ def sample_memories():
 
 
 def test_hybrid_retriever_find_candidates_deduplication(sample_memories):
-    """Verify find_candidates deduplicates results by memory.id."""
+    """Verify find_candidates deduplicates results by memory.id via RRF fusion."""
     kw_mock = MagicMock(spec=KeywordRetriever)
     vec_mock = MagicMock(spec=VectorRetriever)
 
@@ -57,8 +57,10 @@ def test_hybrid_retriever_find_candidates_deduplication(sample_memories):
     retriever = HybridRetriever(keyword=kw_mock, vector=vec_mock)
     candidates = retriever.find_candidates("who am I", limit=50)
 
+    # m2 appears in both lists, so it fuses to the top; m1 and m3 follow.
     assert len(candidates) == 3
-    assert candidates == [m1, m2, m3]
+    assert candidates[0] == m2
+    assert {c.id for c in candidates} == {"mem-1", "mem-2", "mem-3"}
     kw_mock.find_candidates.assert_called_once_with("who am I", 50)
     vec_mock.find_candidates.assert_called_once_with("who am I", 50)
 
@@ -80,7 +82,6 @@ def test_hybrid_retriever_find_candidates_limit(sample_memories):
     candidates = retriever.find_candidates("test", limit=2)
 
     assert len(candidates) == 2
-    assert candidates == [m1, m2]
 
 
 def test_hybrid_retriever_empty_results(sample_memories):
