@@ -74,7 +74,7 @@ def get_models() -> list[dict[str, Any]]:
                 if slug:
                     models.append({
                         "id": slug,
-                        "name": name,
+                        "name": slug,
                         "description": f"AGY model: {name}",
                         "context_length": 1000000,
                         "pricing": {},
