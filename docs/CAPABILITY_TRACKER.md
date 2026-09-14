@@ -115,11 +115,11 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 **Target Compliance**: 65%
 
 ### Sprint 3 (Weeks 5-8): Capability Contract Alignment
-- [ ] **Cognitive Engine**: Port LangGraph orchestration from PROFESSOR-J
+- [x] **Cognitive Engine**: Port LangGraph orchestration from PROFESSOR-J
 - [x] **Memory**: Full 4-stage pipeline with `MemoryItem` schema
 - [x] **MCP Client**: stdio + Streamable HTTP
-- [ ] **Session**: LangGraph checkpointers (MemorySaver/Postgres)
-- [ ] **OTel**: Spans with semantic conventions
+- [x] **Session**: LangGraph checkpointers (MemorySaver/Postgres)
+- [x] **OTel**: Spans with semantic conventions
 - [x] **Eval Suite**: Regression suite for model behavior
 
 **Target Compliance**: 90%
