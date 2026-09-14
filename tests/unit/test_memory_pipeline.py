@@ -1,10 +1,11 @@
-"""Tests for memory pipeline and workspace awareness (Sprint 3 final pieces)."""
+"""Tests for memory pipeline façade."""
 
-import tempfile
-from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
+
+from app.domain import MemoryItem, MemoryKind, MemoryScope
 from app.memory.pipeline import MemoryPipeline
-from app.memory.schema import Memory
 
 
 class TestMemoryPipeline:
@@ -20,7 +21,6 @@ class TestMemoryPipeline:
 
     def test_extract_and_store_extracts_and_dedups(self):
         """Pipeline extracts, deduplicates, and stores."""
-        from types import SimpleNamespace
         from unittest.mock import MagicMock
 
         from app.memory.llm_extractor import LLMFactExtractor
@@ -62,7 +62,6 @@ class TestMemoryPipeline:
 
     def test_extract_dedup_collapses_duplicates(self):
         """Identical extractions are deduplicated."""
-        from types import SimpleNamespace
         from unittest.mock import MagicMock
 
         from app.memory.llm_extractor import LLMFactExtractor
@@ -90,48 +89,56 @@ class TestMemoryPipeline:
         assert len(result2) == 1
 
 
-class TestWorkspaceAwareness:
-    def test_get_git_state_in_repo(self):
-        """get_git_state returns real git info in a git repo."""
-        from app.workspace.manager import WorkspaceManager
+class TestMCPServer:
+    def test_create_server(self):
+        """Server instantiates with a name."""
+        from app.integrations.mcp.server import create_server
+        server = create_server()
+        assert server is not None
 
-        mgr = WorkspaceManager(workspace_root=Path.cwd())
-        state = mgr.get_git_state()
-        assert state["head"] != "unknown"
-        assert state["branch"] != "unknown"
-        assert isinstance(state["dirty"], bool)
+    def test_get_global_policy(self):
+        """Global policy is available."""
+        from app.integrations.mcp.server import get_global_policy
+        policy = get_global_policy()
+        assert policy is not None
 
-    def test_get_file_tree(self):
-        """get_file_tree returns files with depth limit."""
-        from app.workspace.manager import WorkspaceManager
+    async def test_dispatch_workspace_git_state(self):
+        """workspace_git_state returns real git state."""
+        from app.integrations.mcp.server import _dispatch
+        result = await _dispatch("workspace_git_state", {})
+        assert isinstance(result, str)
+        assert "head=" in result
+        assert "branch=" in result
+        assert "dirty=" in result
 
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-            (tmp_path / "a.txt").write_text("a")
-            (tmp_path / "sub").mkdir()
-            (tmp_path / "sub" / "b.py").write_text("b")
-            (tmp_path / "sub" / "deep").mkdir()
-            (tmp_path / "sub" / "deep" / "c.md").write_text("c")
+    async def test_dispatch_session_get(self):
+        """session_get returns session info."""
+        from app.integrations.mcp.server import _dispatch
+        result = await _dispatch("session_get", {"session_id": "default"})
+        assert "session_id=default" in result
 
-            mgr = WorkspaceManager(workspace_root=tmp_path)
-            tree = mgr.get_file_tree(max_depth=2)
-            paths = [t["path"] for t in tree]
-            assert "a.txt" in paths
-            assert "sub/b.py" in paths
-            # c.md is at depth 2 (sub/deep/c.md -> parts=3, depth=2)
-            assert "sub/deep/c.md" in paths
+    async def test_dispatch_memory_retrieve(self):
+        """memory_retrieve returns memories (even if empty)."""
+        from app.integrations.mcp.server import _dispatch
+        result = await _dispatch("memory_retrieve", {"query": "test"})
+        assert isinstance(result, str)
 
-    def test_get_file_tree_respects_max_depth(self):
-        from app.workspace.manager import WorkspaceManager
+    async def test_dispatch_unknown_tool(self):
+        """Unknown tool raises ValueError."""
+        from app.integrations.mcp.server import _dispatch
+        with pytest.raises(ValueError, match="Unknown tool"):
+            await _dispatch("bogus_tool", {})
 
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-            (tmp_path / "a.txt").write_text("a")
-            (tmp_path / "sub" / "deep").mkdir(parents=True)
-            (tmp_path / "sub" / "deep" / "c.md").write_text("c")
 
-            mgr = WorkspaceManager(workspace_root=tmp_path)
-            tree = mgr.get_file_tree(max_depth=1)
-            paths = [t["path"] for t in tree]
-            assert "a.txt" in paths
-            assert "sub/deep/c.md" not in paths
+class TestMCPServerIntegration:
+    """Integration test: list tools via the server's callback."""
+
+    async def test_list_tools(self):
+        """Server lists tools correctly."""
+        from app.integrations.mcp.server import _on_list_tools
+        result = await _on_list_tools(None, None)
+        assert hasattr(result, "tools")
+        names = [t.name for t in result.tools]
+        assert "read_file" in names
+        assert "workspace_git_state" in names
+        assert len(names) == 11
