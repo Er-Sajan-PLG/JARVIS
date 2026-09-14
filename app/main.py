@@ -8,9 +8,13 @@ from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
+# Load .env before anything else
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from app.adapters import http_router, ws_router
 from app.adapters.web.router import web_router

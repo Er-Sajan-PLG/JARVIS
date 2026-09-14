@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 
 from app.adapters.security import is_authorized
 from app.bootstrap import bootstrap_system
+
+# Load .env file from project root
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+load_dotenv(_PROJECT_ROOT / ".env")
 
 logger = logging.getLogger(__name__)
 
@@ -61,17 +67,39 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
 
     # Get model client
     try:
-        from app.config.settings import ModelConfig
         from app.models.factory import create_client
+        from app.config.settings import ModelConfig
 
         provider = model_info.get("provider", "nvidia")
         model_id = model_info.get("id", "deepseek-ai/deepseek-v4-flash-0731")
 
+        # Map provider to its API key env var and base URL
+        provider_config = {
+            "nvidia": {"key": "NVIDIA_API_KEY", "url": "https://integrate.api.nvidia.com/v1"},
+            "openrouter": {"key": "OPENROUTER_API_KEY", "url": "https://openrouter.ai/api/v1"},
+            "groq": {"key": "GROQ_API_KEY", "url": "https://api.groq.com/openai/v1"},
+            "google": {"key": "GOOGLE_API_KEY", "url": "https://generativelanguage.googleapis.com/v1beta/openai/"},
+            "github": {"key": "GITHUB_API_KEY", "url": "https://models.inference.ai.azure.com"},
+            "mistral": {"key": "MISTRAL_API_KEY", "url": "https://api.mistral.ai/v1"},
+            "anthropic": {"key": "ANTHROPIC_API_KEY", "url": "https://api.anthropic.com/v1"},
+            "openai": {"key": "OPENAI_API_KEY", "url": "https://api.openai.com/v1"},
+            "xai": {"key": "XAI_API_KEY", "url": "https://api.x.ai/v1"},
+            "together": {"key": "TOGETHER_API_KEY", "url": "https://api.together.xyz/v1"},
+            "cerebras": {"key": "CEREBRAS_API_KEY", "url": "https://api.cerebras.ai/v1"},
+            "cohere": {"key": "COHERE_API_KEY", "url": "https://api.cohere.ai/v1"},
+            "zhipu": {"key": "ZHIPU_API_KEY", "url": "https://open.bigmodel.cn/api/paas/v4"},
+        }
+        
+        cfg = provider_config.get(provider, provider_config["openrouter"])
+        api_key_env = cfg["key"]
+        base_url = cfg["url"]
+        
         config = ModelConfig(
             name=model_id,
             role="general",
             backend=provider,
-            base_url="https://integrate.api.nvidia.com/v1",
+            api_key=f"env:{api_key_env}",
+            base_url=base_url,
         )
         client = create_client(config)
     except Exception as e:
