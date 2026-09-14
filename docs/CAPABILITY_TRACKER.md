@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: register
 **Last Updated**: 2026-09-14
+**Reviewed**: 2026-09-14
 
 **Contract Version**: 1.0.0
 **Contract Source**: `docs/CAPABILITY-CONTRACT.md`

@@ -4,6 +4,7 @@
 **Type**: governance
 **Source**: `scripts/ci_gate.py`, `scripts/ci_bridge.py` at HEAD
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 
 **Authority**: This document governs all changes to JARVIS repository
 **Workflow Orchestration**: n8n (external) **schedules**; JARVIS **decides**.

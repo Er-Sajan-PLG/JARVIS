@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: index
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 
 **Source of truth**: the repository state. If a document and the code disagree,
 the code wins — and the document is a bug.

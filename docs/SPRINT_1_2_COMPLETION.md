@@ -3,6 +3,7 @@
 **Status**: SNAPSHOT
 **Type**: snapshot
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 
 **Recorded**: 2026-09-11  (+05:45, session FF5D759)
 **Method**: Verified against source files / running services / git tags / grep / file reads — NOT copied from `docs/ROADMAP.md` checkboxes. Only real evidence used.

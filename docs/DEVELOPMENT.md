@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: guide
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 
 **Orchestration**: JARVIS decides, n8n schedules (ADR-013)
 

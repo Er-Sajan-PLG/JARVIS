@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: guide
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 
 **Audience**: the human owner of this repo. Written after an autonomous session that built
 the CI gate and the HITL loop. **New working agreement**: you edit workflows in the n8n

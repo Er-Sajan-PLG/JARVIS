@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: architecture
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 **Source**: `app/brain/`, `app/guardrails/` at HEAD
 
 > **Source of Truth**: `app/brain/` and `app/guardrails/` at `HEAD`.

@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: architecture
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 **Source**: `app/` at HEAD
 
 > **Source of Truth**: Running implementation under `app/` at `HEAD` (`v3.0.0 Refactored`, commit `ec0dc4e`).

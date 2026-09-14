@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: guide
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 
 ## Breaking Changes Summary
 1. **Domain Purity**: Direct instantiation of database schemas or framework models in business logic is deprecated. Use `app/domain/` dataclasses (`ContentSource`, `MemoryRecord`, `ExecutionPlan`).

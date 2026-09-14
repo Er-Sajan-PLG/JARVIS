@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: adr
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 
 - **Date**: 2026-09-13
 - **Related**: `docs/DOC-GOVERNANCE.md` (§4 rules, §6 checker, §7 cadence, §8 facts,

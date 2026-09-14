@@ -3,6 +3,7 @@
 **Status**: SNAPSHOT
 **Type**: snapshot
 **Last Updated**: 2026-09-10
+**Reviewed**: 2026-09-14
 
 > **⚠️ SNAPSHOT — dated measurement, not a live status board.** This USAT audit
 > was run on **2026-09-10** against commit `1c3f1b28`. Its health score (76.2/100)

@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: adr
 **Last Updated**: 2026-09-10
+**Reviewed**: 2026-09-14
 
 **Date**: 2026-09-10
 **Author**: Hermes (autonomous session; decisions reviewed with the user afterwards)
