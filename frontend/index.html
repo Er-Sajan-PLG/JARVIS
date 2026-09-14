@@ -607,12 +607,24 @@
                 <h4>Model</h4>
                 <div class="setting-row">
                     <span class="setting-label">Default Provider</span>
-                    <span class="setting-value" id="settingsProvider">NVIDIA</span>
+                    <span class="setting-value" id="settingsProvider">OpenRouter</span>
                 </div>
                 <div class="setting-row">
                     <span class="setting-label">Default Model</span>
-                    <span class="setting-value" id="settingsModel">deepseek-ai/deepseek-v4-flash-0731</span>
+                    <span class="setting-value" id="settingsModel">deepseek/deepseek-v4-flash-0731</span>
                 </div>
+            </div>
+            <div class="settings-section">
+                <h4>Google AI Pro</h4>
+                <div id="googleAuthStatus" style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 12px;">
+                    Checking...
+                </div>
+                <div id="googleLoginForm" style="display: none;">
+                    <input type="text" id="googleClientId" placeholder="Client ID" style="width: 100%; padding: 8px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 0.875rem; margin-bottom: 8px; outline: none;">
+                    <input type="password" id="googleClientSecret" placeholder="Client Secret" style="width: 100%; padding: 8px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 0.875rem; margin-bottom: 8px; outline: none;">
+                    <button onclick="loginGoogle()" style="width: 100%; padding: 8px; background: var(--accent); border: none; border-radius: var(--radius-sm); color: white; cursor: pointer; font-size: 0.875rem;">Login with Google</button>
+                </div>
+                <button id="googleLogoutBtn" onclick="logoutGoogle()" style="display: none; width: 100%; padding: 8px; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; font-size: 0.875rem;">Logout</button>
             </div>
             <div class="settings-section">
                 <h4>Memory</h4>
@@ -740,6 +752,7 @@
         // ── Settings ──────────────────────────────────────────────
         function openSettings() {
             document.getElementById('settingsModal').classList.add('open');
+            checkGoogleAuth();
         }
 
         function closeSettings() {
@@ -754,6 +767,65 @@
         function toggleMemorySearch() {
             memorySearchEnabled = !memorySearchEnabled;
             document.getElementById('memorySearchToggle').classList.toggle('active', memorySearchEnabled);
+        }
+
+        // ── Google Auth ────────────────────────────────────────────
+        async function checkGoogleAuth() {
+            try {
+                const res = await fetch('/api/google/auth/status');
+                const data = await res.json();
+                const statusEl = document.getElementById('googleAuthStatus');
+                const loginForm = document.getElementById('googleLoginForm');
+                const logoutBtn = document.getElementById('googleLogoutBtn');
+                
+                if (data.authenticated) {
+                    statusEl.textContent = '✓ Authenticated - Gemini models available';
+                    statusEl.style.color = 'var(--success)';
+                    loginForm.style.display = 'none';
+                    logoutBtn.style.display = 'block';
+                } else {
+                    statusEl.textContent = 'Not authenticated - login to use Gemini models';
+                    statusEl.style.color = 'var(--text-muted)';
+                    loginForm.style.display = 'block';
+                    logoutBtn.style.display = 'none';
+                }
+            } catch (e) {
+                document.getElementById('googleAuthStatus').textContent = 'Error checking auth status';
+            }
+        }
+
+        async function loginGoogle() {
+            const clientId = document.getElementById('googleClientId').value.trim();
+            const clientSecret = document.getElementById('googleClientSecret').value.trim();
+            
+            if (!clientId || !clientSecret) {
+                alert('Please enter both Client ID and Client Secret');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/google/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Google authentication successful! Gemini models are now available.');
+                    checkGoogleAuth();
+                } else {
+                    alert('Authentication failed. Please check your credentials.');
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        async function logoutGoogle() {
+            try {
+                await fetch('/api/google/auth/logout', { method: 'POST' });
+                checkGoogleAuth();
+            } catch (e) {}
         }
 
         // ── Conversations ─────────────────────────────────────────
