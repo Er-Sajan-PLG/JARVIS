@@ -16,6 +16,7 @@ import logging
 import os
 import shutil
 import subprocess
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,19 @@ logger = logging.getLogger(__name__)
 
 def _agy_which() -> str | None:
     """Find the agy CLI executable."""
-    return shutil.which("agy")
+    # Check PATH first
+    found = shutil.which("agy")
+    if found:
+        return found
+    # Check common install locations
+    for p in [
+        Path.home() / ".local" / "bin" / "agy",
+        Path("/usr/local/bin/agy"),
+        Path("/usr/bin/agy"),
+    ]:
+        if p.is_file() and os.access(p, os.X_OK):
+            return str(p)
+    return None
 
 
 def is_available() -> bool:
@@ -53,14 +66,16 @@ def get_models() -> list[dict[str, Any]]:
             line = line.strip()
             if not line or line.startswith(("Name", "Model", "──", "Usage", "Featured")):
                 continue
-            # Parse "display name | slug | notes" format
-            columns = [c.strip() for c in line.split("|")]
-            for col in columns:
-                if col and " " not in col:
+            # Parse tab-separated format: "display name\tslug"
+            parts = line.split("\t")
+            if len(parts) >= 2:
+                name = parts[0].strip()
+                slug = parts[1].strip()
+                if slug:
                     models.append({
-                        "id": col,
-                        "name": col,
-                        "description": f"AGY model: {col}",
+                        "id": slug,
+                        "name": name,
+                        "description": f"AGY model: {name}",
                         "context_length": 1000000,
                         "pricing": {},
                     })
