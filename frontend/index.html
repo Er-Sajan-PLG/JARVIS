@@ -619,8 +619,9 @@
                 <div id="agyStatus" style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 8px;">
                     Checking...
                 </div>
-                <div id="agyModels" style="font-size: 0.75rem; color: var(--text-dim); max-height: 120px; overflow-y: auto;">
+                <div id="agyModels" style="font-size: 0.75rem; color: var(--text-dim); max-height: 120px; overflow-y: auto; display: none;">
                 </div>
+                <button id="agyRefreshBtn" onclick="checkAgy()" style="font-size: 0.75rem; padding: 4px 8px; background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted; cursor: pointer;">Refresh</button>
             </div>
             <div class="settings-section">
                 <h4>Memory</h4>
@@ -767,22 +768,46 @@
 
         // ── AGY ──────────────────────────────────────────────────
         async function checkAgy() {
+            const statusEl = document.getElementById('agyStatus');
+            const modelsEl = document.getElementById('agyModels');
+            
             try {
+                statusEl.textContent = 'Checking...';
+                statusEl.style.color = 'var(--text-muted)';
+                
                 const res = await fetch('/api/agy/status');
                 const data = await res.json();
-                const statusEl = document.getElementById('agyStatus');
-                const modelsEl = document.getElementById('agyModels');
                 
                 if (data.available) {
                     statusEl.textContent = '✓ AGY CLI available';
                     statusEl.style.color = 'var(--success)';
-                    modelsEl.textContent = 'Loading models...';
+                    
+                    // Fetch models
+                    try {
+                        const modelsRes = await fetch('/api/agy/models');
+                        const modelsData = await modelsRes.json();
+                        if (modelsData.models && modelsData.models.length > 0) {
+                            modelsEl.innerHTML = modelsData.models.map(m => 
+                                `<div style="padding: 2px 0; cursor: pointer;" title="${m.description}">${m.name}</div>`
+                            ).join('');
+                            modelsEl.style.display = 'block';
+                        } else {
+                            modelsEl.textContent = 'No models found (AGY may be busy)';
+                            modelsEl.style.display = 'block';
+                        }
+                    } catch (e) {
+                        modelsEl.textContent = 'Could not load models';
+                        modelsEl.style.display = 'block';
+                    }
                 } else {
                     statusEl.textContent = '✗ AGY CLI not found';
                     statusEl.style.color = 'var(--error)';
+                    modelsEl.style.display = 'none';
                 }
             } catch (e) {
-                document.getElementById('agyStatus').textContent = 'Error checking AGY';
+                statusEl.textContent = 'Error checking AGY';
+                statusEl.style.color = 'var(--error)';
+                modelsEl.style.display = 'none';
             }
         }
 
@@ -892,6 +917,7 @@
         let darkMode = true;
         function applyTheme() {
             const root = document.documentElement;
+            const toggle = document.getElementById('darkModeToggle');
             if (darkMode) {
                 root.style.setProperty('--bg', '#0b0b0f');
                 root.style.setProperty('--surface', '#16161d');
@@ -903,6 +929,7 @@
                 root.style.setProperty('--text-muted', '#8b8b9e');
                 root.style.setProperty('--text-dim', '#5a5a6e');
                 root.style.setProperty('--user-bubble', '#2d2d5e');
+                if (toggle) toggle.classList.add('active');
             } else {
                 root.style.setProperty('--bg', '#ffffff');
                 root.style.setProperty('--surface', '#f5f5f7');
@@ -914,6 +941,7 @@
                 root.style.setProperty('--text-muted', '#5a5a6e');
                 root.style.setProperty('--text-dim', '#8b8b9e');
                 root.style.setProperty('--user-bubble', '#e8e8ff');
+                if (toggle) toggle.classList.remove('active');
             }
         }
 
