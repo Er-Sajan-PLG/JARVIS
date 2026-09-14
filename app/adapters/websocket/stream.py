@@ -22,47 +22,58 @@ from app.bootstrap import bootstrap_system
 ws_router = APIRouter(prefix="/ws", tags=["Streaming"])
 
 
-@ws_router.websocket("")
-@ws_router.websocket("/chat")
-async def websocket_endpoint(websocket: WebSocket) -> None:
-    """WebSocket streaming endpoint for real-time bidirectional messaging."""
+@ws_router.websocket("/chat/{session_id}")
+async def websocket_chat(websocket: WebSocket, session_id: str) -> None:
+    """Real-time chat via WebSocket — uses the full cognitive graph."""
     if not is_authorized_for_streaming(websocket.headers, websocket.query_params):
-        # Accepting before closing is what lets the client observe an explicit 1008
-        # policy-violation code; nothing is read from the socket and no application
-        # message is ever produced for an unauthenticated caller.
         await websocket.accept()
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
     await websocket.accept()
     container = bootstrap_system()
+
     try:
         while True:
             raw_text = await websocket.receive_text()
             data = json.loads(raw_text)
-            prompt = data.get("prompt", data.get("message", ""))
+            prompt = data.get("content", data.get("message", ""))
+            if not prompt:
+                continue
 
-            # Process intent
-            analysis = container.intent_analyzer.analyze(prompt)
-            await websocket.send_json(
-                {
-                    "type": "intent_analysis",
-                    "complexity": analysis.complexity.value,
-                    "requires_tools": analysis.requires_tools,
-                }
-            )
+            try:
+                # Use the cognitive graph for real responses
+                from app.brain.graph import run_cognitive_loop
+                result = await run_cognitive_loop(
+                    prompt,
+                    container.intent_analyzer,
+                    container.task_planner,
+                    container.execution_runner,
+                    session_id=session_id,
+                )
 
-            # Stream token response
-            await websocket.send_json(
-                {
-                    "type": "token_chunk",
-                    "content": f"Echo: {prompt}",
-                }
-            )
+                # Stream tokens (word-by-word simulation for now)
+                response_text = result.get("synthesized_response", "No response generated")
+                words = response_text.split()
+                for word in words:
+                    await websocket.send_json({"type": "token", "content": word + " "})
+                    import asyncio
+                    await asyncio.sleep(0.05)
 
-            await websocket.send_json({"type": "stream_end"})
+                await websocket.send_json({"type": "done"})
+
+            except Exception as e:
+                await websocket.send_json({"type": "error", "content": str(e)})
+
     except WebSocketDisconnect:
         pass
+
+
+@ws_router.websocket("")
+@ws_router.websocket("/chat")
+async def websocket_endpoint(websocket: WebSocket) -> None:
+    """Legacy WebSocket endpoint — redirects to default session."""
+    await websocket_chat(websocket, "default")
 
 
 @ws_router.get("/stream")

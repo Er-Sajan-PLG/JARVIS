@@ -100,6 +100,16 @@ FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
+# Serve frontend index
+@app.get("/")
+async def serve_frontend():
+    """Serve the main frontend page."""
+    from fastapi.responses import FileResponse
+    index_path = FRONTEND_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return {"message": "JARVIS API — frontend not built"}
+
 
 # Health and readiness endpoints
 @app.get("/health")
