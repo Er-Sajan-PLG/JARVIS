@@ -125,10 +125,12 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 **Target Compliance**: 90%
 
 ### Sprint 4 (Weeks 9-12): Ecosystem Integration
-- [ ] STEMMA LHS adapter
-- [ ] LearningHub SSO integration
-- [ ] PROFESSOR-J MCP server
-- [ ] Contract version bump if needed
+- [x] **PROFESSOR-J MCP server** — `app/integrations/mcp/server.py` exposes 11 tools
+- [x] **Cloudflare Pages deploy** — `.github/workflows/deploy.yml` auto-deploys on tag
+- [x] **Workspace awareness** — `get_git_state()` + `get_file_tree()` in WorkspaceManager
+- [x] **Memory pipeline façade** — `MemoryPipeline` wires extract→manage→store→retrieve
+- [ ] STEMMA LHS adapter — out of scope per ADR-013 (no cross-repo coupling)
+- [ ] LearningHub SSO integration — out of scope per ADR-013
 
 **Target Compliance**: 100% (v1.0 complete)
 
