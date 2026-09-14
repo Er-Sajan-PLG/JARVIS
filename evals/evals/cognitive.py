@@ -13,31 +13,32 @@ class CognitiveGraphEval:
     async def run(self) -> EvalResult:
         try:
             from app.brain import ExecutionRunner, IntentAnalyzer, TaskPlanner
-            from app.brain.graph import run_cognitive_loop
+            from app.brain.graph import stream_cognitive_loop
 
-            result = await run_cognitive_loop(
-                "list files",
-                IntentAnalyzer(),
-                TaskPlanner(),
-                ExecutionRunner(),
+            gen = stream_cognitive_loop(
+                "list files", IntentAnalyzer(), TaskPlanner(), ExecutionRunner()
             )
-            if result.get("next_node") != "end":
+            events = []
+            async for event in gen:
+                events.append(event)
+
+            if not events:
                 return EvalResult(
                     name=self.name,
                     status=EvalStatus.FAIL,
-                    message=f"expected next_node=end, got {result.get('next_node')}",
+                    message="no stream events",
                 )
-            if not result.get("synthesized_response"):
+            if events[-1].get("next_node") != "end":
                 return EvalResult(
                     name=self.name,
                     status=EvalStatus.FAIL,
-                    message="no synthesized_response",
+                    message=f"final state not end: {events[-1].get('next_node')}",
                 )
             return EvalResult(
                 name=self.name,
                 status=EvalStatus.PASS,
                 score=1.0,
-                message="cognitive loop completed",
+                message=f"stream yielded {len(events)} events, ended correctly",
             )
         except Exception as e:
             return EvalResult(

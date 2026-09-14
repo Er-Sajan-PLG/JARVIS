@@ -102,3 +102,42 @@ def test_build_cognitive_graph_returns_graph():
 
     graph = build_cognitive_graph(analyzer, planner, runner)
     assert graph is not None
+
+
+def test_stream_cognitive_loop_yields_events():
+    """stream_cognitive_loop returns an async generator of state updates."""
+    from app.brain.graph import stream_cognitive_loop
+
+    async def run():
+        gen = stream_cognitive_loop(
+            "list files", IntentAnalyzer(), TaskPlanner(), ExecutionRunner()
+        )
+        events = []
+        async for event in gen:
+            events.append(event)
+        assert len(events) >= 2  # at least start and end
+        assert events[-1]["next_node"] == "end"
+
+    import asyncio
+
+    asyncio.run(run())
+
+
+def test_run_cognitive_loop_with_tracer():
+    """Tracer is accepted and does not break the loop."""
+    from app.telemetry.tracer import Tracer
+
+    async def run():
+        tracer = Tracer()  # no bus, just measures
+        result = await run_cognitive_loop(
+            "list files",
+            IntentAnalyzer(),
+            TaskPlanner(),
+            ExecutionRunner(),
+            tracer=tracer,
+        )
+        assert result["next_node"] == "end"
+
+    import asyncio
+
+    asyncio.run(run())
