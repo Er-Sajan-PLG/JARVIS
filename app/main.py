@@ -92,9 +92,12 @@ app.include_router(http_router)
 app.include_router(ws_router)
 app.include_router(web_router)
 
-# Mount frontend
+# Mount frontend assets. The HTML references /static/<file>, and the JS/CSS
+# live under frontend/assets/, so serve that directory directly.
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
-if FRONTEND_DIR.exists():
+if (FRONTEND_DIR / "assets").exists():
+    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR / "assets")), name="static")
+elif FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 

@@ -1,1154 +1,246 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JARVIS — AI Assistant</title>
-    <style>
-        :root {
-            --bg: #0b0b0f;
-            --surface: #16161d;
-            --surface-2: #1e1e28;
-            --surface-3: #26262f;
-            --border: #2a2a35;
-            --border-light: #3a3a45;
-            --text: #e8e8ec;
-            --text-muted: #8b8b9e;
-            --text-dim: #5a5a6e;
-            --accent: #7c5cff;
-            --accent-hover: #9b7fff;
-            --accent-glow: rgba(124, 92, 255, 0.15);
-            --success: #22c55e;
-            --error: #ef4444;
-            --warning: #f59e0b;
-            --user-bubble: #2d2d5e;
-            --assistant-bubble: transparent;
-            --radius: 12px;
-            --radius-sm: 8px;
-            --radius-lg: 16px;
-            --shadow: 0 2px 8px rgba(0,0,0,0.3);
-            --transition: 0.2s ease;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            height: 100vh;
-            display: flex;
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        /* ── Sidebar ─────────────────────────────────────────────── */
-        .sidebar {
-            width: 260px;
-            background: var(--surface);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-        }
-        .sidebar-header {
-            padding: 16px;
-            border-bottom: 1px solid var(--border);
-        }
-        .new-chat-btn {
-            width: 100%;
-            padding: 10px 14px;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text);
-            font-size: 0.875rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: var(--transition);
-        }
-        .new-chat-btn:hover {
-            background: var(--surface-3);
-            border-color: var(--border-light);
-        }
-        .new-chat-btn svg { width: 16px; height: 16px; }
-        .conv-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px;
-        }
-        .conv-item {
-            padding: 10px 12px;
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            font-size: 0.8125rem;
-            color: var(--text-muted);
-            transition: var(--transition);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .conv-item:hover { background: var(--surface-2); color: var(--text); }
-        .conv-item.active { background: var(--surface-3); color: var(--text); }
-        .conv-action-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 0.75rem;
-            padding: 2px 4px;
-            border-radius: 4px;
-            transition: var(--transition);
-        }
-        .conv-action-btn:hover { background: var(--surface-3); color: var(--text); }
-        .sidebar-footer {
-            padding: 12px 16px;
-            border-top: 1px solid var(--border);
-        }
-        .settings-btn {
-            width: 100%;
-            padding: 8px 12px;
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text-muted);
-            font-size: 0.8125rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: var(--transition);
-        }
-        .settings-btn:hover { background: var(--surface-2); color: var(--text); }
-        .settings-btn svg { width: 14px; height: 14px; }
-
-        /* ── Main ────────────────────────────────────────────────── */
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-        }
-        .chat-header {
-            padding: 12px 24px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: var(--surface);
-        }
-        .model-selector-btn {
-            padding: 6px 12px;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text);
-            font-size: 0.8125rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: var(--transition);
-        }
-        .model-selector-btn:hover { border-color: var(--accent); }
-        .model-selector-btn .provider { color: var(--text-dim); font-size: 0.75rem; }
-        .header-actions { display: flex; gap: 8px; }
-        .header-btn {
-            padding: 6px 10px;
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        .header-btn:hover { background: var(--surface-2); color: var(--text); }
-
-        /* ── Messages ────────────────────────────────────────────── */
-        .messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-        .message {
-            display: flex;
-            gap: 12px;
-            max-width: 720px;
-            width: 100%;
-            margin: 0 auto;
-        }
-        .message-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .message.user .message-avatar { background: var(--user-bubble); }
-        .message.assistant .message-avatar { background: var(--accent); }
-        .message-content {
-            flex: 1;
-            min-width: 0;
-            line-height: 1.6;
-            font-size: 0.9375rem;
-        }
-        .message-content p { margin-bottom: 8px; }
-        .message-content p:last-child { margin-bottom: 0; }
-        .message-content pre {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 12px;
-            overflow-x: auto;
-            margin: 8px 0;
-        }
-        .message-content code {
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            font-size: 0.875rem;
-        }
-        .message-content :not(pre) > code {
-            background: var(--surface-2);
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-        .message-time {
-            font-size: 0.7rem;
-            color: var(--text-dim);
-            margin-top: 4px;
-        }
-        .welcome {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-muted);
-        }
-        .welcome h2 { font-size: 1.5rem; margin-bottom: 8px; color: var(--text); }
-        .welcome p { font-size: 0.9375rem; }
-
-        /* ── Typing indicator ────────────────────────────────────── */
-        .typing-indicator {
-            display: flex;
-            gap: 4px;
-            padding: 4px 0;
-        }
-        .typing-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--text-dim);
-            animation: typing 1.4s infinite;
-        }
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes typing {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-            30% { transform: translateY(-4px); opacity: 1; }
-        }
-
-        /* ── Input area ──────────────────────────────────────────── */
-        .input-area {
-            padding: 16px 24px 24px;
-            background: var(--bg);
-        }
-        .input-container {
-            max-width: 720px;
-            margin: 0 auto;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            padding: 12px 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            transition: var(--transition);
-        }
-        .input-container:focus-within {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-glow);
-        }
-        .input-row {
-            display: flex;
-            align-items: flex-end;
-            gap: 8px;
-        }
-        .input-actions {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .attach-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: var(--transition);
-            flex-shrink: 0;
-        }
-        .attach-btn:hover { background: var(--surface-2); color: var(--text); }
-        .attach-btn svg { width: 18px; height: 18px; }
-        .attach-btn.active { color: var(--accent); }
-        textarea {
-            flex: 1;
-            background: transparent;
-            border: none;
-            outline: none;
-            color: var(--text);
-            font-size: 0.9375rem;
-            font-family: inherit;
-            resize: none;
-            max-height: 160px;
-            line-height: 1.5;
-            min-height: 24px;
-        }
-        textarea::placeholder { color: var(--text-dim); }
-        .send-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--accent);
-            border: none;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: var(--transition);
-            flex-shrink: 0;
-        }
-        .send-btn:hover { background: var(--accent-hover); }
-        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .send-btn svg { width: 16px; height: 16px; }
-        .file-preview {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .file-chip {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 10px;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-        .file-chip .remove {
-            cursor: pointer;
-            color: var(--text-dim);
-            font-size: 1rem;
-            line-height: 1;
-        }
-        .file-chip .remove:hover { color: var(--error); }
-        .input-hint {
-            text-align: center;
-            font-size: 0.7rem;
-            color: var(--text-dim);
-            margin-top: 8px;
-        }
-
-        /* ── Model Selector Modal ────────────────────────────────── */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.6);
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s ease;
-        }
-        .modal-overlay.open { opacity: 1; pointer-events: all; }
-        .modal {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            width: 90%;
-            max-width: 560px;
-            max-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-        }
-        .modal-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .modal-header h3 { font-size: 1rem; font-weight: 600; }
-        .modal-close {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-close:hover { background: var(--surface-2); }
-        .modal-search {
-            padding: 12px 20px;
-            border-bottom: 1px solid var(--border);
-        }
-        .modal-search input {
-            width: 100%;
-            padding: 8px 12px;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text);
-            font-size: 0.875rem;
-            outline: none;
-        }
-        .modal-search input:focus { border-color: var(--accent); }
-        .modal-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px 0;
-        }
-        .provider-group {
-            padding: 4px 0;
-        }
-        .provider-header {
-            padding: 8px 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            color: var(--text-dim);
-            letter-spacing: 0.5px;
-        }
-        .model-item {
-            padding: 10px 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: var(--transition);
-        }
-        .model-item:hover { background: var(--surface-2); }
-        .model-item.selected { background: var(--accent-glow); }
-        .model-info { flex: 1; min-width: 0; }
-        .model-name { font-size: 0.875rem; font-weight: 500; }
-        .model-desc { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
-        .model-meta {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.7rem;
-            color: var(--text-dim);
-        }
-        .model-tag {
-            padding: 2px 6px;
-            background: var(--surface-3);
-            border-radius: 4px;
-            font-size: 0.65rem;
-            text-transform: uppercase;
-        }
-        .model-tag.free { background: rgba(34,197,94,0.15); color: var(--success); }
-        .model-tag.paid { background: rgba(245,158,11,0.15); color: var(--warning); }
-
-        /* ── Settings Modal ──────────────────────────────────────── */
-        .settings-modal .modal { max-width: 480px; }
-        .settings-section {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-        }
-        .settings-section:last-child { border-bottom: none; }
-        .settings-section h4 {
-            font-size: 0.8125rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: var(--text-muted);
-        }
-        .setting-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 0;
-        }
-        .setting-label { font-size: 0.875rem; }
-        .setting-value { font-size: 0.8125rem; color: var(--text-dim); }
-        .toggle {
-            width: 40px;
-            height: 22px;
-            background: var(--surface-3);
-            border-radius: 11px;
-            cursor: pointer;
-            position: relative;
-            transition: var(--transition);
-        }
-        .toggle.active { background: var(--accent); }
-        .toggle::after {
-            content: '';
-            position: absolute;
-            width: 18px;
-            height: 18px;
-            background: white;
-            border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: var(--transition);
-        }
-        .toggle.active::after { left: 20px; }
-
-        /* ── Scrollbar ───────────────────────────────────────────── */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
-
-        /* ── Responsive ──────────────────────────────────────────── */
-        @media (max-width: 768px) {
-            .sidebar { display: none; }
-            .messages { padding: 16px; }
-            .input-area { padding: 12px 16px 16px; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JARVIS — AI Assistant</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <button class="new-chat-btn" onclick="newChat()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                New Chat
-            </button>
-        </div>
-        <div class="conv-list" id="convList"></div>
-        <div class="sidebar-footer">
-            <button class="settings-btn" onclick="openSettings()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                Settings
-            </button>
-        </div>
-    </aside>
 
-    <!-- Main -->
-    <main class="main">
-        <header class="chat-header">
-            <button class="model-selector-btn" onclick="openModelSelector()">
-                <span id="currentModel">Loading...</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div class="header-actions">
-                <button class="header-btn" onclick="clearChat()" title="Clear chat">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-            </div>
-        </header>
+<div class="app" id="app">
 
-        <div class="messages" id="messages">
-            <div class="welcome" id="welcome">
-                <h2>JARVIS</h2>
-                <p>Your personal AI assistant. Ask anything.</p>
-            </div>
-        </div>
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <aside class="sidebar" aria-label="Conversations">
+    <div class="sidebar-head">
+      <div class="brand">
+        <span class="brand-mark">J</span>
+        <span>JARVIS</span>
+      </div>
+      <button class="btn" id="newChatBtn" style="justify-content:center">
+        <span>＋</span><span>New chat</span>
+      </button>
+    </div>
+    <div class="sidebar-scroll" id="convList"></div>
+    <div class="sidebar-foot">
+      <button class="nav-btn" id="settingsBtn">
+        <span>⚙️</span><span>Settings</span>
+      </button>
+    </div>
+  </aside>
 
-        <div class="input-area">
-            <div class="input-container">
-                <div class="file-preview" id="filePreview"></div>
-                <div class="input-row">
-                    <button class="attach-btn" id="attachBtn" onclick="toggleAttach()" title="Attach file">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                    </button>
-                    <textarea id="input" placeholder="Send a message..." rows="1" onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
-                    <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                    </button>
-                </div>
-            </div>
-            <div class="input-hint">JARVIS can make mistakes. Verify important information.</div>
-        </div>
-    </main>
+  <!-- ── Main chat ────────────────────────────────────────────────────── -->
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn" id="sidebarToggle" aria-label="Toggle sidebar" title="Toggle sidebar">☰</button>
+      <div class="topbar-title" id="topbarTitle">New chat</div>
+      <button class="icon-btn" id="topbarSettings" aria-label="Open settings" title="Settings (Ctrl+,)">⚙️</button>
+    </header>
 
-    <!-- Model Selector Modal -->
-    <div class="modal-overlay" id="modelModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Select Model</h3>
-                <button class="modal-close" onclick="closeModelSelector()">×</button>
-            </div>
-            <div class="modal-search">
-                <input type="text" id="modelSearch" placeholder="Search models..." oninput="filterModels(this.value)">
-            </div>
-            <div class="modal-body" id="modelList"></div>
-        </div>
+    <div class="messages" id="messages">
+      <div class="messages-inner" id="messagesInner"></div>
     </div>
 
-    <!-- Settings Modal -->
-    <div class="modal-overlay settings-modal" id="settingsModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Settings</h3>
-                <button class="modal-close" onclick="closeSettings()">×</button>
-            </div>
-            <div class="settings-section">
-                <h4>Model</h4>
-                <div class="setting-row">
-                    <span class="setting-label">Default Provider</span>
-                    <span class="setting-value" id="settingsProvider">OpenRouter</span>
-                </div>
-                <div class="setting-row">
-                    <span class="setting-label">Default Model</span>
-                    <span class="setting-value" id="settingsModel">deepseek/deepseek-v4-flash-0731</span>
-                </div>
-            </div>
-            <div class="settings-section">
-                <h4>AGY (Google AI Pro)</h4>
-                <div id="agyStatus" style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 8px;">
-                    Checking...
-                </div>
-                <div id="agyModels" style="font-size: 0.75rem; color: var(--text-dim); max-height: 120px; overflow-y: auto; display: none;">
-                </div>
-                <button id="agyRefreshBtn" onclick="checkAgy()" style="font-size: 0.75rem; padding: 4px 8px; background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted; cursor: pointer;">Refresh</button>
-            </div>
-            <div class="settings-section">
-                <h4>Memory</h4>
-                <div class="setting-row">
-                    <span class="setting-label">Enable Memory</span>
-                    <div class="toggle active" id="memoryToggle" onclick="toggleMemory()"></div>
-                </div>
-                <div class="setting-row">
-                    <span class="setting-label">Memory Search</span>
-                    <div class="toggle active" id="memorySearchToggle" onclick="toggleMemorySearch()"></div>
-                </div>
-            </div>
-            <div class="settings-section">
-                <h4>Appearance</h4>
-                <div class="setting-row">
-                    <span class="setting-label">Dark Mode</span>
-                    <div class="toggle active" id="darkModeToggle" onclick="toggleDarkMode()"></div>
-                </div>
-            </div>
+    <!-- Model selector lives here, in the composer bar at the BOTTOM. -->
+    <div class="composer-wrap">
+      <div class="composer">
+        <div class="attachments" id="attachments"></div>
+        <div class="composer-box" id="composerBox">
+          <textarea class="composer-input" id="composerInput"
+                    placeholder="Message JARVIS…  (Enter to send, Shift+Enter for a new line)"
+                    rows="1" aria-label="Message"></textarea>
+          <div class="composer-bar">
+            <button class="icon-btn" id="attachBtn" aria-label="Attach a file" title="Attach file">📎</button>
+            <input type="file" id="fileInput" hidden multiple
+                   accept=".pdf,.txt,.md,.csv,.json,.py,.js,.ts,.html,.css,.yaml,.yml,.log">
+            <button class="model-trigger" id="modelTrigger" aria-label="Select model" title="Select model (Ctrl+K)">
+              <span class="dot dot-off" id="modelTriggerDot"></span>
+              <span class="model-trigger-name" id="modelTriggerName">Select model</span>
+              <span class="model-trigger-caret">▾</span>
+            </button>
+            <div class="composer-spacer"></div>
+            <button class="send-btn" id="sendBtn" aria-label="Send message" title="Send">↑</button>
+          </div>
         </div>
+      </div>
     </div>
+  </main>
+</div>
 
-    <!-- Hidden file input -->
-    <input type="file" id="fileInput" multiple style="display:none" onchange="handleFileSelect(event)">
+<!-- ── Settings workspace ─────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="modal settings-modal">
+    <div class="settings-head">
+      <h2 id="settingsTitle">Settings</h2>
+      <button class="icon-btn" id="settingsClose" aria-label="Close settings">✕</button>
+    </div>
+    <div class="settings-body">
+      <nav class="settings-nav" id="settingsNav" aria-label="Settings sections"></nav>
+      <div class="settings-content" id="settingsContent"></div>
+    </div>
+  </div>
+</div>
 
-    <script>
-        // ── State ─────────────────────────────────────────────────
-        let conversations = [];
-        let currentConvId = null;
-        let selectedModel = { provider: 'openrouter', id: 'deepseek/deepseek-v4-flash-0731', name: 'DeepSeek V4 Flash' };
-        let attachedFiles = [];
-        let memoryEnabled = true;
-        let memorySearchEnabled = true;
-        let modelsCache = null;
+<!-- ── Model picker ───────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="pickerModal" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+  <div class="modal picker">
+    <div class="picker-head">
+      <div class="picker-head-row">
+        <h3 id="pickerTitle">Select a model</h3>
+        <span class="badge" id="pickerCount">0 matches</span>
+        <button class="btn btn-sm" id="pickerRefresh" title="Re-fetch from every provider">Refresh</button>
+        <button class="icon-btn" id="pickerClose" aria-label="Close model picker">✕</button>
+      </div>
+      <input class="input" id="pickerSearch" placeholder="Search providers and models…" aria-label="Search models">
+      <div class="picker-filters" style="margin-top:10px">
+        <span class="filter-label">Pricing</span>
+        <div class="seg" id="pickerTier">
+          <button class="active" data-tier="all">All</button>
+          <button data-tier="free">Free</button>
+          <button data-tier="paid">Paid</button>
+        </div>
+        <span class="filter-label">Context</span>
+        <select class="input input-sm" id="pickerCtx" aria-label="Minimum context window">
+          <option value="0">Any</option>
+          <option value="8000">8K+</option>
+          <option value="32000">32K+</option>
+          <option value="128000">128K+</option>
+          <option value="200000">200K+</option>
+          <option value="1000000">1M+</option>
+        </select>
+        <button class="btn btn-sm btn-ghost" id="pickerClearFilters">Clear filters</button>
+      </div>
+      <div class="picker-caps" id="pickerCaps" role="group" aria-label="Filter by capability"></div>
+    </div>
+    <div class="picker-body" id="pickerBody"></div>
+  </div>
+</div>
 
-        // ── Init ──────────────────────────────────────────────────
-        async function init() {
-            await loadModels();
-            loadConversations();
-            updateModelDisplay();
-            document.getElementById('input').focus();
-        }
+<!-- ── Add custom model ───────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="addModelModal" role="dialog" aria-modal="true" aria-labelledby="addModelTitle">
+  <div class="modal" style="width:min(520px,94vw)">
+    <div class="settings-head">
+      <h2 id="addModelTitle">Add a model</h2>
+      <button class="icon-btn" id="addModelCancel" aria-label="Close">✕</button>
+    </div>
+    <form id="addModelForm" style="padding:var(--space-5)">
+      <div class="field">
+        <label for="addModelProvider">Provider</label>
+        <select class="input" id="addModelProvider"></select>
+        <div class="hint" id="addModelProviderHint">Any provider in the catalogue, including your custom ones.</div>
+      </div>
+      <div class="field">
+        <label for="addModelId">Model ID</label>
+        <input class="input" id="addModelId" placeholder="e.g. deepseek-ai/DeepSeek-V4.1-Flash" required>
+        <div class="hint">Exactly as the provider expects it in an API request.</div>
+      </div>
+      <div class="field">
+        <label for="addModelName">Display name <span style="text-transform:none;font-weight:400">(optional)</span></label>
+        <input class="input" id="addModelName" placeholder="DeepSeek V4.1 Flash">
+      </div>
+      <div class="field">
+        <label for="addModelContext">Context window <span style="text-transform:none;font-weight:400">(tokens, optional)</span></label>
+        <input class="input" id="addModelContext" type="number" min="0" placeholder="128000">
+        <div class="hint">Used by the chat picker's context filter, e.g. 128000 for 128K.</div>
+      </div>
+      <div class="field">
+        <label>Capabilities <span style="text-transform:none;font-weight:400">(optional)</span></label>
+        <div class="cap-picker" id="addModelCaps" role="group" aria-label="Model capabilities"></div>
+        <div class="hint">Leave empty to let the app infer from the model id.</div>
+      </div>
+      <div id="addModelError" style="color:var(--danger);font-size:12.5px;min-height:18px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:var(--space-3)">
+        <button type="button" class="btn" id="addModelCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add model</button>
+      </div>
+    </form>
+  </div>
+</div>
 
-        // ── Models ────────────────────────────────────────────────
-        async function loadModels() {
-            try {
-                const res = await fetch('/api/models');
-                modelsCache = await res.json();
-            } catch (e) {
-                console.error('Failed to load models:', e);
-                modelsCache = { providers: {} };
-            }
-        }
+<!-- ── Add / edit custom provider ─────────────────────────────────────── -->
 
-        function openModelSelector() {
-            const modal = document.getElementById('modelModal');
-            modal.classList.add('open');
-            renderModelList('');
-        }
+<div class="modal-backdrop" id="providerModal" role="dialog" aria-modal="true" aria-labelledby="providerTitle">
+  <div class="modal" style="width:min(560px,94vw)">
+    <div class="settings-head">
+      <h2 id="providerTitle">Add a custom provider</h2>
+      <button class="icon-btn" id="providerCancel" aria-label="Close">✕</button>
+    </div>
+    <form id="providerForm" style="padding:var(--space-5)">
+      <div class="field">
+        <label for="providerName">Provider name</label>
+        <input class="input" id="providerName" placeholder="e.g. Singularity" required>
+        <div class="hint">The key used internally is derived from this name.</div>
+      </div>
+      <div class="field">
+        <label for="providerBaseUrl">Base URL</label>
+        <input class="input" id="providerBaseUrl" placeholder="https://api.example.com/v1" required>
+        <div class="hint">Must be OpenAI-compatible — the model list is read from <code>/models</code>.</div>
+      </div>
+      <div class="field">
+        <label for="providerKey">API key</label>
+        <input class="input" id="providerKey" type="password" autocomplete="off" placeholder="sk-…">
+        <div class="hint">Stored server-side and never sent back to the browser.</div>
+      </div>
 
-        function closeModelSelector() {
-            document.getElementById('modelModal').classList.remove('open');
-        }
+      <div class="field">
+        <label>Models</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button type="button" class="btn btn-sm" id="providerFetch">Fetch models from URL</button>
+          <span id="providerFetchStatus" style="font-size:12.5px;color:var(--text-muted)"></span>
+        </div>
+        <div class="hint">Fetched automatically when possible; otherwise add models manually below.</div>
+      </div>
 
-        function renderModelList(query) {
-            const list = document.getElementById('modelList');
-            list.innerHTML = '';
-            const q = query.toLowerCase();
+      <div class="field">
+        <label>Discovered models <span style="text-transform:none;font-weight:400">(click to remove)</span></label>
+        <div id="providerModelList" class="chip-list">
+          <span class="hint" style="padding:0">No models yet — fetch or add them manually.</span>
+        </div>
+      </div>
 
-            for (const [providerKey, provider] of Object.entries(modelsCache.providers || {})) {
-                const models = (provider.models || []).filter(m => {
-                    if (!q) return true;
-                    return m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
-                });
-                if (models.length === 0) continue;
+      <div class="field">
+        <label for="providerManualModel">Add a model manually</label>
+        <div style="display:flex;gap:8px">
+          <input class="input" id="providerManualModel" placeholder="model-id">
+          <button type="button" class="btn btn-sm" id="providerAddManual">Add</button>
+        </div>
+      </div>
 
-                const group = document.createElement('div');
-                group.className = 'provider-group';
-                group.innerHTML = `<div class="provider-header">${provider.name}</div>`;
+      <div class="field">
+        <label for="providerContext">Max context length <span style="text-transform:none;font-weight:400">(tokens, optional)</span></label>
+        <input class="input" id="providerContext" type="number" min="0" step="1000" placeholder="e.g. 128000">
+        <div class="hint">Applied to models added manually here. Used for the context-size filter and shown as a <code>ctx</code> badge.</div>
+      </div>
 
-                for (const model of models) {
-                    const isFree = model.pricing && model.pricing.prompt === '0' && model.pricing.completion === '0';
-                    const item = document.createElement('div');
-                    item.className = 'model-item';
-                    if (selectedModel.provider === providerKey && selectedModel.id === model.id) {
-                        item.classList.add('selected');
-                    }
-                    item.onclick = () => selectModel(providerKey, model);
-                    item.innerHTML = `
-                        <div class="model-info">
-                            <div class="model-name">${model.name}</div>
-                            <div class="model-desc">${model.description || ''}</div>
-                        </div>
-                        <div class="model-meta">
-                            ${model.context_length ? `<span>${formatContext(model.context_length)}</span>` : ''}
-                            <span class="model-tag ${isFree ? 'free' : 'paid'}">${isFree ? 'Free' : 'Paid'}</span>
-                        </div>
-                    `;
-                    group.appendChild(item);
-                }
-                list.appendChild(group);
-            }
-        }
+      <div class="field">
+        <label>Capabilities <span style="text-transform:none;font-weight:400">(applied to manually added models)</span></label>
+        <div id="providerCaps" class="picker-caps"></div>
+        <div class="hint">Auto-inferred from the model id when left unticked.</div>
+      </div>
 
-        function filterModels(query) {
-            renderModelList(query);
-        }
+      <div id="providerError" style="color:var(--danger);font-size:12.5px;min-height:18px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:var(--space-3)">
+        <button type="button" class="btn" id="providerCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save provider</button>
+      </div>
+    </form>
+  </div>
+</div>
 
-        function selectModel(provider, model) {
-            selectedModel = { provider, id: model.id, name: model.name };
-            updateModelDisplay();
-            closeModelSelector();
-        }
+<!-- ── File preview ───────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="filePreviewModal" role="dialog" aria-modal="true" aria-labelledby="filePreviewTitle">
+  <div class="modal" style="width:min(760px,94vw);height:min(680px,90vh)">
+    <div class="settings-head">
+      <h2 id="filePreviewTitle">File</h2>
+      <button class="icon-btn" id="filePreviewClose" aria-label="Close preview">✕</button>
+    </div>
+    <div id="filePreviewBody" style="padding:var(--space-5);overflow-y:auto;flex:1"></div>
+  </div>
+</div>
 
-        function updateModelDisplay() {
-            document.getElementById('currentModel').textContent = selectedModel.name;
-        }
+<div id="toasts" aria-live="polite" aria-atomic="false"></div>
 
-        function formatContext(n) {
-            if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-            if (n >= 1000) return (n / 1000).toFixed(0) + 'K';
-            return n.toString();
-        }
-
-        // ── Settings ──────────────────────────────────────────────
-        function openSettings() {
-            document.getElementById('settingsModal').classList.add('open');
-            checkAgy();
-        }
-
-        function closeSettings() {
-            document.getElementById('settingsModal').classList.remove('open');
-        }
-
-        function toggleMemory() {
-            memoryEnabled = !memoryEnabled;
-            document.getElementById('memoryToggle').classList.toggle('active', memoryEnabled);
-        }
-
-        function toggleMemorySearch() {
-            memorySearchEnabled = !memorySearchEnabled;
-            document.getElementById('memorySearchToggle').classList.toggle('active', memorySearchEnabled);
-        }
-
-        // ── AGY ──────────────────────────────────────────────────
-        async function checkAgy() {
-            const statusEl = document.getElementById('agyStatus');
-            const modelsEl = document.getElementById('agyModels');
-            
-            try {
-                statusEl.textContent = 'Checking...';
-                statusEl.style.color = 'var(--text-muted)';
-                
-                const res = await fetch('/api/agy/status');
-                const data = await res.json();
-                
-                if (data.available) {
-                    statusEl.textContent = '✓ AGY CLI available';
-                    statusEl.style.color = 'var(--success)';
-                    
-                    // Fetch models
-                    try {
-                        const modelsRes = await fetch('/api/agy/models');
-                        const modelsData = await modelsRes.json();
-                        if (modelsData.models && modelsData.models.length > 0) {
-                            modelsEl.innerHTML = modelsData.models.map(m => 
-                                `<div style="padding: 2px 0; cursor: pointer;" title="${m.description}">${m.name}</div>`
-                            ).join('');
-                            modelsEl.style.display = 'block';
-                        } else {
-                            modelsEl.textContent = 'No models found (AGY may be busy)';
-                            modelsEl.style.display = 'block';
-                        }
-                    } catch (e) {
-                        modelsEl.textContent = 'Could not load models';
-                        modelsEl.style.display = 'block';
-                    }
-                } else {
-                    statusEl.textContent = '✗ AGY CLI not found';
-                    statusEl.style.color = 'var(--error)';
-                    modelsEl.style.display = 'none';
-                }
-            } catch (e) {
-                statusEl.textContent = 'Error checking AGY';
-                statusEl.style.color = 'var(--error)';
-                modelsEl.style.display = 'none';
-            }
-        }
-
-        // ── Conversations ─────────────────────────────────────────
-        function loadConversations() {
-            const saved = localStorage.getItem('jarvis_conversations');
-            if (saved) {
-                conversations = JSON.parse(saved);
-                if (conversations.length > 0) {
-                    currentConvId = conversations[0].id;
-                }
-            }
-            renderConvList();
-        }
-
-        function saveConversations() {
-            localStorage.setItem('jarvis_conversations', JSON.stringify(conversations));
-        }
-
-        function renderConvList() {
-            const list = document.getElementById('convList');
-            list.innerHTML = '';
-            for (const conv of conversations) {
-                const item = document.createElement('div');
-                item.className = 'conv-item' + (conv.id === currentConvId ? ' active' : '');
-                
-                const titleSpan = document.createElement('span');
-                titleSpan.textContent = conv.title || 'New Chat';
-                titleSpan.style.flex = '1';
-                titleSpan.style.overflow = 'hidden';
-                titleSpan.style.textOverflow = 'ellipsis';
-                titleSpan.onclick = () => loadConversation(conv.id);
-                
-                const actions = document.createElement('span');
-                actions.className = 'conv-actions';
-                actions.style.display = 'none';
-                actions.style.gap = '4px';
-                actions.style.marginLeft = '4px';
-                
-                const renameBtn = document.createElement('button');
-                renameBtn.textContent = '✏️';
-                renameBtn.className = 'conv-action-btn';
-                renameBtn.title = 'Rename';
-                renameBtn.onclick = (e) => { e.stopPropagation(); renameConversation(conv.id); };
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = '🗑️';
-                deleteBtn.className = 'conv-action-btn';
-                deleteBtn.title = 'Delete';
-                deleteBtn.onclick = (e) => { e.stopPropagation(); deleteConversation(conv.id); };
-                
-                actions.appendChild(renameBtn);
-                actions.appendChild(deleteBtn);
-                item.appendChild(titleSpan);
-                item.appendChild(actions);
-                
-                item.onmouseenter = () => { actions.style.display = 'inline-flex'; };
-                item.onmouseleave = () => { actions.style.display = 'none'; };
-                
-                list.appendChild(item);
-            }
-        }
-
-        function renameConversation(convId) {
-            const conv = conversations.find(c => c.id === convId);
-            if (!conv) return;
-            const newTitle = prompt('Rename conversation:', conv.title);
-            if (newTitle && newTitle.trim()) {
-                conv.title = newTitle.trim();
-                saveConversations();
-                renderConvList();
-            }
-        }
-
-        async function deleteConversation(convId) {
-            if (!confirm('Delete this conversation? This will also wipe all associated memories.')) return;
-            
-            try {
-                await fetch(`/api/conversations/${convId}`, { method: 'DELETE' });
-            } catch (e) {}
-            
-            conversations = conversations.filter(c => c.id !== convId);
-            if (currentConvId === convId) {
-                currentConvId = conversations.length > 0 ? conversations[0].id : null;
-                if (currentConvId) {
-                    loadConversation(currentConvId);
-                } else {
-                    newChat();
-                }
-            }
-            saveConversations();
-            renderConvList();
-        }
-
-        function newChat() {
-            currentConvId = null;
-            document.getElementById('messages').innerHTML = `
-                <div class="welcome" id="welcome">
-                    <h2>JARVIS</h2>
-                    <p>Your personal AI assistant. Ask anything.</p>
-                </div>
-            `;
-            renderConvList();
-        }
-
-        // ── Theme ─────────────────────────────────────────────────
-        let darkMode = true;
-        function applyTheme() {
-            const root = document.documentElement;
-            const toggle = document.getElementById('darkModeToggle');
-            if (darkMode) {
-                root.style.setProperty('--bg', '#0b0b0f');
-                root.style.setProperty('--surface', '#16161d');
-                root.style.setProperty('--surface-2', '#1e1e28');
-                root.style.setProperty('--surface-3', '#26262f');
-                root.style.setProperty('--border', '#2a2a35');
-                root.style.setProperty('--border-light', '#3a3a45');
-                root.style.setProperty('--text', '#e8e8ec');
-                root.style.setProperty('--text-muted', '#8b8b9e');
-                root.style.setProperty('--text-dim', '#5a5a6e');
-                root.style.setProperty('--user-bubble', '#2d2d5e');
-                if (toggle) toggle.classList.add('active');
-            } else {
-                root.style.setProperty('--bg', '#ffffff');
-                root.style.setProperty('--surface', '#f5f5f7');
-                root.style.setProperty('--surface-2', '#ebebef');
-                root.style.setProperty('--surface-3', '#dcdce0');
-                root.style.setProperty('--border', '#d0d0d5');
-                root.style.setProperty('--border-light', '#b8b8c0');
-                root.style.setProperty('--text', '#1a1a1f');
-                root.style.setProperty('--text-muted', '#5a5a6e');
-                root.style.setProperty('--text-dim', '#8b8b9e');
-                root.style.setProperty('--user-bubble', '#e8e8ff');
-                if (toggle) toggle.classList.remove('active');
-            }
-        }
-
-        function toggleDarkMode() {
-            darkMode = !darkMode;
-            applyTheme();
-        }
-
-        function loadConversation(id) {
-            currentConvId = id;
-            const conv = conversations.find(c => c.id === id);
-            if (!conv) return;
-            const msgs = document.getElementById('messages');
-            msgs.innerHTML = '';
-            for (const msg of conv.messages || []) {
-                appendMessage(msg.role, msg.content, false);
-            }
-            renderConvList();
-        }
-
-        // ── Messages ──────────────────────────────────────────────
-        function appendMessage(role, content, animate = true) {
-            const welcome = document.getElementById('welcome');
-            if (welcome) welcome.remove();
-
-            const msgs = document.getElementById('messages');
-            const div = document.createElement('div');
-            div.className = 'message ' + role;
-            const avatar = role === 'user' ? 'U' : 'J';
-            div.innerHTML = `
-                <div class="message-avatar">${avatar}</div>
-                <div class="message-content">
-                    <div class="message-text">${formatMessage(content)}</div>
-                    <div class="message-time">${new Date().toLocaleTimeString()}</div>
-                </div>
-            `;
-            msgs.appendChild(div);
-            msgs.scrollTop = msgs.scrollHeight;
-            return div;
-        }
-
-        function formatMessage(text) {
-            if (!text) return '';
-            // Simple markdown-like formatting
-            let html = text
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-                .replace(/`([^`]+)`/g, '<code>$1</code>')
-                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                .replace(/\n/g, '<br>');
-            return html;
-        }
-
-        function showTyping() {
-            const msgs = document.getElementById('messages');
-            const div = document.createElement('div');
-            div.className = 'message assistant';
-            div.id = 'typingMsg';
-            div.innerHTML = `
-                <div class="message-avatar">J</div>
-                <div class="message-content">
-                    <div class="typing-indicator">
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                    </div>
-                </div>
-            `;
-            msgs.appendChild(div);
-            msgs.scrollTop = msgs.scrollHeight;
-        }
-
-        function hideTyping() {
-            const el = document.getElementById('typingMsg');
-            if (el) el.remove();
-        }
-
-        // ── Input ─────────────────────────────────────────────────
-        function autoResize(el) {
-            el.style.height = 'auto';
-            el.style.height = Math.min(el.scrollHeight, 160) + 'px';
-            document.getElementById('sendBtn').disabled = !el.value.trim() && attachedFiles.length === 0;
-        }
-
-        function handleKeyDown(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        }
-
-        function toggleAttach() {
-            document.getElementById('fileInput').click();
-        }
-
-        function handleFileSelect(e) {
-            const files = Array.from(e.target.files);
-            attachedFiles.push(...files);
-            renderFilePreview();
-            document.getElementById('sendBtn').disabled = false;
-        }
-
-        function renderFilePreview() {
-            const preview = document.getElementById('filePreview');
-            preview.innerHTML = '';
-            attachedFiles.forEach((file, i) => {
-                const chip = document.createElement('div');
-                chip.className = 'file-chip';
-                chip.innerHTML = `
-                    <span>${file.name}</span>
-                    <span class="remove" onclick="removeFile(${i})">×</span>
-                `;
-                preview.appendChild(chip);
-            });
-        }
-
-        function removeFile(index) {
-            attachedFiles.splice(index, 1);
-            renderFilePreview();
-        }
-
-        // ── Send ──────────────────────────────────────────────────
-        async function sendMessage() {
-            const input = document.getElementById('input');
-            const text = input.value.trim();
-            if (!text && attachedFiles.length === 0) return;
-
-            input.value = '';
-            input.style.height = 'auto';
-            document.getElementById('sendBtn').disabled = true;
-
-            // Upload files first
-            const uploadedFiles = [];
-            for (const file of attachedFiles) {
-                try {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    const res = await fetch('/api/upload', { method: 'POST', body: formData });
-                    const data = await res.json();
-                    if (data.extracted_text) {
-                        uploadedFiles.push([data.filename, data.extracted_text]);
-                    }
-                } catch (e) {
-                    console.error('Upload failed:', e);
-                }
-            }
-
-            // Build message content
-            let content = text;
-            if (attachedFiles.length > 0) {
-                const fileNames = attachedFiles.map(f => f.name).join(', ');
-                content += `\n\n[Attached: ${fileNames}]`;
-            }
-
-            appendMessage('user', content);
-            showTyping();
-
-            // Create conversation if needed
-            if (!currentConvId) {
-                currentConvId = 'conv_' + Date.now();
-                conversations.unshift({ id: currentConvId, title: text.slice(0, 40), messages: [] });
-            }
-            const conv = conversations.find(c => c.id === currentConvId);
-            conv.messages.push({ role: 'user', content });
-
-            try {
-                const res = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: text,
-                        model: selectedModel,
-                        session_id: currentConvId,
-                        memory_enabled: memoryEnabled,
-                        files: attachedFiles.map(f => f.name),
-                        file_contents: uploadedFiles
-                    })
-                });
-
-                const data = await res.json();
-                hideTyping();
-
-                if (data.response) {
-                    appendMessage('assistant', data.response);
-                    conv.messages.push({ role: 'assistant', content: data.response });
-                } else if (data.error) {
-                    appendMessage('assistant', `Error: ${data.error}`);
-                }
-            } catch (e) {
-                hideTyping();
-                appendMessage('assistant', `Connection error: ${e.message}`);
-            }
-
-            attachedFiles = [];
-            renderFilePreview();
-            saveConversations();
-            renderConvList();
-        }
-
-        function clearChat() {
-            newChat();
-        }
-
-        // ── Init ──────────────────────────────────────────────────
-        init();
-    </script>
+<script type="module" src="/static/main.js"></script>
 </body>
 </html>
