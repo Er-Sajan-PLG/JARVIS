@@ -279,9 +279,11 @@ static data does not persist reliably across restarts in this n8n build.
 
 - **8 governance checks** run in CI: import layering, domain purity, schema drift,
   prerequisite graph, safety-gate coverage, MCP tool search, OTEL spans, LangGraph checkpoint.
-- **<!--fact:adr_count-->14<!--/fact--> ADRs** in `docs/adr/` (ADR-001 → ADR-013), including
-  [ADR-011](docs/adr/ADR-011-tool-wiring-and-hitl-gate.md) (tool wiring + HITL) and
-  [ADR-012](docs/adr/ADR-012-github-auth-identity-per-function.md) (one GitHub identity per function).
+- **<!--fact:adr_count-->14<!--/fact--> ADRs** in `docs/adr/` (ADR-001 → ADR-015), including
+  [ADR-011](docs/adr/ADR-011-tool-wiring-and-hitl-gate.md) (tool wiring + HITL),
+  [ADR-012](docs/adr/ADR-012-github-auth-identity-per-function.md) (one GitHub identity per function),
+  [ADR-014](docs/adr/ADR-014-documentation-facts-are-machine-checked.md) (docs are machine-checked)
+  and [ADR-015](docs/adr/ADR-015-memory-is-bi-temporal.md) (memory is bi-temporal).
 - **16 tracked risks** in [`docs/ACCEPTED_RISKS.md`](docs/ACCEPTED_RISKS.md) — every
   CRITICAL/HIGH finding has a named owner and a review date. Acknowledging a risk adds
   evidence; it never removes the finding.
