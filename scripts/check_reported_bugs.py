@@ -50,6 +50,9 @@ ORIGINAL_DEFAULT = _orig_res.get("default") or {}
 or_models = [m["id"] for m in by_key.get("openrouter", {}).get("models", [])]
 pick = or_models[0] if or_models else "openrouter/auto"
 st, res = call("POST", "/api/settings/default", {"provider": "openrouter", "model": pick})
+# Remember what WE set, so the restore step can tell our value apart from one a
+# human changed afterwards. See the restore block at the end of this file.
+DEFAULT_SET_BY_SCRIPT = ("openrouter", pick)
 check("POST accepts the change", st == 200, str(st))
 check(
     "response carries {default:{provider,model}}",
@@ -282,10 +285,32 @@ call("DELETE", "/api/settings/models/openrouter/verify-added-model")
 call("DELETE", "/api/settings/models/ollama/verify-cap-model")
 call("DELETE", "/api/settings/providers/verify_provider")
 
-# Restore the default exactly as we found it. Clearing it is not an option:
-# the API rejects empty values, and silently dropping a user's default is
-# worse than leaving one behind.
-if ORIGINAL_DEFAULT.get("provider") and ORIGINAL_DEFAULT.get("model"):
+# Restore the default we found, but ONLY if nothing else changed it meanwhile.
+#
+# History: this used to write ORIGINAL_DEFAULT back unconditionally. That
+# silently reverted a default the owner had changed since the run started —
+# observed twice on 2026-09-15, once reverting an NVIDIA default back to Grok
+# that the owner had deliberately set. A checker must never overwrite a value a
+# human changed while it was running.
+#
+# The guard is a compare-and-swap: read the current default, and only write the
+# original back when the store still holds what THIS SCRIPT last set. If a third
+# party moved it, we leave their value alone and say so.
+_, _cur_res = call("GET", "/api/settings/default")
+CURRENT_DEFAULT = _cur_res.get("default") or {}
+
+_we_left = {"provider": DEFAULT_SET_BY_SCRIPT[0], "model": DEFAULT_SET_BY_SCRIPT[1]}
+_someone_else_moved_it = bool(CURRENT_DEFAULT) and _we_left != CURRENT_DEFAULT
+
+if not ORIGINAL_DEFAULT.get("provider") or not ORIGINAL_DEFAULT.get("model"):
+    print("  (no default was set before this run — nothing to restore)")
+elif _someone_else_moved_it:
+    check(
+        "default changed by someone else mid-run — left untouched",
+        True,
+        f"current={CURRENT_DEFAULT}, script had set={_we_left}",
+    )
+else:
     st, _ = call(
         "POST",
         "/api/settings/default",
@@ -301,8 +326,6 @@ if ORIGINAL_DEFAULT.get("provider") and ORIGINAL_DEFAULT.get("model"):
         (after.get("default") or {}) == ORIGINAL_DEFAULT,
         f"{after.get('default')} != {ORIGINAL_DEFAULT}",
     )
-else:
-    print("  (no default was set before this run — nothing to restore)")
 
 print(f"\n{passed} passed, {len(failed)} failed")
 if failed:

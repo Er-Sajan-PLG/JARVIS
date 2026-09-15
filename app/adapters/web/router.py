@@ -118,9 +118,13 @@ def _agy_provider_entry() -> dict[str, Any] | None:
         return None
 
 
-@web_router.get("/models")
-async def list_models(refresh: bool = False) -> dict[str, Any]:
-    """Every provider with its LIVE models and honest availability status."""
+async def _build_catalogue(refresh: bool = False) -> dict[str, Any]:
+    """Build the full provider/model catalogue.
+
+    Shared by ``/api/models`` and chat's provider resolution, so there is ONE
+    definition of which models exist. Two copies would drift, and drift here
+    means chat silently routing a model to the wrong provider.
+    """
     from app.adapters.web.settings import get_custom_models, get_custom_providers_with_keys
     from app.utils.provider_catalog import get_all_providers
 
@@ -195,6 +199,12 @@ async def list_models(refresh: bool = False) -> dict[str, Any]:
         p["model_count"] = len(p["models"])
 
     return {"providers": providers}
+
+
+@web_router.get("/models")
+async def list_models(refresh: bool = False) -> dict[str, Any]:
+    """Every provider with its LIVE models and honest availability status."""
+    return await _build_catalogue(refresh=refresh)
 
 
 # ── Default model ────────────────────────────────────────────────────────────
@@ -464,8 +474,46 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
 
     full_message = f"{message}{memory_context}{file_context}"
 
-    provider = model_info.get("provider") or ""
-    model_id = model_info.get("id") or ""
+    # ``model`` arrives in two shapes, both legitimate:
+    #   {"provider": "nvidia", "id": "nvidia/nemotron-3-super-120b-a12b"}  (dict)
+    #   "nvidia/nemotron-3-super-120b-a12b"                                (string)
+    # The frontend and the CLI/probe paths send different ones. Assuming dict
+    # caused a 500 ("'str' object has no attribute 'get'") for every caller that
+    # sent a bare model id.
+    raw_model = payload.get("model", {}) or {}
+    model_info: dict[str, Any] = {}
+    provider = ""
+    model_id = ""
+
+    if isinstance(raw_model, dict):
+        model_info = raw_model
+        provider = raw_model.get("provider") or ""
+        model_id = raw_model.get("id") or raw_model.get("model") or ""
+    elif isinstance(raw_model, str):
+        # A bare model id. Model ids are NOT reliably "provider/model":
+        # "x-ai/grok-4.20" is an *openrouter* model, and "gemini-3.8-flash-high"
+        # is an *agy* one with no slash at all. Splitting on "/" therefore
+        # misroutes — or silently falls through to the default and ignores what
+        # the caller asked for. Resolve against the catalogue instead.
+        model_info = {"provider": "", "id": raw_model}
+        model_id = raw_model
+
+    # Resolve a missing provider by looking the model up in the live catalogue.
+    # Exact, unlike string splitting. Never raises: chat must not be blocked by
+    # a resolution failure, it just falls through to the default below.
+    if model_id and not provider:
+        try:
+            cat = await _build_catalogue(refresh=False)
+            for prov_entry in cat.get("providers", []) or []:
+                pkey = prov_entry.get("key") or ""
+                for entry in prov_entry.get("models", []) or []:
+                    if isinstance(entry, dict) and entry.get("id") == model_id:
+                        provider = pkey
+                        break
+                if provider:
+                    break
+        except Exception as exc:  # noqa: BLE001 - never block chat on resolution
+            logger.warning("Model provider resolution failed: %s", exc)
 
     # No explicit model on the request: fall back to the default saved in
     # Settings. Without this the request went out with an empty model id and
@@ -794,6 +842,14 @@ async def list_memories(
                 "category": getattr(m, "category", "general"),
                 "importance": getattr(m, "importance", None),
                 "created_at": _iso_or_none(getattr(m, "created_at", None)),
+                # Bi-temporal validity (ADR-015). Exposed so the UI and any API
+                # consumer can tell an ENDED fact from a current one — the store
+                # holds these, and omitting them here is what previously made an
+                # old job indistinguishable from a current one over the API.
+                "valid_at": _iso_or_none(getattr(m, "valid_at", None)),
+                "invalid_at": _iso_or_none(getattr(m, "invalid_at", None)),
+                "expired_at": _iso_or_none(getattr(m, "expired_at", None)),
+                "occurs_at": _iso_or_none(getattr(m, "occurs_at", None)),
             }
         )
 
