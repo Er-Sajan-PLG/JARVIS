@@ -3,10 +3,11 @@
 Wraps atomic tool functions to enforce safety policy evaluation prior to execution.
 """
 
-from functools import wraps
 import inspect
 import logging
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from functools import wraps
+from typing import Any, TypeVar
 
 from app.domain import SafetyTier
 from app.guardrails.policy import ToolSafetyPolicy
@@ -40,6 +41,7 @@ def safety_gate(
         tool_name = func.__name__
 
         if inspect.iscoroutinefunction(func):
+
             @wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 hitl_approved = kwargs.pop("_hitl_approved", None)
@@ -54,6 +56,7 @@ def safety_gate(
 
             return async_wrapper  # type: ignore[return-value]
         else:
+
             @wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 hitl_approved = kwargs.pop("_hitl_approved", None)

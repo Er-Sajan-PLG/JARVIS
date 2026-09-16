@@ -9,8 +9,9 @@ Usage:
   In config.yaml, set backend: "anthropic" and api_key: "env:ANTHROPIC_API_KEY"
 """
 
-from typing import Callable, Optional
 import json
+from collections.abc import Callable
+
 import requests
 from requests.exceptions import RequestException
 
@@ -50,30 +51,30 @@ class AnthropicClient(ModelClient):
 
     def _convert_messages(self, messages: list[dict]) -> tuple[str | None, list[dict]]:
         """Convert OpenAI-style messages to Anthropic format.
-        
+
         Returns (system_prompt, anthropic_messages)
         """
         system_parts = []
         anthropic_messages = []
-        
+
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content", "")
             if not content:
                 continue
-            
+
             if role == "system":
                 system_parts.append(content)
                 continue
-            
+
             anthropic_role = "assistant" if role == "assistant" else "user"
-            
+
             # Merge consecutive messages with same role
             if anthropic_messages and anthropic_messages[-1]["role"] == anthropic_role:
                 anthropic_messages[-1]["content"] += f"\n\n{content}"
             else:
                 anthropic_messages.append({"role": anthropic_role, "content": content})
-        
+
         system = "\n\n".join(system_parts) if system_parts else None
         return system, anthropic_messages
 
@@ -81,12 +82,12 @@ class AnthropicClient(ModelClient):
         self,
         messages: list[dict],
         stream: bool = False,
-        on_token: Optional[Callable[[str], None]] = None,
+        on_token: Callable[[str], None] | None = None,
         **kwargs,
     ) -> ModelResponse:
         """Generate a response via Anthropic."""
         system, anthropic_messages = self._convert_messages(messages)
-        
+
         payload = {
             "model": self._model,
             "messages": anthropic_messages,
@@ -101,7 +102,7 @@ class AnthropicClient(ModelClient):
             payload["top_p"] = kwargs["top_p"]
         if "top_k" in kwargs:
             payload["top_k"] = kwargs["top_k"]
-        
+
         if not stream:
             return self._generate_sync(payload)
         return self._generate_stream(payload, on_token)
@@ -122,19 +123,23 @@ class AnthropicClient(ModelClient):
                 f"Malformed response from Anthropic model '{self._model}'.",
                 cause=exc,
             ) from exc
-        
+
         if "error" in data:
-            raise ModelResponseError(f"Anthropic API Error: {data['error'].get('message', data['error'])}")
-        
+            raise ModelResponseError(
+                f"Anthropic API Error: {data['error'].get('message', data['error'])}"
+            )
+
         content = ""
         for block in data.get("content", []):
             if block.get("type") == "text":
                 content += block.get("text", "")
-        
+
         tokens_used = None
         if "usage" in data:
-            tokens_used = data["usage"].get("input_tokens", 0) + data["usage"].get("output_tokens", 0)
-        
+            tokens_used = data["usage"].get("input_tokens", 0) + data["usage"].get(
+                "output_tokens", 0
+            )
+
         return ModelResponse(
             content=content,
             model=self._model,
@@ -145,7 +150,7 @@ class AnthropicClient(ModelClient):
     def _generate_stream(
         self,
         payload: dict,
-        on_token: Optional[Callable[[str], None]],
+        on_token: Callable[[str], None] | None,
     ) -> ModelResponse:
         url = f"{self.BASE_URL}/messages"
         try:
@@ -156,11 +161,11 @@ class AnthropicClient(ModelClient):
                 f"Could not reach Anthropic (model '{self._model}').",
                 cause=exc,
             ) from exc
-        
+
         full_content = ""
         tokens_used = None
         finish_reason = None
-        
+
         try:
             for line in res.iter_lines():
                 if not line:
@@ -171,7 +176,7 @@ class AnthropicClient(ModelClient):
                 chunk_str = line[6:].strip()
                 if not chunk_str or chunk_str == "[DONE]":
                     continue
-                
+
                 try:
                     chunk = json.loads(chunk_str)
                 except json.JSONDecodeError as exc:
@@ -179,19 +184,21 @@ class AnthropicClient(ModelClient):
                         f"Malformed stream chunk from Anthropic model '{self._model}'.",
                         cause=exc,
                     ) from exc
-                
+
                 if chunk.get("type") == "error":
-                    raise ModelResponseError(f"Anthropic API Error: {chunk['error'].get('message', chunk['error'])}")
-                
+                    raise ModelResponseError(
+                        f"Anthropic API Error: {chunk['error'].get('message', chunk['error'])}"
+                    )
+
                 if chunk.get("type") == "content_block_delta":
                     delta = chunk.get("delta", {}).get("text", "")
                     full_content += delta
                     if on_token and delta:
                         on_token(delta)
-                
+
                 if chunk.get("type") == "message_stop":
                     finish_reason = chunk.get("stop_reason")
-                
+
                 if chunk.get("type") == "message_delta":
                     if "usage" in chunk:
                         tokens_used = chunk["usage"].get("output_tokens")
@@ -200,12 +207,12 @@ class AnthropicClient(ModelClient):
                 f"Anthropic stream for model '{self._model}' dropped mid-response.",
                 cause=exc,
             ) from exc
-        
+
         if finish_reason is None:
             raise ModelConnectionError(
                 f"Anthropic stream for model '{self._model}' ended before completion."
             )
-        
+
         return ModelResponse(
             content=full_content,
             model=self._model,

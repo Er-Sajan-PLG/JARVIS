@@ -3,17 +3,18 @@
 Monitors provider availability, tracks 429 / 503 error rates, and implements circuit breaking.
 """
 
-from enum import Enum
 import logging
 import time
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 
 
 class CircuitState(str, Enum):
     """Circuit breaker state."""
-    CLOSED = "closed"        # Healthy, accepting traffic
-    OPEN = "open"            # Failing / rate-limited, rejecting traffic
+
+    CLOSED = "closed"  # Healthy, accepting traffic
+    OPEN = "open"  # Failing / rate-limited, rejecting traffic
     HALF_OPEN = "half_open"  # Probing recovery
 
 
@@ -62,5 +63,10 @@ class ProviderHealthMonitor:
         self._consecutive_failures[provider] = failures
 
         if failures >= self.failure_threshold or error_code in (429, 503):
-            logger.warning("Circuit breaker OPENED for provider '%s' (Failures: %d, Error: %s)", provider, failures, error_code)
+            logger.warning(
+                "Circuit breaker OPENED for provider '%s' (Failures: %d, Error: %s)",
+                provider,
+                failures,
+                error_code,
+            )
             self._states[provider] = CircuitState.OPEN

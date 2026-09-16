@@ -25,8 +25,9 @@ VERSION_DATE_MAP = {
     "v2.4.2": "Feature Author Date: 2026-07-14 | Tag Release Date: 2026-07-14",
     "v2.5.0": "Feature Author Date: 2026-07-18 | Tag Release Date: 2026-07-18",
     "v3.0.1": "Feature Author Date: 2026-07-19 / 2026-07-26 | Tag Release Date: 2026-07-26",
-    "v3.0.1 Refactored": "Feature Author Date: 2026-07-28 | Tag Release Date: 2026-07-28"
+    "v3.0.1 Refactored": "Feature Author Date: 2026-07-28 | Tag Release Date: 2026-07-28",
 }
+
 
 def process_modules():
     modules_dir = "docs/modules"
@@ -37,7 +38,7 @@ def process_modules():
         if not fname.endswith(".md"):
             continue
         fpath = os.path.join(modules_dir, fname)
-        with open(fpath, "r", encoding="utf-8") as f:
+        with open(fpath, encoding="utf-8") as f:
             lines = f.readlines()
 
         new_lines = []
@@ -57,6 +58,7 @@ def process_modules():
             f.writelines(new_lines)
 
         print(f"[+] Processed dates in {fpath}")
+
 
 if __name__ == "__main__":
     process_modules()

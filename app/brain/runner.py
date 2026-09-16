@@ -6,7 +6,8 @@ triggering HITL approval gates for destructive steps, and emitting step status e
 
 import inspect
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from app.domain import ExecutionPlan, ExecutionStep, StepStatus
 from app.events import HITLRequestEvent, InMemoryAsyncBus, StepExecutionEvent
@@ -31,7 +32,9 @@ class ExecutionRunner:
         """Register an atomic tool function with the runner."""
         self._tool_registry[name] = tool_func
 
-    async def execute_plan(self, plan: ExecutionPlan, hitl_approvals: dict[str, bool] | None = None) -> ExecutionPlan:
+    async def execute_plan(
+        self, plan: ExecutionPlan, hitl_approvals: dict[str, bool] | None = None
+    ) -> ExecutionPlan:
         """Execute all steps in an ExecutionPlan sequentially.
 
         Args:
@@ -48,15 +51,21 @@ class ExecutionRunner:
                 continue
 
             plan.current_step_index = idx
-            await self._execute_step(plan.plan_id, step, hitl_approved=hitl_approvals.get(step.step_id))
+            await self._execute_step(
+                plan.plan_id, step, hitl_approved=hitl_approvals.get(step.step_id)
+            )
 
             if step.status == StepStatus.AWAITING_APPROVAL or step.status == StepStatus.FAILED:
-                logger.info("Plan execution paused at step %s (Status: %s)", step.step_id, step.status.value)
+                logger.info(
+                    "Plan execution paused at step %s (Status: %s)", step.step_id, step.status.value
+                )
                 break
 
         return plan
 
-    async def _execute_step(self, plan_id: str, step: ExecutionStep, hitl_approved: bool | None = None) -> None:
+    async def _execute_step(
+        self, plan_id: str, step: ExecutionStep, hitl_approved: bool | None = None
+    ) -> None:
         """Execute a single ExecutionStep."""
         step.status = StepStatus.IN_PROGRESS
         await self._notify_step(plan_id, step)

@@ -3,12 +3,10 @@ Centralized configuration for JARVIS v2.1
 """
 
 import threading
-import yaml
 from dataclasses import dataclass, field, fields
-from typing import Optional
 from pathlib import Path
-from dotenv import load_dotenv
-import os
+
+import yaml
 
 from app.utils.logging_setup import get_logger
 
@@ -18,11 +16,12 @@ logger = get_logger(__name__)
 @dataclass
 class ModelConfig:
     """Configuration for a single model"""
+
     name: str
     role: str
-    backend: str = "llamacpp"  
+    backend: str = "llamacpp"
     base_url: str = "http://localhost:8080/v1"
-    api_key: str = "not-needed"  
+    api_key: str = "not-needed"
     max_tokens: int = 4096
     temperature: float = 0.7
 
@@ -30,6 +29,7 @@ class ModelConfig:
 @dataclass
 class MemoryConfig:
     """Memory system configuration"""
+
     max_memories: int = 1000
     retrieval_limit: int = 20
     min_relevance_score: float = 0.1
@@ -41,6 +41,7 @@ class MemoryConfig:
 @dataclass
 class ContextConfig:
     """Context window configuration"""
+
     max_tokens: int = 4096
     safety_margin: int = 100
     compression_threshold: float = 0.8
@@ -50,6 +51,7 @@ class ContextConfig:
 @dataclass
 class ConversationConfig:
     """Conversation management configuration"""
+
     max_recent_messages: int = 20
     enable_summarization: bool = False
     save_on_every_message: bool = True
@@ -58,6 +60,7 @@ class ConversationConfig:
 @dataclass
 class RetrievalConfig:
     """Memory retrieval configuration"""
+
     method: str = "keyword"
     keyword_min_overlap: int = 1
 
@@ -65,6 +68,7 @@ class RetrievalConfig:
 @dataclass
 class RankingConfig:
     """Memory ranking configuration"""
+
     weight_relevance: float = 0.35
     weight_importance: float = 0.25
     weight_frequency: float = 0.15
@@ -76,8 +80,9 @@ class RankingConfig:
 @dataclass
 class PathsConfig:
     """All file paths in one place"""
+
     data_dir: Path = field(default_factory=lambda: Path("data"))
-    
+
     # ChromaDB semantic index + Ollama embedding endpoint. Centralized here so
     # main.py, VectorRetriever and ConversationVectorStore share ONE source
     # instead of each hardcoding "data/chroma" / "http://localhost:11434".
@@ -88,7 +93,7 @@ class PathsConfig:
     @property
     def memories(self) -> Path:
         return self.data_dir / "memories.json"
-    
+
     @property
     def conversations_dir(self) -> Path:
         return self.data_dir / "conversations"
@@ -104,9 +109,7 @@ def _safe_dataclass(cls, data, fallback):
     construction fails (e.g. wrong type) so a bad section can't crash loading.
     """
     if not isinstance(data, dict):
-        logger.warning(
-            "config for %s is not a mapping; using defaults", cls.__name__
-        )
+        logger.warning("config for %s is not a mapping; using defaults", cls.__name__)
         return fallback
     valid = {f.name for f in fields(cls)}
     try:
@@ -138,43 +141,46 @@ def _safe_model_config(key, mdata):
 @dataclass
 class Settings:
     """Master configuration container"""
+
     default_model: str = "qwen3-8b.gguf"
     active_profile: str = "default"
-    models: dict = field(default_factory=lambda: {
-        "general": ModelConfig(
-            name="llama-3.2-3b-instruct-q4_k_m.gguf",
-            role="general",
-            backend="llamacpp",
-            base_url="http://localhost:8080/v1"
-        ),
-        "autocomplete": ModelConfig(
-            name="qwen2.5-1.5b-instruct-q4_k_m.gguf",
-            role="autocomplete",
-            backend="llamacpp",
-            base_url="http://localhost:8082/v1",
-            max_tokens=150
-        ),
-    })
-    
+    models: dict = field(
+        default_factory=lambda: {
+            "general": ModelConfig(
+                name="llama-3.2-3b-instruct-q4_k_m.gguf",
+                role="general",
+                backend="llamacpp",
+                base_url="http://localhost:8080/v1",
+            ),
+            "autocomplete": ModelConfig(
+                name="qwen2.5-1.5b-instruct-q4_k_m.gguf",
+                role="autocomplete",
+                backend="llamacpp",
+                base_url="http://localhost:8082/v1",
+                max_tokens=150,
+            ),
+        }
+    )
+
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
     conversation: ConversationConfig = field(default_factory=ConversationConfig)
     retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
     ranking: RankingConfig = field(default_factory=RankingConfig)
     paths: PathsConfig = field(default_factory=PathsConfig)
-    
+
     @classmethod
-    def load(cls, path: Optional[str] = None) -> "Settings":
+    def load(cls, path: str | None = None) -> "Settings":
         """Load settings from YAML file, or return hardcoded defaults"""
         if path is None:
             path = "config.yaml"
-            
+
         yaml_path = Path(path)
         if not yaml_path.exists():
             return cls()  # No config file found, use defaults
-        
+
         try:
-            with open(yaml_path, "r") as f:
+            with open(yaml_path) as f:
                 data = yaml.safe_load(f) or {}
         except yaml.YAMLError as e:
             logger.warning("failed to parse %s (%s); using defaults", yaml_path, e)
@@ -196,7 +202,7 @@ class Settings:
         # Top-level optional scalar fields
         if "default_model" in data and isinstance(data["default_model"], str):
             settings.default_model = data["default_model"]
-        
+
         # Models — required name/role tolerated via fallback; invalid entries skipped
         if "models" in data:
             if isinstance(data["models"], dict):
@@ -218,9 +224,13 @@ class Settings:
         if "context" in data:
             settings.context = _safe_dataclass(ContextConfig, data["context"], settings.context)
         if "conversation" in data:
-            settings.conversation = _safe_dataclass(ConversationConfig, data["conversation"], settings.conversation)
+            settings.conversation = _safe_dataclass(
+                ConversationConfig, data["conversation"], settings.conversation
+            )
         if "retrieval" in data:
-            settings.retrieval = _safe_dataclass(RetrievalConfig, data["retrieval"], settings.retrieval)
+            settings.retrieval = _safe_dataclass(
+                RetrievalConfig, data["retrieval"], settings.retrieval
+            )
         if "ranking" in data:
             settings.ranking = _safe_dataclass(RankingConfig, data["ranking"], settings.ranking)
 
@@ -234,7 +244,7 @@ class Settings:
 
 
 # Thread-safe singleton
-_settings: Optional[Settings] = None
+_settings: Settings | None = None
 _lock = threading.Lock()
 
 

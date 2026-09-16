@@ -16,16 +16,18 @@ logger = logging.getLogger(__name__)
 
 class PolicyViolationError(Exception):
     """Raised when a tool call violates a safety policy."""
-    pass
 
 
 class HITLRequiredError(Exception):
     """Raised when a DESTRUCTIVE tool call requires human approval before proceeding."""
+
     def __init__(self, tool_name: str, description: str, args: dict[str, Any]) -> None:
         self.tool_name = tool_name
         self.description = description
         self.args = args
-        super().__init__(f"HITL approval required for destructive tool '{tool_name}': {description}")
+        super().__init__(
+            f"HITL approval required for destructive tool '{tool_name}': {description}"
+        )
 
 
 class ToolSafetyPolicy:
@@ -67,7 +69,9 @@ class ToolSafetyPolicy:
         if tier == SafetyTier.SENSITIVE:
             # Check basic validation
             if not self.auto_approve_sensitive and hitl_approved is not True:
-                raise HITLRequiredError(tool_name, description or "Sensitive operation requires confirmation", args)
+                raise HITLRequiredError(
+                    tool_name, description or "Sensitive operation requires confirmation", args
+                )
             return True
 
         if tier == SafetyTier.DESTRUCTIVE:

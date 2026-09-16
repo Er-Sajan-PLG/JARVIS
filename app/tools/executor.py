@@ -1,5 +1,5 @@
 """
-ToolExecutor for JARVIS 
+ToolExecutor for JARVIS
 
 Responsibilities:
 - Parse <tool_call>...</tool_call> blocks from model text output
@@ -15,11 +15,10 @@ parse step changes (model returns structured JSON instead of text tags).
 
 import json
 import re
-from typing import Iterator
 
-from app.tools.base import ToolRegistry, ToolResult
-from app.guardrails.decorator import safety_gate
 from app.domain import SafetyTier
+from app.guardrails.decorator import safety_gate
+from app.tools.base import ToolRegistry, ToolResult
 
 # Matches: <tool_call>{"name": "...", "args": {...}}</tool_call>
 # Tolerates whitespace, newlines inside the tag
@@ -46,6 +45,7 @@ MAX_OUTPUT_CHARS = 4096
 
 class ParsedCall:
     """A single parsed tool call from model output."""
+
     __slots__ = ("name", "args", "raw")
 
     def __init__(self, name: str, args: dict, raw: str):
@@ -76,9 +76,7 @@ class ToolExecutor:
 
     def has_calls(self, text: str) -> bool:
         return bool(
-            _TOOL_CALL_RE.search(text) or
-            _HYBRID_CALL_RE.search(text) or
-            _FUNC_CALL_RE.search(text)
+            _TOOL_CALL_RE.search(text) or _HYBRID_CALL_RE.search(text) or _FUNC_CALL_RE.search(text)
         )
 
     def parse(self, text: str) -> list[ParsedCall]:
@@ -135,7 +133,7 @@ class ToolExecutor:
                 success=False,
                 output="",
                 error=f"Unknown tool: '{call.name}'. "
-                      f"Available: {[t.name for t in self._registry.all()]}",
+                f"Available: {[t.name for t in self._registry.all()]}",
             )
 
         # Confirmation gate for medium/high risk tools
@@ -157,10 +155,7 @@ class ToolExecutor:
         # Cap output — a read_file on a huge file would blow the context
         if result.success and len(result.output) > MAX_OUTPUT_CHARS:
             trimmed = len(result.output) - MAX_OUTPUT_CHARS
-            result.output = (
-                result.output[:MAX_OUTPUT_CHARS]
-                + f"\n\n... ({trimmed} chars trimmed)"
-            )
+            result.output = result.output[:MAX_OUTPUT_CHARS] + f"\n\n... ({trimmed} chars trimmed)"
 
         return result
 
@@ -172,7 +167,5 @@ class ToolExecutor:
         status = "success" if result.success else "error"
         content = str(result)
         return (
-            f'<tool_result name="{call.name}" status="{status}">\n'
-            f"{content}\n"
-            f"</tool_result>"
+            f'<tool_result name="{call.name}" status="{status}">\n' f"{content}\n" f"</tool_result>"
         )

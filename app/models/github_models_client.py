@@ -8,15 +8,15 @@ Usage:
   Set GITHUB_TOKEN in your environment or .env file.
 """
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from openai import OpenAI, OpenAIError
 
 from app.models.client import ModelClient, ModelResponse
 from app.models.exceptions import (
-    ModelResponseError,
-    ModelConnectionError,
     RESPONSE_SHAPE_ERRORS,
+    ModelConnectionError,
+    ModelResponseError,
     map_openai_error,
 )
 
@@ -50,7 +50,7 @@ class GitHubModelsClient(ModelClient):
         self,
         messages: list[dict],
         stream: bool = False,
-        on_token: Optional[Callable[[str], None]] = None,
+        on_token: Callable[[str], None] | None = None,
         **kwargs,
     ) -> ModelResponse:
         """Generate a response via GitHub Models."""

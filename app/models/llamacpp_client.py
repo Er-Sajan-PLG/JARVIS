@@ -2,36 +2,36 @@
 LlamaCpp model client for JARVIS v2.0
 """
 
-from typing import Optional, Callable
+from collections.abc import Callable
+
 from openai import OpenAI, OpenAIError
 
-from app.models.client import ModelClient, ModelResponse
 from app.config.settings import get_default_model
+from app.models.client import ModelClient, ModelResponse
 from app.models.exceptions import (
-    ModelResponseError,
-    ModelConnectionError,
     RESPONSE_SHAPE_ERRORS,
+    ModelConnectionError,
+    ModelResponseError,
     map_openai_error,
 )
 from app.models.utils import resolve_env_key
-
 
 
 class LlamaCppClient(ModelClient):
     """
     Model client for llama.cpp server using OpenAI-compatible API.
     """
-    
+
     def __init__(
         self,
         model: str = None,
         base_url: str = "http://localhost:8080/v1",
         api_key: str = "not-needed",
-        role: str = "general"
+        role: str = "general",
     ):
         self._model = model or get_default_model()
         self._role = role
-        
+
         try:
             api_key = resolve_env_key(api_key)
         except ValueError:
@@ -39,17 +39,16 @@ class LlamaCppClient(ModelClient):
             # to match the old behavior where os.environ.get returned the default.
             pass
 
-        self._api_key = api_key  
+        self._api_key = api_key
         self._client = OpenAI(base_url=base_url, api_key=api_key)
-    
+
     def generate(
-        self, 
-        messages: list[dict], 
-        stream: bool = False, 
+        self,
+        messages: list[dict],
+        stream: bool = False,
         on_token: Callable[[str], None] = None,
-        **kwargs
+        **kwargs,
     ) -> ModelResponse:
-        
         try:
             # =========================================================
             # 🔵 OPENAI-COMPATIBLE BLOCK (LOCAL, GROK, OPENROUTER)
@@ -58,9 +57,7 @@ class LlamaCppClient(ModelClient):
             # =========================================================
             if not stream:
                 response = self._client.chat.completions.create(
-                    model=self._model, 
-                    messages=messages, 
-                    **kwargs
+                    model=self._model, messages=messages, **kwargs
                 )
                 choice = response.choices[0]
                 return ModelResponse(
@@ -69,17 +66,14 @@ class LlamaCppClient(ModelClient):
                     tokens_used=response.usage.total_tokens if response.usage else None,
                     finish_reason=choice.finish_reason,
                 )
-            
+
             else:
                 full_content = ""
                 finish_reason = None
                 stream_response = self._client.chat.completions.create(
-                    model=self._model, 
-                    messages=messages, 
-                    stream=True, 
-                    **kwargs
+                    model=self._model, messages=messages, stream=True, **kwargs
                 )
-                
+
                 for chunk in stream_response:
                     # Servers may emit a trailing usage-only chunk with an
                     # empty choices list; skip it rather than risking an
@@ -92,7 +86,7 @@ class LlamaCppClient(ModelClient):
                         on_token(delta)
                     if chunk.choices[0].finish_reason:
                         finish_reason = chunk.choices[0].finish_reason
-                        
+
                 # The stream ended without a terminating chunk (no
                 # finish_reason), which means it was cut off before
                 # completion (e.g. a network drop). Refuse to return the
@@ -121,11 +115,10 @@ class LlamaCppClient(ModelClient):
                 f"Malformed response from model '{self._model}'.", cause=exc
             ) from exc
 
-    
     @property
     def model_name(self) -> str:
         return self._model
-    
+
     @property
     def role(self) -> str:
         return self._role

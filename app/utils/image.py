@@ -1,11 +1,11 @@
 """Image Utilities."""
-import os
+
 from pathlib import Path
-from typing import Tuple
+
 from PIL import Image
 
 
-def validate_image(path: str) -> Tuple[bool, str]:
+def validate_image(path: str) -> tuple[bool, str]:
     """Check if file is a valid image."""
     try:
         with Image.open(path) as img:

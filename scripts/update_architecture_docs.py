@@ -4,7 +4,6 @@ scripts/update_architecture_docs.py
 Updates docs/architecture/*.md to accurately reflect v3.0.0 Refactored (Pragmatic Hybrid Architecture at HEAD).
 """
 
-import os
 
 def update_architecture_md():
     content = """# JARVIS — Master Architecture & Component Topology (`v3.0.0 Refactored`)
@@ -89,6 +88,7 @@ flowchart TB
         f.write(content)
     print("[+] Updated docs/architecture/architecture.md")
 
+
 def update_agents_md():
     content = """# Cognitive Brain Engine & Agent Architecture (`v3.0.0 Refactored`)
 
@@ -144,6 +144,7 @@ sequenceDiagram
         f.write(content)
     print("[+] Updated docs/architecture/agents.md")
 
+
 def update_models_md():
     content = """# LLM Multi-Provider Pool & Circuit Breaker Architecture (`v3.0.0 Refactored`)
 
@@ -160,19 +161,19 @@ def update_models_md():
 flowchart LR
     REQUEST["Router Request"] --> ROUTER["ModelRouter"]
     ROUTER --> RESMAN["ResourceManager"]
-    
+
     subgraph HEALTH["Provider Health & Circuit Breakers"]
         MONITOR["ProviderHealthMonitor"]
         CB1["Ollama (CLOSED)"]
         CB2["Google AI Studio (CLOSED)"]
         CB3["OpenRouter (OPEN - 429)"]
     end
-    
+
     RESMAN --> MONITOR
     MONITOR --> CB1
     MONITOR --> CB2
     MONITOR --> CB3
-    
+
     CB1 -->|"Primary Execution"| OLLAMA["OllamaClient"]
     CB2 -->|"Fallback 1"| GOOGLE["GoogleClient"]
     CB3 -.->|"Bypassed (Circuit Open)"| OPENROUTER["OpenRouterClient"]
@@ -190,6 +191,7 @@ flowchart LR
         f.write(content)
     print("[+] Updated docs/architecture/models.md")
 
+
 def update_data_flow_md():
     content = """# Data Flow Architecture (`v3.0.0 Refactored`)
 
@@ -204,17 +206,17 @@ def update_data_flow_md():
 flowchart TD
     CLIENT["Client UI / API Key Header"] --> REST["app/adapters/http/router.py"]
     CLIENT --> WS["app/adapters/websocket/stream.py"]
-    
+
     REST --> INGEST["Domain SessionState Ingestion"]
     WS --> INGEST
-    
+
     INGEST --> BRAIN["app/brain/ (Cognitive Engine)"]
     BRAIN --> MEM["app/memory/service.py (MemoryService)"]
     BRAIN --> LLM["app/models/router.py (ModelRouter)"]
-    
+
     LLM --> BUS["app/events/ (InMemoryAsyncBus)"]
     BUS -.->|"Passive Telemetry"| LOG["app/telemetry/ (EventLogger / Tracer)"]
-    
+
     BRAIN --> OUT["Streamed Chunk Synthesis"]
     OUT --> CLIENT
 ```
@@ -222,6 +224,7 @@ flowchart TD
     with open("docs/architecture/data-flow.md", "w", encoding="utf-8") as f:
         f.write(content)
     print("[+] Updated docs/architecture/data-flow.md")
+
 
 def update_startup_flow_md():
     content = """# System Startup & Composition Root (`v3.0.0 Refactored`)
@@ -259,6 +262,7 @@ sequenceDiagram
         f.write(content)
     print("[+] Updated docs/architecture/startup-flow.md")
 
+
 def update_memory_md():
     content = """# Memory Subsystem Architecture (`v3.0.0 Refactored`)
 
@@ -272,10 +276,10 @@ def update_memory_md():
 ```mermaid
 flowchart TB
     CALLER["Cognitive Brain / ContextBuilder"] --> SERVICE["MemoryService Façade<br/>(app/memory/service.py)"]
-    
+
     SERVICE --> STORE["MemoryStore (BM25 / Keyword)<br/>(app/memory/store.py)"]
     SERVICE --> CHROMA["ChromaVectorStore (Semantic)<br/>(app/integrations/vector/chroma.py)"]
-    
+
     STORE --> FILE["data/memories.json"]
     CHROMA --> DB["data/chroma/"]
 ```
@@ -283,6 +287,7 @@ flowchart TB
     with open("docs/architecture/memory.md", "w", encoding="utf-8") as f:
         f.write(content)
     print("[+] Updated docs/architecture/memory.md")
+
 
 if __name__ == "__main__":
     update_architecture_md()

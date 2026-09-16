@@ -7,11 +7,10 @@ to understand what JARVIS did and when.
 """
 
 import subprocess
-from pathlib import Path
 
-from app.tools.base import ToolDefinition, ToolResult
-from app.guardrails.decorator import safety_gate
 from app.domain import SafetyTier
+from app.guardrails.decorator import safety_gate
+from app.tools.base import ToolDefinition
 
 # Cap diff output so it doesn't blow the context window
 DIFF_MAX_CHARS = 8000
@@ -35,9 +34,10 @@ def _run_git(*args: str, cwd: str = ".") -> str:
 
 # ─── Raw functions (also useful to call directly from Python) ──────────────────
 
+
 def git_log(n: int = 15) -> str:
     """Last N commits: hash + date + message."""
-    return _run_git("log", f"--oneline", f"-{n}", "--format=%h %ad %s", "--date=short")
+    return _run_git("log", "--oneline", f"-{n}", "--format=%h %ad %s", "--date=short")
 
 
 def git_diff_stat(from_ref: str = "HEAD~1", to_ref: str = "HEAD") -> str:
@@ -108,7 +108,7 @@ GIT_TOOLS: list[ToolDefinition] = [
             "type": "object",
             "properties": {
                 "from_ref": {"type": "string", "default": "HEAD~1"},
-                "to_ref":   {"type": "string", "default": "HEAD"},
+                "to_ref": {"type": "string", "default": "HEAD"},
             },
         },
         handler=safety_gate(tier=SafetyTier.SAFE)(git_diff_stat),
@@ -122,7 +122,7 @@ GIT_TOOLS: list[ToolDefinition] = [
             "type": "object",
             "properties": {
                 "from_ref": {"type": "string", "default": "HEAD~1"},
-                "to_ref":   {"type": "string", "default": "HEAD"},
+                "to_ref": {"type": "string", "default": "HEAD"},
             },
         },
         handler=safety_gate(tier=SafetyTier.SAFE)(git_diff_full),

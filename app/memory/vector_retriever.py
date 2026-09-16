@@ -6,13 +6,11 @@ from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
 from app.config.settings import PathsConfig
 from app.memory.schema import Memory
 
-
 # Backward-compatible defaults; main.py overrides these from Settings.paths.
 _DEFAULT_PATHS = PathsConfig()
 
 
 class VectorRetriever:
-
     def __init__(
         self,
         persist_dir: str = str(_DEFAULT_PATHS.chroma_dir),
@@ -88,17 +86,17 @@ class VectorRetriever:
 
     def _to_chroma_meta(self, memory: Memory) -> dict:
         return {
-            "id":           memory.id,
-            "category":     memory.category,
-            "type":         memory.memory_type,
-            "value":        memory.value,
-            "behavior":     memory.behavior,
-            "created_at":   memory.created_at,
-            "updated_at":   memory.updated_at,
-            "last_used":    memory.last_used,
-            "source":       memory.source,
-            "confidence":   memory.confidence,
-            "importance":   memory.importance,
+            "id": memory.id,
+            "category": memory.category,
+            "type": memory.memory_type,
+            "value": memory.value,
+            "behavior": memory.behavior,
+            "created_at": memory.created_at,
+            "updated_at": memory.updated_at,
+            "last_used": memory.last_used,
+            "source": memory.source,
+            "confidence": memory.confidence,
+            "importance": memory.importance,
             "access_count": memory.access_count,
         }
 

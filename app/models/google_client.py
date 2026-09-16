@@ -16,7 +16,7 @@ Usage:
   In config.yaml, set backend: "google" and api_key: "env:GOOGLE_API_KEY"
 """
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import requests
 from requests.exceptions import RequestException
@@ -52,7 +52,7 @@ class GoogleClient(ModelClient):
             raise ValueError(
                 "Google Gemini requires an API key.\n"
                 "Set GOOGLE_API_KEY in your environment or .env file,\n"
-                "and reference it in config.yaml as api_key: \"env:GOOGLE_API_KEY\""
+                'and reference it in config.yaml as api_key: "env:GOOGLE_API_KEY"'
             )
 
         self._api_key = api_key
@@ -116,7 +116,7 @@ class GoogleClient(ModelClient):
         self,
         messages: list[dict],
         stream: bool = False,
-        on_token: Optional[Callable[[str], None]] = None,
+        on_token: Callable[[str], None] | None = None,
         **kwargs,
     ) -> ModelResponse:
         """
@@ -169,7 +169,8 @@ class GoogleClient(ModelClient):
         finish_reason = candidate.get("finishReason")
         tokens_used = (
             data.get("usageMetadata", {}).get("totalTokenCount")
-            if data.get("usageMetadata") else None
+            if data.get("usageMetadata")
+            else None
         )
         return ModelResponse(
             content=text,
@@ -181,12 +182,9 @@ class GoogleClient(ModelClient):
     def _generate_stream(
         self,
         payload: dict,
-        on_token: Optional[Callable[[str], None]],
+        on_token: Callable[[str], None] | None,
     ) -> ModelResponse:
-        url = (
-            f"{self.BASE_URL}/models/{self._model}:streamGenerateContent"
-            f"?alt=sse"
-        )
+        url = f"{self.BASE_URL}/models/{self._model}:streamGenerateContent" f"?alt=sse"
         headers = {"x-goog-api-key": self._api_key, "Content-Type": "application/json"}
         try:
             res = requests.post(url, json=payload, headers=headers, stream=True, timeout=120)
@@ -198,8 +196,8 @@ class GoogleClient(ModelClient):
             ) from exc
 
         full_content = ""
-        tokens_used: Optional[int] = None
-        finish_reason: Optional[str] = None
+        tokens_used: int | None = None
+        finish_reason: str | None = None
 
         try:
             for line in res.iter_lines():
@@ -218,15 +216,13 @@ class GoogleClient(ModelClient):
                     # bail rather than returning a silently truncated or
                     # corrupted reply that could be persisted as history.
                     raise ModelResponseError(
-                        f"Malformed stream chunk from Google model "
-                        f"'{self._model}'.",
+                        f"Malformed stream chunk from Google model " f"'{self._model}'.",
                         cause=exc,
                     ) from exc
 
                 if "error" in chunk:
                     raise ModelResponseError(
-                        f"Google API Error: "
-                        f"{chunk['error'].get('message', chunk['error'])}"
+                        f"Google API Error: " f"{chunk['error'].get('message', chunk['error'])}"
                     )
 
                 candidates = chunk.get("candidates")
@@ -288,4 +284,5 @@ class GoogleClient(ModelClient):
 def _loads(s: str):
     """Local json import to avoid a top-level import in hot paths."""
     import json
+
     return json.loads(s)

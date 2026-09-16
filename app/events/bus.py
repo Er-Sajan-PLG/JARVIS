@@ -1,5 +1,5 @@
 import typing
-from typing import Any
+
 """In-Memory Async Event Bus.
 
 Reserved for passive telemetry, logging, metrics, background jobs, streaming events, and scheduler notifications.
@@ -8,8 +8,8 @@ Core execution loops MUST use direct async interface calls instead of the bus.
 
 import asyncio
 import logging
-from typing import Awaitable, Callable, TypeVar, Any
-from typing import Any, Awaitable, Callable, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import TypeVar
 
 from app.events.models import Event
 
@@ -61,4 +61,9 @@ class InMemoryAsyncBus:
         try:
             await handler(event)
         except Exception as err:
-            logger.exception("Error executing event handler %s for event %s: %s", handler.__name__, event.event_id, err)
+            logger.exception(
+                "Error executing event handler %s for event %s: %s",
+                handler.__name__,
+                event.event_id,
+                err,
+            )

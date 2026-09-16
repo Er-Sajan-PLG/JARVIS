@@ -65,12 +65,12 @@ class VersionInfo:
     major: int
     minor: int
     patch: int
-    base_tag: str        # latest vA.B.C tag this version is based on
-    commits_since: int   # commits since base_tag
-    git_hash: str        # short commit hash ("" when unknown)
-    dirty: bool          # working tree has uncommitted changes
-    release: bool        # exactly on a clean tag
-    source: str          # "git" | "env" | "fallback"
+    base_tag: str  # latest vA.B.C tag this version is based on
+    commits_since: int  # commits since base_tag
+    git_hash: str  # short commit hash ("" when unknown)
+    dirty: bool  # working tree has uncommitted changes
+    release: bool  # exactly on a clean tag
+    source: str  # "git" | "env" | "fallback"
 
     @property
     def as_tuple(self) -> tuple[int, int, int]:
@@ -95,8 +95,11 @@ def get_version_info() -> VersionInfo:
 
     # 1) Derive from the nearest vA.B.C tag via `git describe`.
     describe = _run_git(
-        "describe", "--tags", "--long",
-        "--match", "v[0-9]*.[0-9]*.[0-9]*",
+        "describe",
+        "--tags",
+        "--long",
+        "--match",
+        "v[0-9]*.[0-9]*.[0-9]*",
     )
     if describe:
         m = _DESCRIBE_RE.match(describe)
@@ -118,22 +121,44 @@ def get_version_info() -> VersionInfo:
     if _run_git("rev-parse", "--is-inside-work-tree") == "true":
         head = _run_git("rev-parse", "--short", "HEAD") or "unknown"
         return VersionInfo(
-            0, 0, 0, "v0.0.0", 0, head, _is_dirty(), False, "git",
+            0,
+            0,
+            0,
+            "v0.0.0",
+            0,
+            head,
+            _is_dirty(),
+            False,
+            "git",
         )
 
     # 3) Explicit environment override.
     env = (os.environ.get("JARVIS_VERSION") or "").strip()
     if env and (tm := _TAG_RE.match(env)):
         return VersionInfo(
-            int(tm.group(1)), int(tm.group(2)), int(tm.group(3)),
-            env, 0, "", False, True, "env",
+            int(tm.group(1)),
+            int(tm.group(2)),
+            int(tm.group(3)),
+            env,
+            0,
+            "",
+            False,
+            True,
+            "env",
         )
 
     # 4) Last-resort fallback constant.
     tm = _TAG_RE.match(_FALLBACK_VERSION)
     return VersionInfo(
-        int(tm.group(1)), int(tm.group(2)), int(tm.group(3)),
-        _FALLBACK_VERSION, 0, "", False, False, "fallback",
+        int(tm.group(1)),
+        int(tm.group(2)),
+        int(tm.group(3)),
+        _FALLBACK_VERSION,
+        0,
+        "",
+        False,
+        False,
+        "fallback",
     )
 
 
@@ -154,7 +179,16 @@ IS_RELEASE = _VERSION_INFO.release
 VERSION_SOURCE = _VERSION_INFO.source
 
 __all__ = [
-    "VERSION", "get_version_info", "VersionInfo",
-    "MAJOR", "MINOR", "PATCH", "BASE_TAG", "COMMITS_SINCE_TAG",
-    "GIT_HASH", "DIRTY", "IS_RELEASE", "VERSION_SOURCE",
+    "VERSION",
+    "get_version_info",
+    "VersionInfo",
+    "MAJOR",
+    "MINOR",
+    "PATCH",
+    "BASE_TAG",
+    "COMMITS_SINCE_TAG",
+    "GIT_HASH",
+    "DIRTY",
+    "IS_RELEASE",
+    "VERSION_SOURCE",
 ]

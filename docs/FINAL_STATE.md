@@ -47,7 +47,7 @@
 ### Doc Facts (machine-derivable)
 - `scripts/sync_doc_facts.py --sync` computes facts once, applies markers, verifies
 - 70 markdown files checked
-**<!--fact:test_count-->1504<!--/fact--> tests collected**
+**<!--fact:test_count-->1465<!--/fact--> tests collected**
 **41+ tests in new Sprint 3/4 code**:
 - `test_cognitive_graph.py` — 6 tests (graph flow, HITL, streaming, tracer)
 - `test_memory_pipeline.py` — 7 tests (extract, dedup, store, retrieve)
