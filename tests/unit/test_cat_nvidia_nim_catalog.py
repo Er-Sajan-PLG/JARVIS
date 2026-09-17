@@ -59,7 +59,29 @@ def test_fetch_nvidia_models_success():
         assert models[1]["description"] == ""
 
 
-def test_fetch_nvidia_models_without_api_key():
+def test_fetch_nvidia_models_without_explicit_key_uses_env(monkeypatch):
+    """An empty api_key falls back to NVIDIA_API_KEY from the environment."""
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-env-key")
+    monkeypatch.delenv("NVIDIA_NIM_API_KEY", raising=False)
+    raw_data = {"data": [{"id": "meta/llama-3.1-70b-instruct"}]}
+    with patch("requests.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = raw_data
+        mock_get.return_value = mock_resp
+
+        models = fetch_nvidia_models(api_key="", force=True)
+
+        mock_get.assert_called_once_with(
+            CATALOG_URL, headers={"Authorization": "Bearer nvapi-env-key"}, timeout=10
+        )
+        assert len(models) == 1
+
+
+def test_fetch_nvidia_models_without_any_key(monkeypatch):
+    """With no key anywhere, the request goes out unauthenticated."""
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+    monkeypatch.delenv("NVIDIA_NIM_API_KEY", raising=False)
     raw_data = {"data": [{"id": "meta/llama-3.1-70b-instruct"}]}
     with patch("requests.get") as mock_get:
         mock_resp = MagicMock()

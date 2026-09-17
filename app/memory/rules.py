@@ -1,149 +1,316 @@
 RULES = [
     # ===== IDENTITY =====
-    {
-        "triggers": ["i am ", "i'm "],
-        "category": "identity",
-        "type": "state",
-        "behavior": "append"
-    },
+    {"triggers": ["i am ", "i'm "], "category": "identity", "type": "state", "behavior": "append"},
     {
         "triggers": ["my name is ", "my name's ", "call me ", "i go by "],
         "category": "identity",
         "type": "name",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["i identify as ", "i see myself as ", "i consider myself "],
         "category": "identity",
         "type": "self_identification",
-        "behavior": "append"
+        "behavior": "append",
     },
-
     # ===== PREFERENCES =====
     {
         "triggers": ["i like ", "i love ", "i enjoy ", "i prefer ", "i'm into ", "i'm a fan of "],
         "category": "preference",
         "type": "like",
-        "behavior": "append"
+        "behavior": "append",
     },
-
     # ===== SKILLS =====
     {
         "triggers": ["i can ", "i know how to ", "i'm able to "],
         "category": "skills",
         "type": "ability",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["i am skilled at ", "i'm good at ", "i excel at ", "i specialize in "],
         "category": "skills",
         "type": "proficiency",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["i have experience with ", "i've worked with ", "i've used "],
         "category": "skills",
         "type": "experience",
-        "behavior": "append"
+        "behavior": "append",
     },
-
     # ===== GOALS =====
     {
         "triggers": ["i want to ", "i'd like to ", "i wish to "],
         "category": "goals",
         "type": "desire",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["my goal is ", "my aim is ", "my objective is "],
         "category": "goals",
         "type": "objective",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["i aspire to ", "i dream of ", "i hope to "],
         "category": "goals",
         "type": "aspiration",
-        "behavior": "append"
+        "behavior": "append",
     },
-
     # ===== PLANS =====
     {
         "triggers": ["i plan to ", "i'm planning to ", "i intend to "],
         "category": "plans",
         "type": "intention",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["i will ", "i'll "],
         "category": "plans",
         "type": "future_action",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["i am going to ", "i'm going to ", "i'm about to "],
         "category": "plans",
         "type": "near_future",
-        "behavior": "append"
+        "behavior": "append",
     },
-
     # ===== TASKS =====
     {
         "triggers": ["i need to ", "i must ", "i should "],
         "category": "tasks",
         "type": "requirement",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["i have to ", "i've got to ", "i'm supposed to "],
         "category": "tasks",
         "type": "obligation",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["my task is ", "my job is ", "my responsibility is "],
         "category": "tasks",
         "type": "action_item",
-        "behavior": "append"
+        "behavior": "append",
     },
-
     # ===== LOCATION =====
     {
         "triggers": ["i am in ", "i'm in ", "i'm currently in "],
         "category": "location",
         "type": "current_position",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["i live in ", "i'm based in ", "i reside in "],
         "category": "location",
         "type": "residence",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["i am located at ", "i'm located at ", "my location is "],
         "category": "location",
         "type": "geographical",
-        "behavior": "append"
+        "behavior": "append",
     },
-
     # ===== PROFESSION =====
     {
         "triggers": ["i am a ", "i'm a "],
         "category": "profession",
         "type": "job_title",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["i work as ", "i work at ", "i'm employed as "],
         "category": "profession",
         "type": "role",
-        "behavior": "append"
+        "behavior": "append",
     },
     {
         "triggers": ["my profession is ", "my career is ", "my occupation is "],
         "category": "profession",
         "type": "career",
-        "behavior": "append"
+        "behavior": "append",
+    },
+    # ===== SCHEDULE & DATES =====
+    # Nothing here existed before: the system had 22 rules and not one captured
+    # *when*, so meetings, birthdays, deadlines and events could not be stored
+    # at all. These are the date-bearing categories.
+    {
+        "triggers": [
+            "my birthday is ",
+            "my birthday's ",
+            "birthday on ",
+            "born on ",
+            "my dob is ",
+            "date of birth ",
+        ],
+        "category": "schedule",
+        "type": "birthday",
+        "behavior": "append",
+    },
+    {
+        "triggers": [
+            "meeting at ",
+            "meeting on ",
+            "meet at ",
+            "meet on ",
+            "appointment at ",
+            "appointment on ",
+            "call at ",
+            "call on ",
+            "scheduled for ",
+            "schedule at ",
+            "schedule on ",
+        ],
+        "category": "schedule",
+        "type": "meeting",
+        "behavior": "append",
+    },
+    {
+        "triggers": [
+            "deadline is ",
+            "deadline on ",
+            "due on ",
+            "due by ",
+            "due date ",
+            "submission on ",
+            "submit by ",
+        ],
+        "category": "schedule",
+        "type": "deadline",
+        "behavior": "append",
+    },
+    {
+        "triggers": [
+            "event on ",
+            "event at ",
+            "happening on ",
+            "taking place on ",
+            "ceremony on ",
+            "function on ",
+        ],
+        "category": "schedule",
+        "type": "event",
+        "behavior": "append",
+    },
+    {
+        "triggers": [
+            "exam on ",
+            "exam at ",
+            "test on ",
+            "interview on ",
+            "interview at ",
+            "presentation on ",
+            "defense on ",
+            "viva on ",
+            "class at ",
+            "lecture at ",
+        ],
+        "category": "schedule",
+        "type": "appointment",
+        "behavior": "append",
+    },
+    {
+        "triggers": [
+            "every monday ",
+            "every tuesday ",
+            "every wednesday ",
+            "every thursday ",
+            "every friday ",
+            "every saturday ",
+            "every sunday ",
+            "every week ",
+            "every month ",
+            "every day ",
+            "daily at ",
+            "weekly on ",
+        ],
+        "category": "schedule",
+        "type": "recurring",
+        "behavior": "append",
+    },
+    {
+        "triggers": [
+            "i work from ",
+            "working from ",
+            "work period ",
+            "i worked from ",
+            "employed from ",
+            "started working in ",
+            "worked at ",
+            "working at ",
+            "job from ",
+            "joined in ",
+            "left in ",
+        ],
+        "category": "schedule",
+        "type": "work_period",
+        "behavior": "append",
+    },
+    {
+        "triggers": [
+            "anniversary on ",
+            "anniversary is ",
+            "graduation on ",
+            "result on ",
+            "results on ",
+            "starts on ",
+            "ends on ",
+            "until ",
+            "from now on ",
+        ],
+        "category": "schedule",
+        "type": "key_date",
+        "behavior": "append",
+    },
+    # ===== VISION / LONG-TERM DIRECTION =====
+    # Distinct from near-term goals: where he's heading over years, not weeks.
+    {
+        "triggers": [
+            "my vision is ",
+            "i envision ",
+            "long term i want ",
+            "in the long run ",
+            "eventually i want ",
+            "someday i want ",
+            "my dream is ",
+        ],
+        "category": "vision",
+        "type": "vision",
+        "behavior": "append",
+    },
+    {
+        "triggers": [
+            "my mission is ",
+            "my purpose is ",
+            "i believe in ",
+            "my values are ",
+            "i stand for ",
+        ],
+        "category": "vision",
+        "type": "mission",
+        "behavior": "append",
+    },
+    # ===== RELATIONSHIPS =====
+    {
+        "triggers": [
+            "my friend ",
+            "my colleague ",
+            "my boss ",
+            "my manager ",
+            "my brother ",
+            "my sister ",
+            "my father ",
+            "my mother ",
+            "my wife ",
+            "my husband ",
+            "my team ",
+        ],
+        "category": "relationships",
+        "type": "person",
+        "behavior": "append",
     },
 ]

@@ -1,6 +1,7 @@
 """Workspace Manager.
 
-Manages active project context, directory scanning, and content source abstraction for workspace files.
+Manages active project context, directory scanning, and content source
+abstraction for workspace files.
 """
 
 import logging
@@ -68,7 +69,11 @@ class WorkspaceManager:
             raw_text = ""
 
         content_type = self._detect_type(path)
-        rel_path = path.relative_to(self.active_project.root_path) if path.is_relative_to(self.active_project.root_path) else path.name
+        rel_path = (
+            path.relative_to(self.active_project.root_path)
+            if path.is_relative_to(self.active_project.root_path)
+            else path.name
+        )
 
         return ContentSource(
             source_id=f"ws-{hash(str(path)) & 0xFFFFFFFF}",
@@ -104,3 +109,63 @@ class WorkspaceManager:
         if ext in (".png", ".jpg", ".jpeg", ".webp"):
             return ContentType.IMAGE
         return ContentType.TEXT
+
+    # ── Workspace awareness: git state + file tree ───────────────────────────
+
+    def get_git_state(self) -> dict[str, Any]:
+        """Return current git state of the workspace (HEAD, branch, status)."""
+        import subprocess
+
+        try:
+            result = subprocess.run(
+                ["git", "status", "--porcelain", "--branch"],
+                cwd=self.root_path,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            lines = result.stdout.strip().splitlines() if result.stdout.strip() else []
+            branch_line = next((ln for ln in lines if ln.startswith("##")), "")
+            branch = branch_line.replace("## ", "").split("...")[0] if branch_line else "unknown"
+            dirty_files = [ln for ln in lines if not ln.startswith("##")]
+
+            head_result = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=self.root_path,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            head = head_result.stdout.strip() or "unknown"
+
+            return {
+                "head": head,
+                "branch": branch,
+                "dirty": len(dirty_files) > 0,
+                "dirty_files": dirty_files,
+            }
+        except Exception:
+            return {"head": "unknown", "branch": "unknown", "dirty": False, "dirty_files": []}
+
+    def get_file_tree(self, max_depth: int = 3) -> list[dict[str, Any]]:
+        """Return a tree of files up to ``max_depth`` levels deep."""
+        tree: list[dict[str, Any]] = []
+        for p in sorted(self.root_path.rglob("*")):
+            try:
+                rel = p.relative_to(self.root_path)
+            except ValueError:
+                continue
+            depth = len(rel.parts) - 1
+            if depth > max_depth:
+                continue
+            if p.is_file() and not any(part.startswith(".") for part in rel.parts):
+                tree.append(
+                    {
+                        "path": str(rel),
+                        "name": p.name,
+                        "depth": depth,
+                        "size": p.stat().st_size,
+                        "extension": p.suffix.lower(),
+                    }
+                )
+        return tree

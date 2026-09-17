@@ -12,6 +12,7 @@ The list is cached in-process for a short TTL so repeated menu refreshes
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 
@@ -28,18 +29,24 @@ _cache: dict = {"data": None, "fetched_at": 0.0}
 _cache_lock = threading.Lock()
 
 
-def fetch_openrouter_models(force: bool = False) -> list[dict]:
+def _resolve_key(api_key: str = "") -> str:
+    """Fall back to the environment when no key is passed explicitly."""
+    if api_key:
+        return api_key
+    return os.environ.get("OPENROUTER_API_KEY") or ""
+
+
+def fetch_openrouter_models(force: bool = False, api_key: str = "") -> list[dict]:
     """Return the live OpenRouter model catalog.
 
     Each entry is ``{"id", "name", "description", "context_length", "pricing"}``.
     Returns an empty list on any failure (network down, keyless is fine — the
     endpoint is public) so callers can fall back to configured presets.
     """
+    api_key = _resolve_key(api_key)
     now = time.time()
     with _cache_lock:
-        if not force and _cache["data"] is not None and (
-            now - _cache["fetched_at"] < _TTL_SECONDS
-        ):
+        if not force and _cache["data"] is not None and (now - _cache["fetched_at"] < _TTL_SECONDS):
             return _cache["data"]
 
     try:

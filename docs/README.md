@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: index
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 
 **Source of truth**: the repository state. If a document and the code disagree,
 the code wins — and the document is a bug.
@@ -35,7 +36,7 @@ the code wins — and the document is a bug.
 
 | Document | Purpose |
 |---|---|
-| **[CI-GATE-SOTA.md](CI-GATE-SOTA.md)** | The local CI engine: <!--fact:gate_count-->25<!--/fact--> checks, <!--fact:context_count-->9<!--/fact--> published contexts, threat model |
+| **[CI-GATE-SOTA.md](CI-GATE-SOTA.md)** | The local CI engine: <!--fact:gate_count-->26<!--/fact--> checks, <!--fact:context_count-->9<!--/fact--> published contexts, threat model |
 | **[CI-TOKEN-PERMISSIONS.md](CI-TOKEN-PERMISSIONS.md)** | Which GitHub token needs which permission, and why |
 | **[GITHUB-APP-SETUP.md](GITHUB-APP-SETUP.md)** | Migrating CI auth from long-lived PATs to GitHub Apps |
 | **[N8N-SETUP.md](N8N-SETUP.md)** | Standing up the n8n automation plane |

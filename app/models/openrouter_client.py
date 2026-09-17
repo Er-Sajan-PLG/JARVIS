@@ -17,16 +17,15 @@ Recommended models:
   mistralai/mistral-small-3.1-24b      — good balance
 """
 
-import os
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from openai import OpenAI, OpenAIError
 
 from app.models.client import ModelClient, ModelResponse
 from app.models.exceptions import (
-    ModelResponseError,
-    ModelConnectionError,
     RESPONSE_SHAPE_ERRORS,
+    ModelConnectionError,
+    ModelResponseError,
     map_openai_error,
 )
 
@@ -41,6 +40,11 @@ class OpenRouterClient(ModelClient):
     """
 
     BASE_URL = "https://openrouter.ai/api/v1"
+
+    # Output ceiling sent when the caller does not specify one. Chat replies
+    # are nowhere near this, and leaving it unset makes OpenRouter reserve the
+    # model's full ceiling against the account balance (see generate()).
+    DEFAULT_MAX_TOKENS = 4096
 
     def __init__(
         self,
@@ -57,7 +61,7 @@ class OpenRouterClient(ModelClient):
             raise ValueError(
                 "OpenRouter requires an API key.\n"
                 "Set OPENROUTER_API_KEY in your environment or .env file,\n"
-                "and reference it in config.yaml as api_key: \"env:OPENROUTER_API_KEY\""
+                'and reference it in config.yaml as api_key: "env:OPENROUTER_API_KEY"'
             )
 
         self._client = OpenAI(
@@ -74,7 +78,7 @@ class OpenRouterClient(ModelClient):
         self,
         messages: list[dict],
         stream: bool = False,
-        on_token: Optional[Callable[[str], None]] = None,
+        on_token: Callable[[str], None] | None = None,
         **kwargs,
     ) -> ModelResponse:
         """
@@ -82,7 +86,16 @@ class OpenRouterClient(ModelClient):
 
         stream and on_token are consumed here — NOT forwarded to the API.
         **kwargs (temperature, max_tokens, etc.) ARE forwarded.
+
+        max_tokens defaults to DEFAULT_MAX_TOKENS when the caller omits it.
+        This matters on pay-as-you-go accounts: with no max_tokens, OpenRouter
+        assumes the model's full output ceiling (e.g. 65536) and pre-authorises
+        the cost against the balance, so a large-ceiling model is rejected with
+        HTTP 402 "request requires more credits, or fewer max_tokens" even
+        though the actual reply would be tiny.
         """
+        kwargs.setdefault("max_tokens", self.DEFAULT_MAX_TOKENS)
+
         try:
             if not stream:
                 response = self._client.chat.completions.create(

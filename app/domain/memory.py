@@ -63,6 +63,15 @@ class MemoryRecord:
     embedding: list[float] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    # Bi-temporal validity (ADR-015). Unix timestamps to match the on-disk store.
+    # `valid_at`/`invalid_at` are EVENT time (when the fact was true in the
+    # world); `expired_at` is SYSTEM time (when the store stopped believing it).
+    # `occurs_at` is the instant of an event, as opposed to a span.
+    valid_at: float | None = None
+    invalid_at: float | None = None
+    expired_at: float | None = None
+    occurs_at: float | None = None
+
 
 @dataclass
 class MemoryItem:

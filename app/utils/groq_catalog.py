@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 
@@ -18,20 +19,26 @@ _cache: dict = {"data": None, "fetched_at": 0.0}
 _cache_lock = threading.Lock()
 
 
+def _resolve_key(api_key: str = "") -> str:
+    """Fall back to the environment when no key is passed explicitly."""
+    if api_key:
+        return api_key
+    return os.environ.get("GROQ_API_KEY") or ""
+
+
 def fetch_groq_models(api_key: str = "", force: bool = False) -> list[dict]:
     """Return the live Groq model catalog."""
+    api_key = _resolve_key(api_key)
     now = time.time()
     with _cache_lock:
-        if not force and _cache["data"] is not None and (
-            now - _cache["fetched_at"] < _TTL_SECONDS
-        ):
+        if not force and _cache["data"] is not None and (now - _cache["fetched_at"] < _TTL_SECONDS):
             return _cache["data"]
 
     try:
         headers = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
-        
+
         resp = requests.get(CATALOG_URL, headers=headers, timeout=10)
         resp.raise_for_status()
         raw = resp.json().get("data", [])

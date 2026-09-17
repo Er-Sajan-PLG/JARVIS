@@ -11,7 +11,21 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
+
+
+@runtime_checkable
+class Checkpointer(Protocol):
+    """Interface shared by all checkpointer implementations."""
+
+    def save(self, checkpoint_data: dict[str, Any], thread_id: str) -> str: ...
+    def load(self, thread_id: str) -> dict[str, Any] | None: ...
+    def list_checkpoints(self, thread_id: str) -> list[dict[str, Any]]: ...
+    def delete(self, thread_id: str) -> bool: ...
+
+
+if TYPE_CHECKING:
+    from app.session.postgres_checkpointer import PostgresCheckpointer
 
 
 @dataclass
@@ -60,6 +74,13 @@ class MemorySaverAdapter:
     def list_threads(self) -> list[str]:
         """Return all thread ids that have at least one checkpoint."""
         return list(self._by_thread)
+
+    def list_checkpoints(self, thread_id: str) -> list[dict[str, Any]]:
+        """Return all checkpoints for a thread (newest first)."""
+        data = self._by_thread.get(thread_id)
+        if data is None:
+            return []
+        return [data]
 
     def delete(self, thread_id: str) -> bool:
         """Remove a thread's checkpoints; return whether anything was removed."""
@@ -231,3 +252,28 @@ def get_checkpointer() -> "LangGraphCheckpointer":
     if _checkpointer is None:
         _checkpointer = LangGraphCheckpointer()
     return _checkpointer
+
+
+# ---------------------------------------------------------------------------
+# PostgreSQL-backed checkpointer (production)
+# ---------------------------------------------------------------------------
+
+
+def get_postgres_checkpointer(dsn: str) -> "PostgresCheckpointer":
+    """Create a PostgreSQL-backed checkpointer for production deployments.
+
+    Args:
+        dsn: PostgreSQL connection string,
+            e.g. ``postgresql://user:pass@host:5432/jarvis``.
+
+    Returns:
+        A configured ``PostgresCheckpointer`` instance.
+
+    Raises:
+        RuntimeError: If no PostgreSQL driver (psycopg / psycopg2 / asyncpg)
+            is installed.
+        ValueError: If *dsn* is empty.
+    """
+    from app.session.postgres_checkpointer import PostgresCheckpointer
+
+    return PostgresCheckpointer(dsn=dsn)
