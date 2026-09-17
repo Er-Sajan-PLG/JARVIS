@@ -58,7 +58,27 @@ def test_fetch_groq_models_success():
         assert models[1]["id"] == "mixtral-8x7b-32768"
 
 
-def test_fetch_groq_models_without_api_key():
+def test_fetch_groq_models_without_explicit_key_uses_env(monkeypatch):
+    """An empty api_key falls back to GROQ_API_KEY from the environment."""
+    monkeypatch.setenv("GROQ_API_KEY", "env-key-123")
+    raw_data = {"data": [{"id": "gemma2-9b-it"}]}
+    with patch("requests.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = raw_data
+        mock_get.return_value = mock_resp
+
+        models = fetch_groq_models(api_key="", force=True)
+
+        mock_get.assert_called_once_with(
+            CATALOG_URL, headers={"Authorization": "Bearer env-key-123"}, timeout=10
+        )
+        assert len(models) == 1
+
+
+def test_fetch_groq_models_without_any_key(monkeypatch):
+    """With no key anywhere, the request goes out unauthenticated."""
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     raw_data = {"data": [{"id": "gemma2-9b-it"}]}
     with patch("requests.get") as mock_get:
         mock_resp = MagicMock()

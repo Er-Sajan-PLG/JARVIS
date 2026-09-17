@@ -1,183 +1,246 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JARVIS</title>
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JARVIS — AI Assistant</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  <!-- ======================================================================= -->
-  <!-- App Shell Workspace                                                    -->
-  <!-- ======================================================================= -->
-  <div id="app">
-    
-    <!-- ------------------------------------------------------------------- -->
-    <!-- Sidebar Navigation                                                  -->
-    <!-- ------------------------------------------------------------------- -->
-    <aside id="sidebar">
-      <div class="sidebar-header">
-        <div class="brand">
-          <span class="brand-dot"></span>
-          <span class="brand-name">JARVIS</span>
-          <span id="version-badge" class="version-badge"></span>
-        </div>
-        <button id="new-chat-btn" class="icon-btn" title="New chat">+</button>
+
+<div class="app" id="app">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <aside class="sidebar" aria-label="Conversations">
+    <div class="sidebar-head">
+      <div class="brand">
+        <span class="brand-mark">J</span>
+        <span>JARVIS</span>
       </div>
+      <button class="btn" id="newChatBtn" style="justify-content:center">
+        <span>＋</span><span>New chat</span>
+      </button>
+    </div>
+    <div class="sidebar-scroll" id="convList"></div>
+    <div class="sidebar-foot">
+      <button class="nav-btn" id="settingsBtn">
+        <span>⚙️</span><span>Settings</span>
+      </button>
+    </div>
+  </aside>
 
-      <div class="conversation-search">
-        <input type="search" id="conversation-search-input" placeholder="Search conversations…" />
-      </div>
+  <!-- ── Main chat ────────────────────────────────────────────────────── -->
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn" id="sidebarToggle" aria-label="Toggle sidebar" title="Toggle sidebar">☰</button>
+      <div class="topbar-title" id="topbarTitle">New chat</div>
+      <button class="icon-btn" id="topbarSettings" aria-label="Open settings" title="Settings (Ctrl+,)">⚙️</button>
+    </header>
 
-      <div id="conversation-list" class="conversation-list">
-        <!-- conversation items injected dynamically -->
-      </div>
+    <div class="messages" id="messages">
+      <div class="messages-inner" id="messagesInner"></div>
+    </div>
 
-      <div class="sidebar-footer">
-        <button id="settings-btn" class="sidebar-btn">⚙ Settings</button>
-        <button id="memories-btn" class="sidebar-btn">🧠 Memories</button>
-      </div>
-    </aside>
-
-    <!-- ------------------------------------------------------------------- -->
-    <!-- Main Chat Workspace                                                 -->
-    <!-- ------------------------------------------------------------------- -->
-    <main id="main">
-      <!-- Chat Header -->
-      <header id="chat-header">
-        <button id="toggle-sidebar" class="icon-btn mobile-only" title="Menu">☰</button>
-        <div class="chat-title" id="chat-title">New Chat</div>
-        <div class="model-indicator" id="active-model">no model selected</div>
-        <div id="ocr-health" class="ocr-health" title="OCR health status">●</div>
-        <button id="activate-omni" class="icon-btn" title="Activate Omni router">OMNI</button>
-        <button id="dev-unlock" class="icon-btn" title="Developer mode">DEV</button>
-      </header>
-
-      <!-- Message History Container -->
-      <div id="messages" class="messages">
-        <button id="scroll-bottom-btn" class="scroll-bottom-btn hidden" title="Scroll to latest">↓</button>
-        <div class="empty-state" id="empty-state">
-          <div class="empty-logo">🤖</div>
-          <h2>How can I help you today?</h2>
-          <p>Pick a model in Settings, then start chatting. Your history is saved automatically.</p>
-        </div>
-      </div>
-
-      <!-- Composer / Chat Input -->
-      <div id="composer" class="composer">
-        <div id="attachments" class="attachments"></div>
-        <div class="composer-row">
-          <button id="attach-btn" class="icon-btn" title="Add file">📎</button>
-          <input type="file" id="file-input" accept="*" multiple hidden />
-          <textarea id="input" class="input" rows="1" placeholder="Message JARVIS…  (Enter to send, Shift+Enter for newline)"></textarea>
-          <button id="stop-btn" class="stop-btn hidden" title="Stop">■</button>
-          <button id="send-btn" class="send-btn" title="Send">➤</button>
+    <!-- Model selector lives here, in the composer bar at the BOTTOM. -->
+    <div class="composer-wrap">
+      <div class="composer">
+        <div class="attachments" id="attachments"></div>
+        <div class="composer-box" id="composerBox">
+          <textarea class="composer-input" id="composerInput"
+                    placeholder="Message JARVIS…  (Enter to send, Shift+Enter for a new line)"
+                    rows="1" aria-label="Message"></textarea>
+          <div class="composer-bar">
+            <button class="icon-btn" id="attachBtn" aria-label="Attach a file" title="Attach file">📎</button>
+            <input type="file" id="fileInput" hidden multiple
+                   accept=".pdf,.txt,.md,.csv,.json,.py,.js,.ts,.html,.css,.yaml,.yml,.log">
+            <button class="model-trigger" id="modelTrigger" aria-label="Select model" title="Select model (Ctrl+K)">
+              <span class="dot dot-off" id="modelTriggerDot"></span>
+              <span class="model-trigger-name" id="modelTriggerName">Select model</span>
+              <span class="model-trigger-caret">▾</span>
+            </button>
+            <div class="composer-spacer"></div>
+            <button class="send-btn" id="sendBtn" aria-label="Send message" title="Send">↑</button>
+          </div>
         </div>
       </div>
-    </main>
-  </div>
+    </div>
+  </main>
+</div>
 
-  <!-- ======================================================================= -->
-  <!-- Application Modals                                                     -->
-  <!-- ======================================================================= -->
-
-  <!-- Settings & Model Registry Modal -->
-  <div id="settings-modal" class="modal hidden">
-    <div class="modal-backdrop" data-close="settings"></div>
-    <div class="modal-card">
-      <div class="modal-head">
-        <h3>Settings</h3>
-        <button class="icon-btn" data-close="settings">✕</button>
-      </div>
-
-      <section class="modal-section">
-        <div class="settings-tabs" id="settings-tabs">
-          <button type="button" class="settings-tab selected" data-tab="models">Models</button>
-          <button type="button" class="settings-tab" data-tab="keys">API Keys</button>
-          <button type="button" class="settings-tab" data-tab="capabilities">Capabilities</button>
-        </div>
-
-        <!-- Models Panel -->
-        <div id="settings-tab-models" class="settings-tab-panel">
-          <h4>Provider</h4>
-          <div id="model-provider-tabs" class="model-provider-tabs"></div>
-          <div class="model-search-row">
-            <input id="model-search-input" type="search" class="model-search" placeholder="Search the current provider or type free to filter free models…" />
-          </div>
-          <div id="model-groups" class="model-groups"><!-- injected --></div>
-        </div>
-
-        <!-- API Keys Panel -->
-        <div id="settings-tab-keys" class="settings-tab-panel hidden">
-          <h4>API Keys</h4>
-          <p class="hint">Add keys here so provider tabs can use live catalog and dynamic models.</p>
-          <div class="key-row">
-            <label for="google-key">Google (Gemini)</label>
-            <input type="password" id="google-key" placeholder="GOOGLE_API_KEY" autocomplete="off" />
-          </div>
-          <div class="key-row">
-            <label for="xai-key">Grok (XAI)</label>
-            <input type="password" id="xai-key" placeholder="XAI_API_KEY" autocomplete="off" />
-          </div>
-          <div class="key-row">
-            <label for="openrouter-key">OpenRouter</label>
-            <input type="password" id="openrouter-key" placeholder="OPENROUTER_API_KEY" autocomplete="off" />
-          </div>
-          <div class="key-row">
-            <label for="openai-key">OpenAI</label>
-            <input type="password" id="openai-key" placeholder="OPENAI_API_KEY" autocomplete="off" />
-          </div>
-          <div class="key-row">
-            <label for="anthropic-key">Anthropic (Claude)</label>
-            <input type="password" id="anthropic-key" placeholder="ANTHROPIC_API_KEY" autocomplete="off" />
-          </div>
-          <div class="key-row">
-            <label for="together-key">Together AI</label>
-            <input type="password" id="together-key" placeholder="TOGETHER_API_KEY" autocomplete="off" />
-          </div>
-          <div class="key-row">
-            <label for="cerebras-key">Cerebras</label>
-            <input type="password" id="cerebras-key" placeholder="CEREBRAS_API_KEY" autocomplete="off" />
-          </div>
-          <div class="key-row">
-            <label for="groq-key">Groq</label>
-            <input type="password" id="groq-key" placeholder="GROQ_API_KEY" autocomplete="off" />
-          </div>
-          <div class="key-row">
-            <label for="sambanova-key">SambaNova</label>
-            <input type="password" id="sambanova-key" placeholder="SAMBANOVA_API_KEY" autocomplete="off" />
-          </div>
-          <div class="key-row">
-            <label for="nvidia-key">NVIDIA NIM</label>
-            <input type="password" id="nvidia-key" placeholder="NVIDIA_API_KEY" autocomplete="off" />
-          </div>
-          <button id="save-settings" class="primary-btn">Save settings</button>
-          <div id="settings-status" class="settings-status"></div>
-        </div>
-
-        <!-- Capabilities Matrix Panel -->
-        <div id="settings-tab-capabilities" class="settings-tab-panel hidden">
-          <h4>Provider Capabilities</h4>
-          <p class="hint">Comparison of all configured providers and their capabilities.</p>
-          <div id="capabilities-matrix" class="capability-matrix"><!-- injected --></div>
-        </div>
-      </section>
+<!-- ── Settings workspace ─────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="modal settings-modal">
+    <div class="settings-head">
+      <h2 id="settingsTitle">Settings</h2>
+      <button class="icon-btn" id="settingsClose" aria-label="Close settings">✕</button>
+    </div>
+    <div class="settings-body">
+      <nav class="settings-nav" id="settingsNav" aria-label="Settings sections"></nav>
+      <div class="settings-content" id="settingsContent"></div>
     </div>
   </div>
+</div>
 
-  <!-- Memories Modal -->
-  <div id="memories-modal" class="modal hidden">
-    <div class="modal-backdrop" data-close="memories"></div>
-    <div class="modal-card">
-      <div class="modal-head">
-        <h3>Memories</h3>
-        <button class="icon-btn" data-close="memories">✕</button>
+<!-- ── Model picker ───────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="pickerModal" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+  <div class="modal picker">
+    <div class="picker-head">
+      <div class="picker-head-row">
+        <h3 id="pickerTitle">Select a model</h3>
+        <span class="badge" id="pickerCount">0 matches</span>
+        <button class="btn btn-sm" id="pickerRefresh" title="Re-fetch from every provider">Refresh</button>
+        <button class="icon-btn" id="pickerClose" aria-label="Close model picker">✕</button>
       </div>
-      <div id="memories-list" class="memories-list"><!-- injected --></div>
+      <input class="input" id="pickerSearch" placeholder="Search providers and models…" aria-label="Search models">
+      <div class="picker-filters" style="margin-top:10px">
+        <span class="filter-label">Pricing</span>
+        <div class="seg" id="pickerTier">
+          <button class="active" data-tier="all">All</button>
+          <button data-tier="free">Free</button>
+          <button data-tier="paid">Paid</button>
+        </div>
+        <span class="filter-label">Context</span>
+        <select class="input input-sm" id="pickerCtx" aria-label="Minimum context window">
+          <option value="0">Any</option>
+          <option value="8000">8K+</option>
+          <option value="32000">32K+</option>
+          <option value="128000">128K+</option>
+          <option value="200000">200K+</option>
+          <option value="1000000">1M+</option>
+        </select>
+        <button class="btn btn-sm btn-ghost" id="pickerClearFilters">Clear filters</button>
+      </div>
+      <div class="picker-caps" id="pickerCaps" role="group" aria-label="Filter by capability"></div>
     </div>
+    <div class="picker-body" id="pickerBody"></div>
   </div>
+</div>
 
-  <!-- Main ES Module Entry Point -->
-  <script type="module" src="js/main.js"></script>
+<!-- ── Add custom model ───────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="addModelModal" role="dialog" aria-modal="true" aria-labelledby="addModelTitle">
+  <div class="modal" style="width:min(520px,94vw)">
+    <div class="settings-head">
+      <h2 id="addModelTitle">Add a model</h2>
+      <button class="icon-btn" id="addModelCancel" aria-label="Close">✕</button>
+    </div>
+    <form id="addModelForm" style="padding:var(--space-5)">
+      <div class="field">
+        <label for="addModelProvider">Provider</label>
+        <select class="input" id="addModelProvider"></select>
+        <div class="hint" id="addModelProviderHint">Any provider in the catalogue, including your custom ones.</div>
+      </div>
+      <div class="field">
+        <label for="addModelId">Model ID</label>
+        <input class="input" id="addModelId" placeholder="e.g. deepseek-ai/DeepSeek-V4.1-Flash" required>
+        <div class="hint">Exactly as the provider expects it in an API request.</div>
+      </div>
+      <div class="field">
+        <label for="addModelName">Display name <span style="text-transform:none;font-weight:400">(optional)</span></label>
+        <input class="input" id="addModelName" placeholder="DeepSeek V4.1 Flash">
+      </div>
+      <div class="field">
+        <label for="addModelContext">Context window <span style="text-transform:none;font-weight:400">(tokens, optional)</span></label>
+        <input class="input" id="addModelContext" type="number" min="0" placeholder="128000">
+        <div class="hint">Used by the chat picker's context filter, e.g. 128000 for 128K.</div>
+      </div>
+      <div class="field">
+        <label>Capabilities <span style="text-transform:none;font-weight:400">(optional)</span></label>
+        <div class="cap-picker" id="addModelCaps" role="group" aria-label="Model capabilities"></div>
+        <div class="hint">Leave empty to let the app infer from the model id.</div>
+      </div>
+      <div id="addModelError" style="color:var(--danger);font-size:12.5px;min-height:18px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:var(--space-3)">
+        <button type="button" class="btn" id="addModelCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add model</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Add / edit custom provider ─────────────────────────────────────── -->
+
+<div class="modal-backdrop" id="providerModal" role="dialog" aria-modal="true" aria-labelledby="providerTitle">
+  <div class="modal" style="width:min(560px,94vw)">
+    <div class="settings-head">
+      <h2 id="providerTitle">Add a custom provider</h2>
+      <button class="icon-btn" id="providerCancel" aria-label="Close">✕</button>
+    </div>
+    <form id="providerForm" style="padding:var(--space-5)">
+      <div class="field">
+        <label for="providerName">Provider name</label>
+        <input class="input" id="providerName" placeholder="e.g. Singularity" required>
+        <div class="hint">The key used internally is derived from this name.</div>
+      </div>
+      <div class="field">
+        <label for="providerBaseUrl">Base URL</label>
+        <input class="input" id="providerBaseUrl" placeholder="https://api.example.com/v1" required>
+        <div class="hint">Must be OpenAI-compatible — the model list is read from <code>/models</code>.</div>
+      </div>
+      <div class="field">
+        <label for="providerKey">API key</label>
+        <input class="input" id="providerKey" type="password" autocomplete="off" placeholder="sk-…">
+        <div class="hint">Stored server-side and never sent back to the browser.</div>
+      </div>
+
+      <div class="field">
+        <label>Models</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button type="button" class="btn btn-sm" id="providerFetch">Fetch models from URL</button>
+          <span id="providerFetchStatus" style="font-size:12.5px;color:var(--text-muted)"></span>
+        </div>
+        <div class="hint">Fetched automatically when possible; otherwise add models manually below.</div>
+      </div>
+
+      <div class="field">
+        <label>Discovered models <span style="text-transform:none;font-weight:400">(click to remove)</span></label>
+        <div id="providerModelList" class="chip-list">
+          <span class="hint" style="padding:0">No models yet — fetch or add them manually.</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="providerManualModel">Add a model manually</label>
+        <div style="display:flex;gap:8px">
+          <input class="input" id="providerManualModel" placeholder="model-id">
+          <button type="button" class="btn btn-sm" id="providerAddManual">Add</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="providerContext">Max context length <span style="text-transform:none;font-weight:400">(tokens, optional)</span></label>
+        <input class="input" id="providerContext" type="number" min="0" step="1000" placeholder="e.g. 128000">
+        <div class="hint">Applied to models added manually here. Used for the context-size filter and shown as a <code>ctx</code> badge.</div>
+      </div>
+
+      <div class="field">
+        <label>Capabilities <span style="text-transform:none;font-weight:400">(applied to manually added models)</span></label>
+        <div id="providerCaps" class="picker-caps"></div>
+        <div class="hint">Auto-inferred from the model id when left unticked.</div>
+      </div>
+
+      <div id="providerError" style="color:var(--danger);font-size:12.5px;min-height:18px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:var(--space-3)">
+        <button type="button" class="btn" id="providerCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save provider</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── File preview ───────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="filePreviewModal" role="dialog" aria-modal="true" aria-labelledby="filePreviewTitle">
+  <div class="modal" style="width:min(760px,94vw);height:min(680px,90vh)">
+    <div class="settings-head">
+      <h2 id="filePreviewTitle">File</h2>
+      <button class="icon-btn" id="filePreviewClose" aria-label="Close preview">✕</button>
+    </div>
+    <div id="filePreviewBody" style="padding:var(--space-5);overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<script type="module" src="/static/main.js"></script>
 </body>
 </html>

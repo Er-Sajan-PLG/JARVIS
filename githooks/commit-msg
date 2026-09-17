@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# JARVIS commit-msg hook — enforce Conventional Commits.
+#
+# Conventional Commits are load-bearing: release versioning
+# (scripts/version_bump.py) reads them to compute the next SemVer. A commit
+# that does not match the format is invisible to the release — it produces
+# no bump and no CHANGELOG entry.
+#
+# This hook runs commitlint (installed globally via:
+#   npm i -g @commitlint/cli @commitlint/config-conventional
+# ) against the message file git passes as $1.
+#
+# This file exists because core.hooksPath=githooks overrides pre-commit's
+# auto-installed hooks; without a commit-msg file here, the commit-msg
+# stage never fires.
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+MSG_FILE="${1:-}"
+
+if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
+  echo "❌ commit-msg hook: no message file given"
+  exit 1
+fi
+
+# Skip lint for merge commits (git generates these) and for fixup/squash.
+head_line="$(head -n 1 "$MSG_FILE")"
+case "$head_line" in
+  Merge*|fixup!*|squash!*) exit 0 ;;
+esac
+
+COMMITLINT="$(command -v commitlint 2>/dev/null || true)"
+if [ -z "$COMMITLINT" ]; then
+  echo "⚠️  commitlint not found — skipping Conventional Commit check."
+  echo "   Install: npm i -g @commitlint/cli @commitlint/config-conventional"
+  exit 0
+fi
+
+if ! "$COMMITLINT" --config "$REPO_ROOT/commitlint.config.cjs" --edit "$MSG_FILE" 2>&1; then
+  echo ""
+  echo "❌ Conventional Commit check failed."
+  echo "   Format: <type>(<scope>): <subject>"
+  echo "   Types: feat, fix, docs, style, refactor, perf, test, chore, build, ci, revert"
+  echo "   See commitlint.config.cjs for full rules."
+  exit 1
+fi
+
+exit 0

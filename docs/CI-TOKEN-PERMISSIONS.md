@@ -4,6 +4,7 @@
 **Type**: reference
 **Source**: `scripts/ci_bridge.py`, `.ci-bridge.env` (not committed)
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 
 **Method**: every row below was measured with a live API probe against
 `api.github.com` on 2026-09-13, not read off the GitHub UI. Token values are

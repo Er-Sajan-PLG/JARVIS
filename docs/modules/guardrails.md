@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: reference
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 **Source**: `app/guardrails/` at HEAD
 
 ## Version-by-Version Evolutionary History

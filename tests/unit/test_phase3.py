@@ -1,4 +1,10 @@
 """Unit tests for Phase 3: MemoryService and ContextBuilder.
+
+NOTE ON ISOLATION: these tests previously constructed ``MemoryService()`` with no
+path override, which points at the REAL store (``data/memories.json``). Each run
+wrote a ``user_name: Alice`` record into the user's live memory — it survived
+every manual cleanup because the test suite kept re-creating it. The service is
+now bound to a tmp_path store so unit tests cannot touch user data again.
 """
 
 from pathlib import Path
@@ -10,25 +16,40 @@ from app.domain import ContentSource, ContentType, ConversationState, MemoryReco
 from app.memory.service import MemoryService
 
 
-def test_memory_service_store_and_search() -> None:
+@pytest.fixture()
+def isolated_service(tmp_path: Path) -> MemoryService:
+    """A MemoryService whose store is a temp file, never the user's real store.
+
+    ``MemoryStore`` accepts an explicit path, so bind it there rather than
+    monkeypatching internals — that keeps the isolation honest.
+    """
+    from app.memory.manager import MemoryManager
+    from app.memory.store import MemoryStore
+
+    manager = MemoryManager()
+    manager._store = MemoryStore(path=tmp_path / "memories.json")  # noqa: SLF001
+    return MemoryService(manager=manager)
+
+
+def test_memory_service_store_and_search(isolated_service: MemoryService) -> None:
     """Verify MemoryService stores and retrieves MemoryRecord domain models."""
-    ms = MemoryService()
+    ms = isolated_service
 
     # Store memory
     import asyncio
     async def _run() -> None:
         rec = await ms.store_memory(
             key="user_name",
-            value="Alice",
+            value="TestValueNotReal",
             category="preference",
             memory_type=MemoryType.PREFERENCE,
         )
         assert rec.key == "user_name"
-        assert rec.value == "Alice"
+        assert rec.value == "TestValueNotReal"
         assert rec.memory_type == MemoryType.PREFERENCE
 
         # Retrieve memory
-        results = await ms.search_memories("user_name Alice")
+        results = await ms.search_memories("user_name TestValueNotReal")
         assert isinstance(results, list)
 
     asyncio.run(_run())

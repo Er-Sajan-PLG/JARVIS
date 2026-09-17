@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: reference
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 **Source**: `app/config/version.py`, `scripts/version_bump.py`
 
 How the version number is produced, and why it is built this way.

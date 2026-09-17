@@ -6,23 +6,31 @@ API key requirements, capabilities, and dynamic model catalog integration.
 """
 
 from __future__ import annotations
-from typing import Dict, List, Any, Optional
-from datetime import datetime, timezone
-import os
-import requests
+
 import logging
+import os
+from datetime import UTC, datetime
+from typing import Any
+
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
 class ProviderStatus:
     """Status enumeration for provider availability."""
+
     AVAILABLE = "available"
     UNAVAILABLE = "unavailable"
     KEYS_MISSING = "keys_missing"
     CONFIG_ERROR = "config_error"
+
+
 class ProviderCapability:
     """Classification of provider capabilities."""
+
     def __init__(self):
         self.is_openai_compatible = False
         self.is_reasoning_capable = False
@@ -33,6 +41,8 @@ class ProviderCapability:
         self.has_free_models = False
         self.context_window_size = 0
         self.max_output_tokens = 0
+
+
 class AIProvider:
     """
     Represents a single AI model provider with all metadata and capabilities.
@@ -44,11 +54,11 @@ class AIProvider:
         name: str,
         description: str,
         website: str,
-        api_endpoint: Optional[str] = None,
+        api_endpoint: str | None = None,
         requires_api_key: bool = True,
-        api_key_env_var: Optional[str] = None,
-        capabilities: Optional[ProviderCapability] = None,
-        model_categories: Optional[List[str]] = None
+        api_key_env_var: str | None = None,
+        capabilities: ProviderCapability | None = None,
+        model_categories: list[str] | None = None,
     ):
         self.key = key
         self.name = name
@@ -63,7 +73,7 @@ class AIProvider:
         self.last_checked = None
         self.models = []
         self.free_models = []
-        self.error_message: Optional[str] = None
+        self.error_message: str | None = None
 
     def has_api_key(self) -> bool:
         """Check if the provider has an API key configured."""
@@ -71,19 +81,19 @@ class AIProvider:
             return True
         return bool(os.environ.get(self.api_key_env_var, ""))
 
-    def update_status(self, status: str, error: Optional[str] = None):
+    def update_status(self, status: str, error: str | None = None):
         """Update provider status."""
         self.status = status
         self.error_message = error
-        self.last_checked = datetime.now(timezone.utc)
+        self.last_checked = datetime.now(UTC)
 
-    def add_models(self, models: List[Dict[str, Any]]):
+    def add_models(self, models: list[dict[str, Any]]):
         """Add models to the provider."""
         self.models = models
         self.free_models = [m for m in models if m.get("free", False)]
         self.has_api_key = self.has_api_key()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert provider to dictionary for API responses."""
         return {
             "key": self.key,
@@ -114,6 +124,8 @@ class AIProvider:
             "models": self.models,
             "free_models": self.free_models,
         }
+
+
 class ProviderRegistry:
     """
     Central registry for all AI providers supported by JARVIS.
@@ -123,7 +135,7 @@ class ProviderRegistry:
     """
 
     def __init__(self):
-        self.providers: Dict[str, AIProvider] = {}
+        self.providers: dict[str, AIProvider] = {}
         self._initialize_providers()
 
     def _initialize_providers(self):
@@ -148,7 +160,14 @@ class ProviderRegistry:
                     "context_window_size": 1000000,  # 1M tokens
                     "max_output_tokens": 4096,
                 },
-                "model_categories": ["general", "code", "reasoning", "docs", "stem", "autocomplete"],
+                "model_categories": [
+                    "general",
+                    "code",
+                    "reasoning",
+                    "docs",
+                    "stem",
+                    "autocomplete",
+                ],
             },
             {
                 "key": "google",
@@ -178,7 +197,7 @@ class ProviderRegistry:
                 "website": "https://groq.com/",
                 "api_endpoint": "https://api.groq.com/openai/v1",
                 "requires_api_key": True,
-                "api_key_env_var": "XAI_API_KEY",  # Note: Groq uses XAI key
+                "api_key_env_var": "GROQ_API_KEY",
                 "capabilities": {
                     "is_openai_compatible": True,
                     "is_reasoning_capable": True,
@@ -190,7 +209,14 @@ class ProviderRegistry:
                     "context_window_size": 8192,
                     "max_output_tokens": 4096,
                 },
-                "model_categories": ["general", "code", "reasoning", "docs", "stem", "autocomplete"],
+                "model_categories": [
+                    "general",
+                    "code",
+                    "reasoning",
+                    "docs",
+                    "stem",
+                    "autocomplete",
+                ],
             },
             {
                 "key": "github",
@@ -358,7 +384,14 @@ class ProviderRegistry:
                     "context_window_size": 8192,
                     "max_output_tokens": 4096,
                 },
-                "model_categories": ["general", "code", "reasoning", "docs", "stem", "autocomplete"],
+                "model_categories": [
+                    "general",
+                    "code",
+                    "reasoning",
+                    "docs",
+                    "stem",
+                    "autocomplete",
+                ],
             },
             {
                 "key": "together",
@@ -379,7 +412,14 @@ class ProviderRegistry:
                     "context_window_size": 8192,
                     "max_output_tokens": 4096,
                 },
-                "model_categories": ["general", "code", "reasoning", "docs", "stem", "autocomplete"],
+                "model_categories": [
+                    "general",
+                    "code",
+                    "reasoning",
+                    "docs",
+                    "stem",
+                    "autocomplete",
+                ],
             },
             {
                 "key": "cerebras",
@@ -400,7 +440,14 @@ class ProviderRegistry:
                     "context_window_size": 8192,
                     "max_output_tokens": 4096,
                 },
-                "model_categories": ["general", "code", "reasoning", "docs", "stem", "autocomplete"],
+                "model_categories": [
+                    "general",
+                    "code",
+                    "reasoning",
+                    "docs",
+                    "stem",
+                    "autocomplete",
+                ],
             },
             {
                 "key": "openai",
@@ -421,7 +468,14 @@ class ProviderRegistry:
                     "context_window_size": 128000,
                     "max_output_tokens": 16384,
                 },
-                "model_categories": ["general", "code", "reasoning", "docs", "stem", "autocomplete"],
+                "model_categories": [
+                    "general",
+                    "code",
+                    "reasoning",
+                    "docs",
+                    "stem",
+                    "autocomplete",
+                ],
             },
             {
                 "key": "anthropic",
@@ -443,7 +497,6 @@ class ProviderRegistry:
                     "max_output_tokens": 8192,
                 },
                 "model_categories": ["general", "code", "reasoning", "docs", "stem"],
-
             },
         ]
 
@@ -451,7 +504,7 @@ class ProviderRegistry:
             capability_obj = ProviderCapability()
             for attr, value in config["capabilities"].items():
                 setattr(capability_obj, attr, value)
-            
+
             provider = AIProvider(
                 key=config["key"],
                 name=config["name"],
@@ -461,7 +514,7 @@ class ProviderRegistry:
                 requires_api_key=config["requires_api_key"],
                 api_key_env_var=config["api_key_env_var"],
                 capabilities=capability_obj,
-                model_categories=config["model_categories"]
+                model_categories=config["model_categories"],
             )
             self.providers[config["key"]] = provider
 
@@ -469,9 +522,9 @@ class ProviderRegistry:
         """Check the status of a specific provider and update its information."""
         if provider_key not in self.providers:
             raise ValueError(f"Unknown provider key: {provider_key}")
-        
+
         provider = self.providers[provider_key]
-        
+
         try:
             if not provider.has_api_key():
                 if not provider.requires_api_key:
@@ -480,23 +533,23 @@ class ProviderRegistry:
                 else:
                     provider.update_status(ProviderStatus.KEYS_MISSING, "API key not configured")
                 return provider
-            
+
             provider.models = self._get_models_from_provider(provider)
             if provider.models:
                 provider.update_status(ProviderStatus.AVAILABLE)
             else:
                 provider.update_status(ProviderStatus.UNAVAILABLE, "No models available")
-                
+
         except Exception as e:
             logger.error(f"Error checking provider {provider_key}: {e}")
             provider.update_status(ProviderStatus.CONFIG_ERROR, str(e))
-        
+
         return provider
 
-    def _get_models_from_provider(self, provider: AIProvider) -> List[Dict[str, Any]]:
+    def _get_models_from_provider(self, provider: AIProvider) -> list[dict[str, Any]]:
         """Get models from a specific provider based on its type."""
         models = []
-        
+
         try:
             if provider.key == "openrouter":
                 models = self._fetch_openrouter_models()
@@ -520,23 +573,23 @@ class ProviderRegistry:
                 models = self._fetch_zhipu_models()
             elif provider.key == "ollama":
                 models = self._fetch_ollama_models()
-            
+
             # Add free status to models
             for model in models:
                 model["free"] = model.get("free", False)
-                
+
         except Exception as e:
             logger.warning(f"Could not fetch models for {provider.key}: {e}")
-        
+
         return models
 
-    def _fetch_openrouter_models(self) -> List[Dict[str, Any]]:
+    def _fetch_openrouter_models(self) -> list[dict[str, Any]]:
         """Fetch models from OpenRouter API."""
         try:
             url = "https://openrouter.ai/api/v1/models"
             response = requests.get(url, timeout=10)
             response.raise_for_status()
-            
+
             models = []
             for item in response.json().get("data", []):
                 model_info = {
@@ -549,13 +602,13 @@ class ProviderRegistry:
                     "architecture": item.get("architecture", {}),
                 }
                 models.append(model_info)
-            
+
             return models
         except Exception as e:
             logger.warning(f"Failed to fetch OpenRouter models: {e}")
             return []
 
-    def _is_free_pricing(self, pricing: Dict[str, Any]) -> bool:
+    def _is_free_pricing(self, pricing: dict[str, Any]) -> bool:
         """Check if a model has free pricing."""
         if not pricing:
             return False
@@ -563,56 +616,55 @@ class ProviderRegistry:
         completion = str(pricing.get("completion", "")).strip()
         return prompt in ("0", "0.0") and completion in ("0", "0.0")
 
-    def get_all_providers(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    def get_all_providers(self, force_refresh: bool = False) -> list[dict[str, Any]]:
         """Get all providers with their current status."""
         result = []
-        
+
         for key, provider in self.providers.items():
             # Refresh status if requested
             if force_refresh or provider.last_checked is None:
                 self.check_provider_status(key)
-            
+
             result.append(provider.to_dict())
-        
+
         return sorted(result, key=lambda x: x["name"])
 
-    def get_provider(self, provider_key: str) -> Optional[Dict[str, Any]]:
+    def get_provider(self, provider_key: str) -> dict[str, Any] | None:
         """Get a specific provider by key."""
         if provider_key in self.providers:
             self.check_provider_status(provider_key)
             return self.providers[provider_key].to_dict()
         return None
 
-    def get_providers_by_category(self, category: str) -> List[Dict[str, Any]]:
+    def get_providers_by_category(self, category: str) -> list[dict[str, Any]]:
         """Get providers that support a specific category."""
         category_lower = category.lower()
         result = []
-        
+
         for key, provider in self.providers.items():
             if any(cat.lower() == category_lower for cat in provider.model_categories):
                 self.check_provider_status(key)
                 result.append(provider.to_dict())
-        
+
         return result
 
-    def search_providers(self, query: str) -> List[Dict[str, Any]]:
+    def search_providers(self, query: str) -> list[dict[str, Any]]:
         """Search providers by name, description, or categories."""
         query_lower = query.lower()
         result = []
-        
+
         for key, provider in self.providers.items():
             search_text = (
-                f"{provider.name} {provider.description} "
-                f"{' '.join(provider.model_categories)}"
+                f"{provider.name} {provider.description} " f"{' '.join(provider.model_categories)}"
             ).lower()
-            
+
             if query_lower in search_text:
                 self.check_provider_status(key)
                 result.append(provider.to_dict())
-        
+
         return result
-    
-    def _fetch_google_models(self) -> List[Dict[str, Any]]:
+
+    def _fetch_google_models(self) -> list[dict[str, Any]]:
         """Fetch models from Google AI Studio."""
         return [
             {
@@ -630,8 +682,8 @@ class ProviderRegistry:
                 "free": False,
             },
         ]
-    
-    def _fetch_groq_models(self) -> List[Dict[str, Any]]:
+
+    def _fetch_groq_models(self) -> list[dict[str, Any]]:
         """Fetch models from Groq."""
         return [
             {
@@ -649,8 +701,8 @@ class ProviderRegistry:
                 "free": True,
             },
         ]
-    
-    def _fetch_github_models(self) -> List[Dict[str, Any]]:
+
+    def _fetch_github_models(self) -> list[dict[str, Any]]:
         """Fetch models from GitHub Models."""
         return [
             {
@@ -668,8 +720,8 @@ class ProviderRegistry:
                 "free": False,
             },
         ]
-    
-    def _fetch_nvidia_models(self) -> List[Dict[str, Any]]:
+
+    def _fetch_nvidia_models(self) -> list[dict[str, Any]]:
         """Fetch models from NVIDIA NIM."""
         return [
             {
@@ -680,8 +732,8 @@ class ProviderRegistry:
                 "free": False,
             },
         ]
-    
-    def _fetch_mistral_models(self) -> List[Dict[str, Any]]:
+
+    def _fetch_mistral_models(self) -> list[dict[str, Any]]:
         """Fetch models from Mistral AI."""
         return [
             {
@@ -699,8 +751,8 @@ class ProviderRegistry:
                 "free": True,
             },
         ]
-    
-    def _fetch_cohere_models(self) -> List[Dict[str, Any]]:
+
+    def _fetch_cohere_models(self) -> list[dict[str, Any]]:
         """Fetch models from Cohere."""
         return [
             {
@@ -711,8 +763,8 @@ class ProviderRegistry:
                 "free": True,
             },
         ]
-    
-    def _fetch_huggingface_models(self) -> List[Dict[str, Any]]:
+
+    def _fetch_huggingface_models(self) -> list[dict[str, Any]]:
         """Fetch models from Hugging Face."""
         return [
             {
@@ -723,8 +775,8 @@ class ProviderRegistry:
                 "free": True,
             },
         ]
-    
-    def _fetch_cloudflare_models(self) -> List[Dict[str, Any]]:
+
+    def _fetch_cloudflare_models(self) -> list[dict[str, Any]]:
         """Fetch models from Cloudflare Workers AI."""
         return [
             {
@@ -735,8 +787,8 @@ class ProviderRegistry:
                 "free": True,
             },
         ]
-    
-    def _fetch_zhipu_models(self) -> List[Dict[str, Any]]:
+
+    def _fetch_zhipu_models(self) -> list[dict[str, Any]]:
         """Fetch models from Zhipu AI."""
         return [
             {
@@ -747,30 +799,37 @@ class ProviderRegistry:
                 "free": True,
             },
         ]
-    
-    def _fetch_ollama_models(self) -> List[Dict[str, Any]]:
+
+    def _fetch_ollama_models(self) -> list[dict[str, Any]]:
         """Fetch models from Ollama."""
         try:
             from app.utils.server_manager import ollama_model_names
+
             ollama_url = "http://localhost:11434"
             models = ollama_model_names(ollama_url)
-            
+
             ollama_models = []
             for model_name in models:
-                ollama_models.append({
-                    "id": model_name,
-                    "name": model_name,
-                    "description": f"Ollama model: {model_name}",
-                    "context_length": 4096,
-                    "free": True,
-                })
-            
+                ollama_models.append(
+                    {
+                        "id": model_name,
+                        "name": model_name,
+                        "description": f"Ollama model: {model_name}",
+                        "context_length": 4096,
+                        "free": True,
+                    }
+                )
+
             return ollama_models
         except Exception:
             logger.warning("Could not fetch Ollama models")
             return []
+
+
 # Global registry instance
-_registry_instance: Optional[ProviderRegistry] = None
+_registry_instance: ProviderRegistry | None = None
+
+
 def get_provider_registry() -> ProviderRegistry:
     """Get the global provider registry instance."""
     global _registry_instance

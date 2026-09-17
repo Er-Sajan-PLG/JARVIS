@@ -5,19 +5,28 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
+        # Scope to active source only — never touch tests/, legacy/, or external/.
+        # The repo-wide lint ceiling is enforced by CI gate_ruff_ratchet, not pre-commit.
+        # Limiting scope prevents the hook from reformatting vendored code or files
+        # outside the project's active development surface.
+        files: ^(app|scripts|evals)/.*\.py$
       - id: ruff-format
+        files: ^(app|scripts|evals)/.*\.py$
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        files: ^(app|scripts|evals|docs)/.*\.(py|md|yaml|yml|json|toml)$
       - id: end-of-file-fixer
+        files: ^(app|scripts|evals|docs)/.*\.(py|md|yaml|yml|json|toml)$
       - id: check-yaml
       - id: check-json
       - id: check-added-large-files
         args: ['--maxkb=1000']
       - id: check-merge-conflict
       - id: debug-statements
+        files: ^(app|scripts|evals)/.*\.py$
 
   # NOTE: the previous repo (github.com/alphanodes/commitlint) was deleted from
   # GitHub (404), which broke `pre-commit` entirely — every hook install failed
@@ -33,21 +42,16 @@ repos:
     rev: v1.11.2
     hooks:
       - id: mypy
-        # Scope to STAGED files only (not their transitive imports). The repo-wide
-        # ceiling is enforced by gate_mypy against .governance/mypy_baseline.txt in
-        # CI; this hook catches NEW strict-mode errors in the exact files a commit
-        # touches.
+        # Scope to STAGED files in app/ and scripts/ only (not their transitive
+        # imports, not tests/). The repo-wide ceiling is enforced by gate_mypy
+        # against .governance/mypy_baseline.txt in CI; this hook catches NEW
+        # strict-mode errors in the exact files a commit touches.
         #   --follow-imports=skip  : don't pull app/tools, app/memory, ... debt in
         #   --ignore-missing-imports : hook venv lacks project deps (uvicorn, yaml)
         #   --disable-error-code=misc: FastAPI's @app.* decorators are untyped to
         #     mypy, producing "Untyped decorator makes fn untyped" false positives
         #     that are not real defects.
-        # Scope: app/ and scripts/ only. AGENTS.md §6.3 defines the standard as
-        # `mypy --strict app/` — tests/ was never in mypy scope, and the
-        # repo-wide ceiling is enforced separately by gate_mypy against
-        # .governance/mypy_baseline.txt. Without this exclude, the hook silently
-        # introduced a strict-typing requirement on the test suite the moment
-        # test files were first staged. See docs/DECISIONS-AUTONOMOUS-2026-09-10.md.
+        files: ^(app|scripts)/.*\.py$
         exclude: ^tests/
         args:
           - --strict

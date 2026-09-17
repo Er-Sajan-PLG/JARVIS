@@ -169,8 +169,9 @@ def test_check_provider_status_unknown_key():
 
 
 def test_check_provider_status_keys_missing(monkeypatch):
+    """Groq's credential env var is GROQ_API_KEY (it used to read XAI's)."""
     registry = ProviderRegistry()
-    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     groq = registry.check_provider_status("groq")
     assert groq.status == ProviderStatus.KEYS_MISSING
     assert groq.error_message == "API key not configured"

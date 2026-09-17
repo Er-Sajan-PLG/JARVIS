@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: architecture
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 **Source**: `app/bootstrap.py`, `app/main.py` at HEAD
 
 > **Source of Truth**: `app/bootstrap.py` and `app/config/` at `HEAD`.

@@ -56,18 +56,33 @@ def test_get_model_categories():
     assert "general" in cats
 
 
-def test_build_provider_models():
+def test_build_provider_models_uses_live_catalog():
+    """_build_provider_models must return real discovered models.
+
+    The catalogue is fetched live; when the network is unavailable the call
+    must return an empty list rather than fabricated placeholders.
+    """
     dummy_client = MagicMock()
-    # Test existing keys
     models_or = _build_provider_models("openrouter", dummy_client)
-    assert len(models_or) > 0
-    assert models_or[0]["id"] == "anthropic/claude-3.5-sonnet:free"
 
-    models_google = _build_provider_models("google", dummy_client)
-    assert len(models_google) > 0
+    # OpenRouter's endpoint is public, so a live fetch should succeed.
+    assert isinstance(models_or, list)
+    if models_or:
+        # Real model ids look like "vendor/model" and are not the old stub.
+        assert all(m.get("id") for m in models_or)
+        assert models_or[0]["id"] != "anthropic/claude-3.5-sonnet:free" or len(models_or) > 1
 
-    # Test unknown key
+    # Unknown provider keys still yield nothing.
     assert _build_provider_models("unknown_key_xyz", dummy_client) == []
+
+
+def test_build_provider_models_never_fabricates():
+    """A provider whose fetch fails must report zero models, not a stub."""
+    from unittest.mock import patch as _patch
+
+    with _patch("app.utils.provider_catalog._live_models_for", return_value=[]):
+        with _patch("app.utils.provider_catalog._local_models_for", return_value=[]):
+            assert _build_provider_models("groq", MagicMock()) == []
 
 
 def test_is_free_model():
@@ -109,7 +124,11 @@ def test_search_grok_models():
 
 
 def test_search_sambanova_models():
-    assert search_sambanova_models() == []
+    """SambaNova ships a curated catalogue (no public discovery API)."""
+    models = search_sambanova_models()
+    assert models
+    assert all({"id", "name"} <= set(m) for m in models)
+    assert all(m["id"] for m in models)
 
 
 def test_provider_searches_delegations(monkeypatch):
@@ -203,25 +222,40 @@ def test_get_all_providers_server_manager_fallbacks(monkeypatch):
     assert llamacpp_prov["model_count"] == 1
 
 
-def test_get_all_providers_top_level_exception(monkeypatch):
+def test_get_all_providers_survives_settings_failure(monkeypatch):
+    """A settings failure must not sink the whole catalogue.
+
+    Live discovery does not depend on get_settings(), so providers that can be
+    reached still report their models.
+    """
     monkeypatch.setattr(
         "app.config.settings.get_settings", MagicMock(side_effect=RuntimeError("settings err"))
     )
     _global_cache["providers"] = {}
     _global_cache["updated_at"] = 0.0
     res = get_all_providers(force_refresh=True)
-    assert res == []
+    # The call must return the full provider list and never raise.
+    assert isinstance(res, list)
+    assert len(res) > 5
+    assert all({"key", "status", "model_count", "models"} <= set(p) for p in res)
 
 
 def test_get_provider_models(monkeypatch):
-    fake_models = [{"id": "m1", "name": "M1"}]
+    """get_provider_models reads from the shared catalogue."""
+    fake_models = [
+        {"id": "m1", "name": "M1", "free": True},
+        {"id": "m2", "name": "M2", "free": False},
+    ]
     monkeypatch.setattr(
-        "app.utils.openrouter_catalog.search_openrouter_models",
-        lambda q, limit=50, free_only=False: fake_models,
+        "app.utils.provider_catalog.get_all_providers",
+        lambda force_refresh=False: [
+            {"key": "openrouter", "name": "OpenRouter", "models": fake_models}
+        ],
     )
 
-    assert get_provider_models("openrouter", free_only=True) == fake_models
-    assert get_provider_models("openrouter", free_only=False) == fake_models
+    assert get_provider_models("openrouter") == fake_models
+    assert get_provider_models("openrouter", free_only=True) == [fake_models[0]]
+    assert get_provider_models("openrouter", query="M2") == [fake_models[1]]
     assert get_provider_models("other_provider") == []
 
 

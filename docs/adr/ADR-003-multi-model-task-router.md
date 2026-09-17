@@ -3,6 +3,7 @@
 **Status**: HISTORICAL
 **Type**: adr
 **Last Updated**: 2026-07-03
+**Reviewed**: 2026-09-14
 
 - **Status**: Evolved into ADR-009
 - **Date**: 2026-07-03

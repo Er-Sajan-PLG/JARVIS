@@ -1,14 +1,4 @@
-"""WebSocket & SSE Streaming Adapter Layer.
-
-Provides real-time streaming interfaces for WebSocket connections and Server-Sent Events (SSE),
-publishing streaming token chunks and step execution updates from InMemoryAsyncBus.
-
-Both surfaces are gated by the same single-tenant credential as the REST API
-(``JARVIS_API_KEY``), enforced through ``app.adapters.security``. Because a browser
-cannot attach request headers to a ``WebSocket`` or an ``EventSource``, these two
-surfaces additionally accept the key as the ``api_key`` query parameter; the REST
-surface does not.
-"""
+"""WebSocket & SSE Streaming Adapter Layer."""
 
 import json
 from collections.abc import AsyncGenerator
@@ -22,27 +12,24 @@ from app.bootstrap import bootstrap_system
 ws_router = APIRouter(prefix="/ws", tags=["Streaming"])
 
 
-@ws_router.websocket("")
-@ws_router.websocket("/chat")
-async def websocket_endpoint(websocket: WebSocket) -> None:
-    """WebSocket streaming endpoint for real-time bidirectional messaging."""
+@ws_router.websocket("/chat/{session_id}")
+async def websocket_chat(websocket: WebSocket, session_id: str) -> None:
+    """Real-time chat via WebSocket."""
     if not is_authorized_for_streaming(websocket.headers, websocket.query_params):
-        # Accepting before closing is what lets the client observe an explicit 1008
-        # policy-violation code; nothing is read from the socket and no application
-        # message is ever produced for an unauthenticated caller.
         await websocket.accept()
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
     await websocket.accept()
     container = bootstrap_system()
-    try:
-        while True:
-            raw_text = await websocket.receive_text()
-            data = json.loads(raw_text)
-            prompt = data.get("prompt", data.get("message", ""))
 
-            # Process intent
+    try:
+        raw_text = await websocket.receive_text()
+        data = json.loads(raw_text)
+        prompt = data.get("content", data.get("prompt", data.get("message", "")))
+
+        try:
+            # Analyze intent
             analysis = container.intent_analyzer.analyze(prompt)
             await websocket.send_json(
                 {
@@ -52,7 +39,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 }
             )
 
-            # Stream token response
+            # For now, echo back (cognitive graph integration pending real LLM)
             await websocket.send_json(
                 {
                     "type": "token_chunk",
@@ -61,8 +48,19 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             )
 
             await websocket.send_json({"type": "stream_end"})
+
+        except Exception as e:
+            await websocket.send_json({"type": "error", "content": str(e)})
+
     except WebSocketDisconnect:
         pass
+
+
+@ws_router.websocket("")
+@ws_router.websocket("/chat")
+async def websocket_endpoint(websocket: WebSocket) -> None:
+    """Legacy WebSocket endpoint — redirects to default session."""
+    await websocket_chat(websocket, "default")
 
 
 @ws_router.get("/stream")
