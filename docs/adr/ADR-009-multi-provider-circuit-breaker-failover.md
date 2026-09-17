@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: adr
 **Last Updated**: 2026-07-28
+**Reviewed**: 2026-09-14
 
 - **Status**: Approved
 - **Date**: 2026-07-28

@@ -3,6 +3,7 @@
 **Status**: HISTORICAL
 **Type**: runbook
 **Last Updated**: 2026-07-28
+**Reviewed**: 2026-09-14
 
 > **Scope: history, not current behaviour.** Everything below is a frozen record of
 > bugs diagnosed and fixed between `v0.1.0` and `v3.0.0 Refactored` (2026-07-28).

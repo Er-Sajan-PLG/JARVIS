@@ -3,6 +3,7 @@
 **Status**: HISTORICAL
 **Type**: adr
 **Last Updated**: 2026-06-28
+**Reviewed**: 2026-09-14
 
 - **Status**: Superseded by ADR-004 & ADR-007
 - **Date**: 2026-06-28

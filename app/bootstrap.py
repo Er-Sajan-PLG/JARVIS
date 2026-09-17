@@ -5,6 +5,7 @@ and event listeners.
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from app.models import ModelRouter
 from app.prompt import PromptLoader
 from app.resources import ResourceManager
 from app.session import SessionManager, SessionPersistence
+from app.session.checkpointer import MemorySaverAdapter, get_postgres_checkpointer
 from app.telemetry import EventLogger, MetricsCollector, Tracer
 from app.tools import DEFAULT_TOOLSET
 from app.workspace import WorkspaceManager
@@ -63,7 +65,8 @@ def bootstrap_system(
     Args:
         data_dir: Root directory for persistent data.
         prompts_dir: Directory containing Jinja2 markdown templates.
-        db_url: Optional PostgreSQL connection URL.
+        db_url: Optional PostgreSQL connection URL. Falls back to
+            ``JARVIS_DATABASE_URL`` env var.
 
     Returns:
         Configured ApplicationContainer singleton instance.
@@ -72,12 +75,34 @@ def bootstrap_system(
     if _container_instance is not None:
         return _container_instance
 
+    # Resolve database URL: explicit arg > env var > None
+    resolved_db_url = db_url or os.environ.get("JARVIS_DATABASE_URL")
+
+    # Select checkpointer: PostgresCheckpointer (prod) vs MemorySaverAdapter (dev)
+    if resolved_db_url and resolved_db_url.startswith("postgresql"):
+        try:
+            get_postgres_checkpointer(resolved_db_url)
+            logger.info("Using PostgresCheckpointer for session checkpointing")
+        except Exception:  # noqa: BLE001 — graceful fallback
+            MemorySaverAdapter()
+            logger.warning(
+                "Failed to create PostgresCheckpointer, falling back to MemorySaverAdapter"
+            )
+    else:
+        MemorySaverAdapter()
+        logger.info("Using MemorySaverAdapter for session checkpointing (dev mode)")
+
     logger.info("Initializing JARVIS Composition Root...")
 
     # 1. Event Bus & Telemetry
     bus = InMemoryAsyncBus()
     event_logger = EventLogger(bus=bus)
-    tracer = Tracer(bus=bus)
+    tracer = Tracer(
+        bus=bus,
+        otel_enabled=os.environ.get("JARVIS_OTEL_ENABLED", "").lower() == "true",
+        otel_endpoint=os.environ.get("JARVIS_OTEL_ENDPOINT"),
+        otel_service_name=os.environ.get("JARVIS_OTEL_SERVICE_NAME"),
+    )
     metrics = MetricsCollector()
 
     # 2. Prompts & Context

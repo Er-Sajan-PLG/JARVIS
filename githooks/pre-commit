@@ -42,11 +42,22 @@ fi
 #    --sync computes facts once, applies, verifies, and re-stages, so the corrected
 #    docs ride along in the same commit as the change that made them stale.
 if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/sync_doc_facts.py" ]; then
-  echo "🔄 Synchronizing doc facts with the code…"
-  if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --sync >/tmp/jarvis_doc_facts.log 2>&1; then
-    echo "❌ Documentation fact sync failed:"
-    cat /tmp/jarvis_doc_facts.log
-    exit 1
+  echo "Synchronizing doc facts with the code..."
+  FACTS_CACHE="$REPO_ROOT/.governance/doc_facts.json"
+  if [ -f "$FACTS_CACHE" ]; then
+    # Fast path: use cached facts (no pytest run)
+    if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --apply --facts-json "$(cat $FACTS_CACHE)" >/tmp/jarvis_doc_facts.log 2>&1; then
+      echo "Documentation fact sync failed:"
+      cat /tmp/jarvis_doc_facts.log
+      exit 1
+    fi
+  else
+    # No cache — compute from scratch (slow, runs pytest)
+    if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --sync >/tmp/jarvis_doc_facts.log 2>&1; then
+      echo "Documentation fact sync failed:"
+      cat /tmp/jarvis_doc_facts.log
+      exit 1
+    fi
   fi
   # Re-stage only documents the sync actually touched.
   git diff --name-only -- docs '*.md' | while IFS= read -r f; do
