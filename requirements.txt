@@ -102,7 +102,7 @@ py-serializable==2.1.0
 pybase64==1.5.0
 pydantic==2.13.5
 pydantic-settings==2.15.0
-pydantic_core==2.48.0
+pydantic_core==2.49.0
 Pygments==2.21.0
 pymupdf==1.28.2
 pyparsing==3.3.2
