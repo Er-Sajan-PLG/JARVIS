@@ -165,3 +165,5 @@ opentelemetry-sdk==1.44.0
 opentelemetry-exporter-otlp-proto-grpc==1.44.0
 opentelemetry-semantic-conventions==0.65b0
 opentelemetry==1.44.0
+aiosmtplib>=3.0.0
+aioimaplib>=1.1.0

@@ -1,5 +1,9 @@
-## JARVIS Documentation Agent — Tool System (app/tools/)
+# JARVIS Documentation Agent — Tool System (app/tools/)
 
+**Status**: ACTIVE
+**Type**: reference
+**Source**: `app/tools/` at HEAD
+**Last Updated**: 2026-09-17
 **Reviewed**: 2026-09-14
 > Source-verified documentation. Every claim below was checked against the code in
 > `app/tools/` (`base.py`, `executor.py`, `file_tools.py`, `git_tools.py`, `__init__.py`)
