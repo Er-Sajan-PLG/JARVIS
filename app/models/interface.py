@@ -1,14 +1,15 @@
-"""BaseLLMProvider Interface & Data Contracts for Multi-Provider Inference Subsystem.
-"""
+"""BaseLLMProvider Interface & Data Contracts for Multi-Provider Inference Subsystem."""
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator
+from typing import Any
 
 
 @dataclass
 class LLMResponse:
     """Standardized response container from any LLM provider."""
+
     content: str
     model: str
     provider: str
@@ -25,12 +26,10 @@ class BaseLLMProvider(ABC):
     @abstractmethod
     def provider_name(self) -> str:
         """Name string of the provider (e.g., 'google', 'groq', 'openrouter', 'ollama')."""
-        pass
 
     @abstractmethod
     async def is_available(self, api_key: str | None = None) -> bool:
         """Check if provider is configured and available for requests."""
-        pass
 
     @abstractmethod
     async def generate_text(
@@ -44,7 +43,6 @@ class BaseLLMProvider(ABC):
         extra_headers: dict[str, str] | None = None,
     ) -> LLMResponse:
         """Generate complete text response from LLM provider."""
-        pass
 
     @abstractmethod
     async def stream_text(
@@ -58,4 +56,3 @@ class BaseLLMProvider(ABC):
         extra_headers: dict[str, str] | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream token chunks asynchronously from LLM provider."""
-        pass

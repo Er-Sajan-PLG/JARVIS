@@ -7,12 +7,11 @@ Tree-Aware Repository Archaeology Engine.
 - Creates new docs for unmapped modules matching existing layout/frontmatter.
 """
 
-import subprocess
-import shlex
 import json
-import re
 import os
+import re
 import shlex
+import subprocess
 
 STATE_FILE = ".archaeology/state.json"
 DOCS_DIR = "docs"
@@ -76,9 +75,7 @@ def analyze_commit_diff(commit_hash):
 
         m_class = CLASS_REGEX.search(line)
         if m_class:
-            symbols_added.append(
-                {"name": m_class.group(1), "type": "class", "file": current_file}
-            )
+            symbols_added.append({"name": m_class.group(1), "type": "class", "file": current_file})
             continue
 
         m_func = FUNC_REGEX.search(line)
@@ -192,9 +189,7 @@ def run_archaeology():
         json.dump(state, f, indent=2, default=list)
 
     # 1. OVERWRITE / CREATE CORE JSON GRAPHS
-    write_file(
-        os.path.join(DOCS_DIR, "api_graph.json"), json.dumps(state["symbols"], indent=2)
-    )
+    write_file(os.path.join(DOCS_DIR, "api_graph.json"), json.dumps(state["symbols"], indent=2))
     write_file(
         os.path.join(DOCS_DIR, "history_graph.json"),
         json.dumps(state["history_timeline"], indent=2),
@@ -211,9 +206,7 @@ def run_archaeology():
     write_file(os.path.join(DOCS_DIR, "HISTORY.md"), history_md)
 
     lineage_md = "# Symbol Lineage & Tombstone Registry\n\n"
-    lineage_md += (
-        "| Symbol Name | Type | File Path | Birth Commit | Death Commit | Status |\n"
-    )
+    lineage_md += "| Symbol Name | Type | File Path | Birth Commit | Death Commit | Status |\n"
     lineage_md += "| :--- | :--- | :--- | :--- | :--- | :--- |\n"
     for key, sym in state["symbols"].items():
         death_str = f"`{sym['death_commit'][:7]}`" if sym["death_commit"] else "N/A"
@@ -229,9 +222,7 @@ def run_archaeology():
         mod_file = os.path.join(modules_dir, f"{mod}.md")
 
         # Filter symbols for this module
-        mod_symbols = [
-            s for k, s in state["symbols"].items() if s["file"].startswith(mod)
-        ]
+        mod_symbols = [s for k, s in state["symbols"].items() if s["file"].startswith(mod)]
 
         content = f"""---
 doc_id: DOC-{mod.upper()}

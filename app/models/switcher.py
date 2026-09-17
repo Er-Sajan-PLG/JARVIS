@@ -6,13 +6,12 @@ Lets you switch between local and cloud mid-session without restarting.
 
 import re
 
-from app.config.settings import get_settings
 from app.models.client import ModelClient
 from app.models.factory import create_client
-from app.models.router import ModelRouter, TaskType
-from app.utils.logging_setup import get_logger
 from app.models.omni_client import OmniModelClient
+from app.models.router import ModelRouter, TaskType
 from app.models.utils import resolve_env_key
+from app.utils.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
@@ -20,7 +19,7 @@ logger = get_logger(__name__)
 class ModelSwitcher:
     """
     Manages active profile and builds routers on demand.
-    
+
     Commands:
         model           → show current profile and active models
         model local     → switch to local profile
@@ -50,9 +49,9 @@ class ModelSwitcher:
             role_clients: dict[str, list] = {}
             for key, client in self._clients.items():
                 try:
-                    role = getattr(client, 'role', 'general') or 'general'
+                    role = getattr(client, "role", "general") or "general"
                 except Exception:
-                    role = 'general'
+                    role = "general"
                 role_clients.setdefault(role, []).append(client)
 
             omni_router = ModelRouter()
@@ -65,28 +64,28 @@ class ModelSwitcher:
 
             default_local = self._build_default_local_router(settings)
             if default_local is not None:
-                self._routers['default'] = default_local
+                self._routers["default"] = default_local
                 omni_router.set_default(default_local.default_model)
 
             if self._is_usable(omni_router):
-                self._routers['omni'] = omni_router
+                self._routers["omni"] = omni_router
             else:
-                logger.warning('No usable models found for omni router')
+                logger.warning("No usable models found for omni router")
 
-            requested = getattr(settings, 'active_profile', '')
+            requested = getattr(settings, "active_profile", "")
             if requested in self._routers and self._is_usable(self._routers[requested]):
                 self._active_profile = requested
-            elif 'default' in self._routers:
-                self._active_profile = 'default'
-            elif 'omni' in self._routers:
-                self._active_profile = 'omni'
+            elif "default" in self._routers:
+                self._active_profile = "default"
+            elif "omni" in self._routers:
+                self._active_profile = "omni"
             elif self._routers:
                 self._active_profile = next(iter(self._routers))
             else:
-                self._active_profile = ''
+                self._active_profile = ""
         except Exception:
-            logger.exception('Failed to build omni router')
-            self._active_profile = ''
+            logger.exception("Failed to build omni router")
+            self._active_profile = ""
 
     def _build_router(self, mapping: dict) -> ModelRouter:
         router = ModelRouter()
@@ -109,8 +108,9 @@ class ModelSwitcher:
 
     def _build_default_local_router(self, settings) -> ModelRouter | None:
         candidates = [
-            key for key, model_cfg in settings.models.items()
-            if getattr(model_cfg, 'backend', '') == 'ollama' and key in self._clients
+            key
+            for key, model_cfg in settings.models.items()
+            if getattr(model_cfg, "backend", "") == "ollama" and key in self._clients
         ]
         if not candidates:
             return None
@@ -131,19 +131,19 @@ class ModelSwitcher:
 
     def _ollama_model_size(self, name: str) -> float:
         if not isinstance(name, str):
-            return float('inf')
+            return float("inf")
         match = re.search(r"(\d+(?:\.\d+)?)(?:\s*)([kKmMgGbB])\b", name)
         if not match:
-            return float('inf')
+            return float("inf")
         value = float(match.group(1))
         unit = match.group(2).lower()
-        if unit == 'k':
+        if unit == "k":
             return value / 1000.0
-        if unit == 'm':
+        if unit == "m":
             return value
-        if unit == 'g':
+        if unit == "g":
             return value * 1000.0
-        if unit == 'b':
+        if unit == "b":
             return value
         return value
 
@@ -180,7 +180,6 @@ class ModelSwitcher:
             lines.append(f"  {key}: {client.model_name} ({client.role})")
         return "\n".join(lines)
 
-
     def switch_to_model(self, model_key: str) -> bool:
         """
         Route every role to a single specific cloud/local model.
@@ -213,14 +212,14 @@ class ModelSwitcher:
         Returns False if the client can't be built (e.g. missing key).
         """
         from app.config.settings import ModelConfig
-        
+
         # If it's an env reference, resolve it
         try:
             api_key = resolve_env_key(api_key)
         except ValueError as e:
             logger.warning("Dynamic model %s: %s", backend, e)
             return False
-        
+
         cfg = ModelConfig(name=model_id, role="general", backend=backend, api_key=api_key)
         try:
             client = create_client(cfg)

@@ -1,19 +1,16 @@
 """PDF Processing Utilities."""
+
 import os
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+
 import fitz  # PyMuPDF
 
 
-def pdf_to_images(
-    pdf_path: str,
-    dpi: int = 300,
-    output_dir: Optional[str] = None
-) -> List[str]:
+def pdf_to_images(pdf_path: str, dpi: int = 300, output_dir: str | None = None) -> list[str]:
     """Convert PDF pages to PNG images. Returns list of image paths."""
     doc = fitz.open(pdf_path)
-    
+
     if output_dir is None:
         output_dir = tempfile.mkdtemp(prefix="pdf_ocr_")
     else:
@@ -37,11 +34,7 @@ def is_pdf(filename: str) -> bool:
     return filename.lower().endswith(".pdf")
 
 
-def get_image_paths(
-    input_path: str,
-    dpi: int = 300,
-    temp_dir: Optional[str] = None
-) -> List[str]:
+def get_image_paths(input_path: str, dpi: int = 300, temp_dir: str | None = None) -> list[str]:
     """Accept image or PDF, return list of image paths."""
     if is_pdf(input_path):
         return pdf_to_images(input_path, dpi=dpi, output_dir=temp_dir)

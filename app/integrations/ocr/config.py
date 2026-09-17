@@ -1,7 +1,9 @@
 """OCR Service Configuration."""
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Set, Literal
+
 from functools import lru_cache
+from typing import Literal
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class OCRSettings(BaseSettings):
@@ -26,8 +28,15 @@ class OCRSettings(BaseSettings):
     # Processing
     max_upload_size_mb: int = 100
     pdf_dpi: int = 300
-    allowed_extensions: Set[str] = {
-        ".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".tif", ".bmp", ".webp"
+    allowed_extensions: set[str] = {
+        ".pdf",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".tiff",
+        ".tif",
+        ".bmp",
+        ".webp",
     }
 
     # Thread pool for blocking model inference
@@ -37,6 +46,6 @@ class OCRSettings(BaseSettings):
     request_timeout_seconds: int = 600
 
 
-@lru_cache()
+@lru_cache
 def get_ocr_settings() -> OCRSettings:
     return OCRSettings()

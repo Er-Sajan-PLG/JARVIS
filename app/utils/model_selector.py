@@ -12,10 +12,9 @@ the conversation pipeline.
 from __future__ import annotations
 
 import os
-from typing import Optional
 from urllib.parse import urlparse
 
-from app.utils.server_manager import ollama_model_names, llamacpp_live_models
+from app.utils.server_manager import llamacpp_live_models, ollama_model_names
 
 
 def _categorize_cloud_models(settings) -> dict:
@@ -94,6 +93,7 @@ def _startup_model_select(switcher, settings) -> None:
     present / missing) and applies the choice to the switcher. If the user
     just presses Enter, the already-active profile is kept.
     """
+
     def _free_key(var: str) -> bool:
         return bool(os.environ.get(var, ""))
 
@@ -115,36 +115,44 @@ def _startup_model_select(switcher, settings) -> None:
     # [0] Default local router
     if "default" in switcher._routers:
         default_router = switcher._routers["default"]
-        entries.append({
-            "label": "Default local (smallest Ollama model)",
-            "detail": f"{default_router.default_model.model_name} — local default",
-            "kind": "default",
-        })
+        entries.append(
+            {
+                "label": "Default local (smallest Ollama model)",
+                "detail": f"{default_router.default_model.model_name} — local default",
+                "kind": "default",
+            }
+        )
 
     # [1] Omni router across all loaded providers
     if "omni" in switcher._routers:
-        entries.append({
-            "label": "Omni (mixed providers, auto-failover)",
-            "detail": "Routes across every loaded provider by role",
-            "kind": "omni",
-        })
+        entries.append(
+            {
+                "label": "Omni (mixed providers, auto-failover)",
+                "detail": "Routes across every loaded provider by role",
+                "kind": "omni",
+            }
+        )
 
     # [2] Ollama
     ollama_status = f"{len(ollama_models)} model(s) pulled" if ollama_models else "not reachable"
-    entries.append({
-        "label": "Ollama (local, free)",
-        "detail": ollama_status,
-        "kind": "ollama",
-    })
+    entries.append(
+        {
+            "label": "Ollama (local, free)",
+            "detail": ollama_status,
+            "kind": "ollama",
+        }
+    )
 
     # [2] llama.cpp (live local servers)
     if local_models:
         names = ", ".join(m["name"] for m in local_models)
-        entries.append({
-            "label": "llama.cpp (local server)",
-            "detail": f"running: {names}",
-            "kind": "local",
-        })
+        entries.append(
+            {
+                "label": "llama.cpp (local server)",
+                "detail": f"running: {names}",
+                "kind": "local",
+            }
+        )
 
     # [3..] Free cloud APIs
     free_apis = [
@@ -157,36 +165,47 @@ def _startup_model_select(switcher, settings) -> None:
         if not keys:
             continue  # nothing configured for this provider
         has_key = _free_key(env_var)
-        entries.append({
-            "label": f"{pretty} (free API)",
-            "detail": f"{model_desc} — {'✓ key set' if has_key else '✗ ' + env_var + ' missing'}",
-            "kind": "cloud",
-            "provider": provider,
-            "env_var": env_var,
-            "has_key": has_key,
-        })
+        entries.append(
+            {
+                "label": f"{pretty} (free API)",
+                "detail": f"{model_desc} — {'✓ key set' if has_key else '✗ ' + env_var + ' missing'}",
+                "kind": "cloud",
+                "provider": provider,
+                "env_var": env_var,
+                "has_key": has_key,
+            }
+        )
 
     # [6] OpenRouter — live "all models" catalog (pick ANY model, no config needed)
     if _free_key("OPENROUTER_API_KEY"):
         from app.utils.openrouter_catalog import fetch_openrouter_models
+
         catalog = fetch_openrouter_models()
         if catalog:
-            entries.append({
-                "label": "OpenRouter (ALL models, live)",
-                "detail": f"{len(catalog)} models available — browse & pick any",
-                "kind": "openrouter-catalog",
-            })
+            entries.append(
+                {
+                    "label": "OpenRouter (ALL models, live)",
+                    "detail": f"{len(catalog)} models available — browse & pick any",
+                    "kind": "openrouter-catalog",
+                }
+            )
 
     if not entries:
         print("  No backends/models configured. Using default router.\n")
         return
 
     for i, e in enumerate(entries, 1):
-        marker = "●" if (
-            e["kind"] == "local"
-            and (switcher.active_profile == "local"
-                 or switcher.active_profile.startswith("model:"))
-        ) else " "
+        marker = (
+            "●"
+            if (
+                e["kind"] == "local"
+                and (
+                    switcher.active_profile == "local"
+                    or switcher.active_profile.startswith("model:")
+                )
+            )
+            else " "
+        )
         print(f"  {i}. {marker} {e['label']}")
         print(f"       ↳ {e['detail']}")
 
@@ -255,7 +274,7 @@ def _startup_model_select(switcher, settings) -> None:
         provider = entry["provider"]
         if not entry["has_key"]:
             print(f"  ⚠️ {entry['env_var']} is not set in your .env file.")
-            print(f"     Get a free key and add it, then restart JARVIS.\n")
+            print("     Get a free key and add it, then restart JARVIS.\n")
             return
         keys = cloud[provider]
         print(f"\n  {provider} models available:")
@@ -277,6 +296,7 @@ def _startup_model_select(switcher, settings) -> None:
 
     if entry["kind"] == "openrouter-catalog":
         from app.utils.openrouter_catalog import fetch_openrouter_models
+
         catalog = fetch_openrouter_models()
         if not catalog:
             print("  ⚠️ Could not fetch the OpenRouter catalog (network down?).\n")

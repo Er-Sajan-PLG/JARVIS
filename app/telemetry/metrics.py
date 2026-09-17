@@ -3,8 +3,7 @@
 Collects passive metrics on token usage, request latencies, and component execution counts.
 """
 
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 # OTel semantic convention attributes
 OTEL_AGENT_NAME = "gen_ai.agent.name"
@@ -15,6 +14,7 @@ OTEL_GUARDRAIL_RESULT = "gen_ai.guardrail.result"
 @dataclass
 class AggregatedMetrics:
     """Aggregated metrics totals."""
+
     total_requests: int = 0
     total_tokens: int = 0
     total_cost_usd: float = 0.0
@@ -40,7 +40,7 @@ class MetricsCollector:
     def export_prometheus(self) -> str:
         """Export metrics in Prometheus format."""
         m = self.metrics
-        return f'''# HELP jarvis_requests_total Total number of requests
+        return f"""# HELP jarvis_requests_total Total number of requests
 # TYPE jarvis_requests_total counter
 jarvis_requests_total {m.total_requests}
 
@@ -55,4 +55,4 @@ jarvis_cost_usd_total {m.total_cost_usd}
 # HELP jarvis_failed_steps_total Total number of failed steps
 # TYPE jarvis_failed_steps_total counter
 jarvis_failed_steps_total {m.failed_steps}
-'''
+"""

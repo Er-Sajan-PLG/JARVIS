@@ -123,7 +123,7 @@ def ensure_server_running(
     binary = command[0] if command else "<command>"
     if shutil.which(binary) is None and not os.path.exists(binary):
         print(f"⚠️  {name}: server binary '{binary}' not found — cannot auto-start.")
-        print(f"    Install llama.cpp or set $LLAMA_SERVER_PATH and retry.")
+        print("    Install llama.cpp or set $LLAMA_SERVER_PATH and retry.")
         return False
 
     print(f"⏳ {name} not found on port {port}. Starting in background...")
@@ -171,11 +171,13 @@ def llamacpp_live_models(settings) -> list[dict]:
             continue  # already represented by another model on the same port
         seen_ports.add(port)
         if is_port_open(port):
-            live.append({
-                "key": key,
-                "name": cfg.name,
-                "base_url": cfg.base_url,
-            })
+            live.append(
+                {
+                    "key": key,
+                    "name": cfg.name,
+                    "base_url": cfg.base_url,
+                }
+            )
     return live
 
 
@@ -191,8 +193,5 @@ def warn_if_missing(url: str, name: str) -> bool:
         print(f"✅ {name} reachable at {url}")
         return True
     print(f"⚠️  {name} NOT reachable at {url}.")
-    print(f"    Start it manually (e.g. `ollama serve`) before using features "
-          f"that depend on it.")
+    print("    Start it manually (e.g. `ollama serve`) before using features " "that depend on it.")
     return False
-
-

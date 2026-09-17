@@ -64,11 +64,9 @@ def fetch_anthropic_models(force: bool = False) -> list[dict]:
     """Return the curated Anthropic model catalog."""
     now = time.time()
     with _cache_lock:
-        if not force and _cache["data"] is not None and (
-            now - _cache["fetched_at"] < _TTL_SECONDS
-        ):
+        if not force and _cache["data"] is not None and (now - _cache["fetched_at"] < _TTL_SECONDS):
             return _cache["data"]
-    
+
     with _cache_lock:
         _cache["data"] = _KNOWN_MODELS.copy()
         _cache["fetched_at"] = now

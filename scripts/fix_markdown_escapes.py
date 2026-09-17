@@ -6,6 +6,7 @@ Replaces invalid '\\|' escape sequences with clean ' | ' across all markdown fil
 
 import os
 
+
 def fix_markdown_escapes():
     count = 0
     for root, _, files in os.walk("."):
@@ -14,7 +15,7 @@ def fix_markdown_escapes():
         for file in files:
             if file.endswith(".md"):
                 filepath = os.path.join(root, file)
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     content = f.read()
                 if "\\|" in content:
                     content = content.replace("\\|", " | ")
@@ -24,6 +25,7 @@ def fix_markdown_escapes():
                     print(f"[+] Cleaned invalid markdown escapes in {filepath}")
 
     print(f"[*] Fixed markdown escapes across {count} files.")
+
 
 if __name__ == "__main__":
     fix_markdown_escapes()

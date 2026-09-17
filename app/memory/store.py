@@ -9,10 +9,10 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional, get_type_hints
+from typing import get_type_hints
 
-from app.config.settings import get_settings, MemoryConfig
-from app.memory.schema import Memory, SOURCE_USER, IMPORTANCE_MEDIUM
+from app.config.settings import MemoryConfig, get_settings
+from app.memory.schema import Memory
 from app.utils.corruption import backup_corrupt_file, report_corruption
 
 logger = logging.getLogger(__name__)
@@ -68,56 +68,55 @@ def _validate_field_value(key: str, value):
 class MemoryStore:
     """
     Low-level storage for memories.
-    
+
     Responsibilities:
     - CRUD operations
     - Persistence (save/load)
     - Dirty tracking
-    
+
     NOT responsible for:
     - Retrieval (that's CandidateRetriever)
     - Ranking (that's MemoryRanker)
     - Behavior logic (that's MemoryManager)
     """
-    
+
     def __init__(self, path: Path = None, config: MemoryConfig = None):
         settings = get_settings()
-        
+
         self.path: Path = Path(path) if path is not None else settings.paths.memories
         self.config: MemoryConfig = config or settings.memory
-        
+
         self._memories: list[Memory] = []
         self._dirty: bool = False
-        
+
         self._load()
-    
+
     # ===== CRUD Operations =====
-    
+
     def add(self, memory: Memory) -> Memory:
         """Add a new memory to the store"""
         self._memories.append(memory)
         self._dirty = True
         return memory
-    
-    def get_by_id(self, memory_id: str) -> Optional[Memory]:
+
+    def get_by_id(self, memory_id: str) -> Memory | None:
         """Get a memory by ID"""
         for m in self._memories:
             if m.id == memory_id:
                 return m
         return None
-    
+
     def find_by_category_and_type(self, category: str, memory_type: str) -> list[Memory]:
         """Find all memories matching category and type"""
         return [
-            m for m in self._memories 
-            if m.category == category and m.memory_type == memory_type
+            m for m in self._memories if m.category == category and m.memory_type == memory_type
         ]
-    
+
     def get_all(self) -> list[Memory]:
         """Get all memories"""
         return list(self._memories)
-    
-    def update_fields(self, memory_id: str, updates: dict) -> Optional[Memory]:
+
+    def update_fields(self, memory_id: str, updates: dict) -> Memory | None:
         """
         Update specific fields on a memory, with type validation.
 
@@ -129,14 +128,16 @@ class MemoryStore:
         memory = self.get_by_id(memory_id)
         if not memory:
             return None
-        
+
         for key, value in updates.items():
             try:
                 validated = _validate_field_value(key, value)
             except ValueError as exc:
                 logger.warning(
                     "Skipping invalid update to memory %s field %r: %s",
-                    memory_id, key, exc,
+                    memory_id,
+                    key,
+                    exc,
                 )
                 continue
             setattr(memory, key, validated)
@@ -144,8 +145,8 @@ class MemoryStore:
         memory.mark_updated()
         self._dirty = True
         return memory
-    
-    def remove(self, memory_id: str) -> Optional[Memory]:
+
+    def remove(self, memory_id: str) -> Memory | None:
         """Remove a memory by ID, returns the removed memory or None"""
         for i, m in enumerate(self._memories):
             if m.id == memory_id:
@@ -153,48 +154,45 @@ class MemoryStore:
                 self._dirty = True
                 return removed
         return None
-    
+
     def remove_by_category_and_type(self, category: str, memory_type: str) -> list[Memory]:
         """Remove all memories matching category and type"""
         to_remove = self.find_by_category_and_type(category, memory_type)
-        
+
         for m in to_remove:
             self._memories.remove(m)
-        
+
         if to_remove:
             self._dirty = True
-        
+
         return to_remove
-    
+
     def count(self) -> int:
         """Return total number of memories"""
         return len(self._memories)
-    
+
     def clear(self) -> None:
         """Remove all memories"""
         self._memories.clear()
         self._dirty = True
         self.save()
-    
+
     # ===== Persistence =====
-    
+
     @property
     def is_dirty(self) -> bool:
         """Check if there are unsaved changes"""
         return self._dirty
-    
+
     def save(self) -> None:
         """Save all memories to disk (atomically and durably)."""
         if not self._dirty:
             return
-        
+
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        
-        data = {
-            "version": "2.0",
-            "memories": [m.to_dict() for m in self._memories]
-        }
-        
+
+        data = {"version": "2.0", "memories": [m.to_dict() for m in self._memories]}
+
         # Atomic, durable write: serialize to a temp file in the same directory,
         # flush + fsync, then os.replace() (atomic rename) over the target.
         # This prevents a partially-written / truncated file from corrupting the
@@ -207,7 +205,7 @@ class MemoryStore:
                 os.fsync(f.fileno())
             os.replace(tmp_path, self.path)
             self._dirty = False
-        except BaseException:
+        except Exception:
             # Best-effort cleanup of the temp file so we don't litter the data dir.
             try:
                 if tmp_path.exists():
@@ -215,16 +213,16 @@ class MemoryStore:
             except OSError:
                 pass
             raise
-    
+
     def save_if_dirty(self) -> None:
         """Public method to save only if changes were made"""
         self.save()
-    
+
     def force_save(self) -> None:
         """Force save regardless of dirty state"""
         self._dirty = True
         self.save()
-    
+
     def _load(self) -> None:
         """
         Load memories from disk, handling v1 and v2 formats.
@@ -239,9 +237,9 @@ class MemoryStore:
 
         if not self.path.exists():
             return
-        
+
         try:
-            with open(self.path, "r") as f:
+            with open(self.path) as f:
                 data = json.load(f)
         except (json.JSONDecodeError, OSError) as exc:
             # Corruption / unreadable file: do NOT silently start empty.
@@ -295,14 +293,9 @@ class MemoryStore:
                 memories.append(Memory.from_dict(record))
             except (KeyError, TypeError, ValueError) as exc:
                 bad += 1
-                logger.warning(
-                    "Skipping malformed memory record in %s: %s", self.path, exc
-                )
+                logger.warning("Skipping malformed memory record in %s: %s", self.path, exc)
 
         if bad:
-            logger.warning(
-                "Dropped %d malformed memory record(s) from %s.", bad, self.path
-            )
+            logger.warning("Dropped %d malformed memory record(s) from %s.", bad, self.path)
 
         return memories, bad > 0
-

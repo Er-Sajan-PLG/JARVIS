@@ -6,12 +6,11 @@ Version-Window Archaeology Driver for Antigravity IDE.
 - Signals when a version tag boundary requires merging across ALL docs/
 """
 
-import subprocess
-import shlex
 import json
 import os
-import sys
 import shlex
+import subprocess
+import sys
 
 STATE_FILE = ".archaeology/state.json"
 PAYLOAD_FILE = ".archaeology/current_commit.json"
@@ -61,7 +60,7 @@ def get_commits():
 def load_json(path, default):
     if not os.path.exists(path):
         return default
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 

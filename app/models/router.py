@@ -3,9 +3,8 @@
 Routes task requests dynamically to healthy LLM providers and handles circuit breaker failover on 429/503 errors.
 """
 
-from enum import Enum
 import logging
-from typing import Any, AsyncGenerator, Dict
+from enum import Enum
 
 from app.models.interface import BaseLLMProvider, LLMResponse
 from app.resources import ResourceManager
@@ -15,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class TaskType(str, Enum):
     """Task category classification for model routing."""
+
     AUTOCOMPLETE = "autocomplete"
     CODE = "code"
     REASONING = "reasoning"
@@ -28,21 +28,48 @@ class ModelRouter:
 
     KEYWORDS: dict[TaskType, list[str]] = {
         TaskType.CODE: [
-            "code", "function", "class", "bug", "error", "debug",
-            "implement", "program", "script", "syntax", "compile",
-            "refactor", "variable", "method", "algorithm", "api"
+            "code",
+            "function",
+            "class",
+            "bug",
+            "error",
+            "debug",
+            "implement",
+            "program",
+            "script",
+            "syntax",
+            "compile",
+            "refactor",
+            "variable",
+            "method",
+            "algorithm",
+            "api",
         ],
         TaskType.STEM: [
-            "math", "calculate", "equation", "physics", "chemistry",
-            "formula", "theorem", "proof", "derivative", "integral"
+            "math",
+            "calculate",
+            "equation",
+            "physics",
+            "chemistry",
+            "formula",
+            "theorem",
+            "proof",
+            "derivative",
+            "integral",
         ],
         TaskType.REASONING: [
-            "think", "analyze", "reason", "logic", "compare",
-            "evaluate", "justify", "argument", "conclusion", "infer"
+            "think",
+            "analyze",
+            "reason",
+            "logic",
+            "compare",
+            "evaluate",
+            "justify",
+            "argument",
+            "conclusion",
+            "infer",
         ],
-        TaskType.DOCS: [
-            "document", "readme", "docs", "tutorial", "walkthrough"
-        ],
+        TaskType.DOCS: ["document", "readme", "docs", "tutorial", "walkthrough"],
         TaskType.GENERAL: ["general"],
         TaskType.AUTOCOMPLETE: ["autocomplete"],
     }
@@ -118,9 +145,15 @@ class ModelRouter:
             return res
         except Exception as err:
             err_str = str(err)
-            code = 429 if "429" in err_str or "rate limit" in err_str.lower() else (503 if "503" in err_str else None)
+            code = (
+                429
+                if "429" in err_str or "rate limit" in err_str.lower()
+                else (503 if "503" in err_str else None)
+            )
             self.resource_manager.health.record_failure(provider_name, code)
-            logger.warning("Provider '%s' failed (%s). Retrying with failover...", provider_name, err)
+            logger.warning(
+                "Provider '%s' failed (%s). Retrying with failover...", provider_name, err
+            )
 
             # Retry with fallback
             fallback = self.select_healthy_provider(preferred_provider=None)

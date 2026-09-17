@@ -59,3 +59,9 @@ repos:
           - --follow-imports=skip
           - --disable-error-code=misc
         additional_dependencies: [types-requests]
+
+  # Secret scanning — block commits that contain secrets/credentials (SUP-007).
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.0
+    hooks:
+      - id: gitleaks

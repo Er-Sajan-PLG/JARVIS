@@ -1,5 +1,8 @@
+# JARVIS Dependabot configuration
+# docs: https://docs.github.com/en/code-security/dependabot/dependabot-security-updates
 version: 2
 updates:
+  # Python dependencies
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -13,21 +16,27 @@ updates:
       testing:
         patterns: ["pytest*", "pytest-*", "hypothesis", "faker"]
       linting:
-        patterns: ["ruff", "mypy", "pre-commit"]
-      security:
-        patterns: ["bandit", "gitleaks", "pip-audit", "trivy"]
-      fastapi:
-        patterns: ["fastapi", "uvicorn", "starlette", "pydantic*"]
-      ml:
-        patterns: ["chromadb", "sentence-transformers", "llama-index", "ollama", "openai", "google-generativeai"]
+        patterns: ["ruff", "mypy", "pyright"]
+      # ChromaDB: ignore pre-auth CVEs — JARVIS only uses PersistentClient (local-only, no HTTP server)
+      # The CVEs require an exposed ChromaDB HTTP server, which JARVIS never starts.
+      # See: https://github.com/Er-Sajan-PLG/JARVIS/security/dependabot
+      ignore:
+        - dependency-name: "chromadb"
 
+  # npm dependencies (frontend)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "daily"
+      time: "04:00"
+    open-pull-requests-limit: 5
+    labels: ["deps", "frontend"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
-      time: "04:00"
-    open-pull-requests-limit: 5
-    labels: ["ci", "automerge"]
-    commit-message:
-      prefix: "chore(ci)"
+    labels: ["ci", "deps"]

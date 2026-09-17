@@ -1,5 +1,6 @@
 import os
 
+
 def resolve_env_key(api_key: str) -> str:
     """
     Resolve API key from value or environment variable reference.

@@ -21,12 +21,11 @@ Why prompt-based instead of waiting for v3.0 native calling:
 - Same interface — v3.0 upgrade is one method change in ModelClient
 """
 
-from app.models.client import ModelClient, ModelResponse
+from app.models.client import ModelClient
 from app.tools.base import ToolRegistry
 from app.tools.executor import ToolExecutor
-from app.tools.git_tools import GIT_TOOLS
 from app.tools.file_tools import FILE_TOOLS
-
+from app.tools.git_tools import GIT_TOOLS
 
 # ─── System Prompt ─────────────────────────────────────────────────────────────
 
@@ -85,6 +84,7 @@ MAX_ITERATIONS = 12  # safety ceiling — should never be reached in normal use
 
 # ─── Agent ─────────────────────────────────────────────────────────────────────
 
+
 class DocumentationAgent:
     """
     Mini agentic loop for documentation generation.
@@ -106,7 +106,7 @@ class DocumentationAgent:
 
         self._executor = ToolExecutor(
             registry=self._registry,
-            require_confirmation=True,   # always confirm writes
+            require_confirmation=True,  # always confirm writes
         )
 
     def run(self, task: str, verbose: bool = True) -> str:
@@ -125,7 +125,7 @@ class DocumentationAgent:
 
         messages = [
             {"role": "system", "content": system},
-            {"role": "user",   "content": task},
+            {"role": "user", "content": task},
         ]
 
         for iteration in range(1, MAX_ITERATIONS + 1):
@@ -162,10 +162,12 @@ class DocumentationAgent:
                 result_blocks.append(self._executor.format_result(call, result))
 
             # Inject all results as a single user message
-            messages.append({
-                "role": "user",
-                "content": "\n\n".join(result_blocks),
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": "\n\n".join(result_blocks),
+                }
+            )
 
         # Fell through max iterations — shouldn't happen in practice
         if verbose:
@@ -200,7 +202,7 @@ _TASKS = {
         "Write a CHANGELOG entry for every version found. "
         "Write a DEVLOG entry for every version found. "
         "Use append_file for both files. "
-        "Do not stop until entries are written for ALL commits."
+        "Do not stop until entries are written for ALL commits.",
     ),
 }
 
