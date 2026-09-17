@@ -1,19 +1,48 @@
 """Contract test: does the live web API return exactly the shapes the
-frontend modules read? Run against a live server on :8000."""
+frontend modules read? Run against a live server on :8000.
+
+The console API enforces ``JARVIS_API_KEY`` once one is configured, so this
+sends the key when it can find one: the ``JARVIS_API_KEY`` environment
+variable, or the ``.env`` at the repository root. Against a server with no key
+configured the header is simply absent and every request is allowed.
+"""
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 import urllib.request
+from pathlib import Path
 
-BASE = "http://localhost:8000"
+BASE = os.environ.get("JARVIS_BASE_URL", "http://localhost:8000")
 fails: list[str] = []
 ok: list[str] = []
 
 
+def _api_key() -> str:
+    """The credential to present, from the environment or the repo-root .env."""
+    key = os.environ.get("JARVIS_API_KEY", "").strip()
+    if key:
+        return key
+    env_file = Path(__file__).resolve().parent.parent / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            if line.startswith("JARVIS_API_KEY="):
+                return line.split("=", 1)[1].strip()
+    return ""
+
+
+API_KEY = _api_key()
+
+
+def _auth_headers() -> dict[str, str]:
+    return {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
+
+
 def get(path: str, timeout: int = 120):
-    with urllib.request.urlopen(f"{BASE}{path}", timeout=timeout) as r:
+    req = urllib.request.Request(f"{BASE}{path}", headers=_auth_headers())
+    with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read())
 
 
@@ -21,7 +50,7 @@ def post(path: str, body: dict, timeout: int = 120):
     req = urllib.request.Request(
         f"{BASE}{path}",
         data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", **_auth_headers()},
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -29,7 +58,7 @@ def post(path: str, body: dict, timeout: int = 120):
 
 
 def delete(path: str, timeout: int = 60):
-    req = urllib.request.Request(f"{BASE}{path}", method="DELETE")
+    req = urllib.request.Request(f"{BASE}{path}", headers=_auth_headers(), method="DELETE")
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read())
 
@@ -174,8 +203,11 @@ if d["memories"]:
     m = d["memories"][0]
     check("memory record fields", {"id", "value", "category"} <= set(m))
 
-# ── /health ──────────────────────────────────────────────────────────────────
-check("health ok", get("/health").get("status") == "healthy")
+# ── health ───────────────────────────────────────────────────────────────────
+# The liveness route is mounted under the /api/v1 REST router, not at the
+# origin root. Calling bare /health returned 404 and took the whole script down
+# with it, so every check after this line never ran.
+check("health ok", get("/api/v1/health").get("status") == "healthy")
 
 # ── Report ───────────────────────────────────────────────────────────────────
 print(f"PASSED {len(ok)}")

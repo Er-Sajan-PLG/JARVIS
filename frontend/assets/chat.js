@@ -3,7 +3,7 @@
 
 import {
   $, $$, el, api, state, toast, loadModels, loadCustomState,
-  findModel, providerByKey, formatBytes, escapeHtml, statusInfo,
+  findModel, providerByKey, formatBytes, escapeHtml, statusInfo, getApiKey,
 } from './core.js';
 import { openPicker } from './picker.js';
 
@@ -270,7 +270,14 @@ async function handleFiles(fileList) {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      // Multipart upload, so it cannot use the shared JSON helper; replay the
+      // stored credential by hand or the console API answers 401.
+      const uploadKey = getApiKey();
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: fd,
+        ...(uploadKey ? { headers: { Authorization: `Bearer ${uploadKey}` } } : {}),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       state.attachments.push({

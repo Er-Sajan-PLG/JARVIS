@@ -36,7 +36,38 @@ load_dotenv(_PROJECT_ROOT / ".env")
 
 logger = logging.getLogger(__name__)
 
-web_router = APIRouter(prefix="/api", tags=["JARVIS Web API"])
+
+def _validate_api_key(request: Request) -> bool:
+    """Reject a console request that presents no valid credential.
+
+    Applied as a router-level dependency so every console endpoint inherits it.
+    Per-route decoration is what let this surface sit open: only ``/upload``
+    carried the dependency, leaving chat, settings, conversations and the
+    provider catalogue anonymous.
+
+    The credential is accepted as ``Authorization: Bearer <key>`` or
+    ``X-API-Key: <key>``. When ``JARVIS_API_KEY`` is unset, ``is_authorized``
+    allows everything, preserving local development. Query-parameter
+    credentials stay disabled: a console URL can land in logs and history.
+
+    This router is mounted at ``/api`` and serves only JSON. The installable-app
+    surface (``/``, ``/manifest.json``, ``/service-worker.js``, the icons and
+    ``/static``) is served from ``app.main`` and is deliberately not gated -- a
+    browser fetches those before any credential exists, so requiring a key would
+    make the app uninstallable and the service worker unable to register.
+    """
+    authorization = request.headers.get("authorization")
+    x_api_key = request.headers.get("x-api-key")
+    if is_authorized(authorization=authorization, x_api_key=x_api_key):
+        return True
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+
+web_router = APIRouter(
+    prefix="/api",
+    tags=["JARVIS Web API"],
+    dependencies=[Depends(_validate_api_key)],
+)
 
 UPLOAD_DIR = _PROJECT_ROOT / "data" / "uploads"
 
@@ -68,14 +99,6 @@ TEXT_SUFFIXES = (
     ".xml",
     ".rst",
 )
-
-
-def _validate_api_key(request: Request) -> bool:
-    authorization = request.headers.get("authorization")
-    x_api_key = request.headers.get("x-api-key")
-    if is_authorized(authorization=authorization, x_api_key=x_api_key):
-        return True
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 # ── Model catalogue ──────────────────────────────────────────────────────────
@@ -371,6 +394,7 @@ async def hide_model(body: dict[str, Any]) -> dict[str, Any]:
 async def get_models() -> dict[str, Any]:
     """List all models in a flat list for the frontend model picker."""
     from app.adapters.web.settings import get_custom_models
+
     container = bootstrap_system()
 
     result = []
@@ -378,20 +402,24 @@ async def get_models() -> dict[str, Any]:
     for provider_dict in registry.get_all_providers():
         provider_key = provider_dict.get("key", "")
         for m in provider_dict.get("models", []):
-            result.append({
-                "id": f"{provider_key}/{m}",
-                "provider": provider_key,
-                "name": m,
-                "display_name": f"{provider_dict.get('display_name', provider_key)} — {m}",
-            })
+            result.append(
+                {
+                    "id": f"{provider_key}/{m}",
+                    "provider": provider_key,
+                    "name": m,
+                    "display_name": f"{provider_dict.get('display_name', provider_key)} — {m}",
+                }
+            )
 
     for cm in get_custom_models():
-        result.append({
-            "id": f"custom/{cm.get('id', cm.get('name', ''))}",
-            "provider": "custom",
-            "name": cm.get("name", ""),
-            "display_name": cm.get("name", ""),
-        })
+        result.append(
+            {
+                "id": f"custom/{cm.get('id', cm.get('name', ''))}",
+                "provider": "custom",
+                "name": cm.get("name", ""),
+                "display_name": cm.get("name", ""),
+            }
+        )
 
     return {"models": result}
 

@@ -9,7 +9,7 @@ import {
   $, $$, el, api, state, toast, loadModels, loadCustomState,
   isFree, contextLabel, formatBytes, formatDate, statusInfo, escapeHtml,
   providerByKey, allModels, capabilitiesOf, matchesCapabilities, ALL_CAPABILITIES,
-  applyTheme, applySidebar,
+  applyTheme, applySidebar, getApiKey, setApiKey,
 } from './core.js';
 import { openPicker, renderPicker } from './picker.js';
 import { applyDefaultToChat } from './chat.js';
@@ -1230,6 +1230,96 @@ registerSection({
 registerSection({ key: 'memory', label: 'Memory', icon: '🧷', render: renderMemorySection });
 registerSection({ key: 'ui', label: 'UI', icon: '🎨', render: renderUiSection });
 registerSection({ key: 'files', label: 'Files', icon: '📁', render: renderFilesSection });
+registerSection({ key: 'access', label: 'Access', icon: '🔑', render: renderAccessSection });
+
+/* ── Access section ─────────────────────────────────────────────────────── */
+
+/* The console API requires JARVIS_API_KEY once one is configured on the server.
+   A browser cannot read the server's environment, so the operator enters the
+   key here and it is stored per-origin. */
+async function renderAccessSection(host) {
+  host.innerHTML = '';
+  host.appendChild(el('div', { class: 'settings-section-head' }, [
+    el('h3', { text: 'Access' }),
+    el('p', { text: 'The API key this device uses to reach JARVIS.' }),
+  ]));
+
+  const panel = el('div', { class: 'tab-panel' });
+  const stored = getApiKey();
+
+  const input = el('input', {
+    type: 'password',
+    id: 'consoleApiKey',
+    placeholder: 'Paste the JARVIS_API_KEY from the server .env',
+    value: stored,
+    autocomplete: 'off',
+    spellcheck: 'false',
+    style: 'width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-family:ui-monospace,monospace;font-size:13px',
+  });
+
+  const status = el('div', {
+    text: stored ? 'A key is stored on this device.' : 'No key stored on this device.',
+    style: 'margin-top:8px;font-size:13px;color:var(--text-muted)',
+  });
+
+  const save = el('button', { class: 'btn btn-primary', text: 'Save key' });
+  const clear = el('button', { class: 'btn', text: 'Forget key', style: 'margin-left:8px' });
+
+  async function verify(key) {
+    // Ask the server directly rather than trusting the stored value: a wrong
+    // key is the single most likely reason the console looks broken.
+    try {
+      const res = await fetch('/api/models', {
+        headers: key ? { Authorization: `Bearer ${key}` } : {},
+      });
+      return res.status !== 401;
+    } catch {
+      return false;
+    }
+  }
+
+  save.addEventListener('click', async () => {
+    const key = input.value.trim();
+    setApiKey(key);
+    status.textContent = 'Checking…';
+    const ok = await verify(key);
+    status.textContent = ok
+      ? 'Key accepted. This device can reach JARVIS.'
+      : 'Server rejected that key. Check JARVIS_API_KEY on the host.';
+    status.style.color = ok ? 'var(--ok, #4ade80)' : 'var(--err, #f87171)';
+    toast(ok ? 'Access key saved' : 'Key rejected', ok ? 'ok' : 'err');
+  });
+
+  clear.addEventListener('click', () => {
+    setApiKey('');
+    input.value = '';
+    status.textContent = 'Key removed from this device.';
+    status.style.color = 'var(--text-muted)';
+    toast('Access key forgotten');
+  });
+
+  panel.appendChild(el('div', { class: 'default-card' }, [
+    el('div', { class: 'default-card-label', text: 'Console API key' }),
+    el('div', { class: 'default-card-provider', text: 'Required when JARVIS_API_KEY is set on the server. Stored only in this browser.' }),
+    el('div', { style: 'margin-top:12px' }, [input]),
+    status,
+    el('div', { style: 'margin-top:12px' }, [save, clear]),
+  ]));
+
+  host.appendChild(panel);
+
+  // Report the current state on open, so a device that has never been set up
+  // does not silently show an empty console.
+  const ok = await verify(stored);
+  if (!ok) {
+    status.textContent = stored
+      ? 'The stored key was rejected. Re-enter it.'
+      : 'No key stored. JARVIS will refuse requests until one is added.';
+    status.style.color = 'var(--err, #f87171)';
+  } else if (stored) {
+    status.style.color = 'var(--ok, #4ade80)';
+  }
+}
 
 /* ── Shell ──────────────────────────────────────────────────────────────── */
 

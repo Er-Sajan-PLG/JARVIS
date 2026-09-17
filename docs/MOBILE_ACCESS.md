@@ -52,6 +52,37 @@ Two facts decide whether this works:
 
 ---
 
+## What the API key actually protects
+
+There are two HTTP surfaces, and they are gated the same way — by
+`JARVIS_API_KEY` — but they are served by different routers:
+
+| Surface | Routes | Examples | Key required? |
+|---|---|---|---|
+| Console API | `/api/*` | `/api/chat`, `/api/models`, `/api/conversations`, `/api/settings/*`, `/api/upload` | **Yes** |
+| REST API | `/api/v1/*` | `/api/v1/chat/completions`, `/api/v1/health`, `/api/v1/hitl/*` | **Yes** |
+| Installable app | `/`, `/manifest.json`, `/service-worker.js`, `/offline.html`, `/icon-*.png`, `/badge.png`, `/static/*` | the shell, its assets | **No — deliberately** |
+
+The app surface must stay public: a browser fetches the manifest, the service
+worker and the icons *before* any credential exists, and `cache.addAll` is
+atomic. Gating them would make the app uninstallable and the service worker
+unable to register — which also stops push notifications from ever working.
+
+**The console sends the key for you** once it is entered in
+*Settings → Access*. It is stored per-origin in `localStorage`, so it stays on
+the device. A device that has never been set up shows
+"JARVIS requires an API key" rather than a blank console.
+
+> **History worth knowing.** Before this runbook existed, only `/api/upload`
+> carried the auth dependency. Every other console route — chat, the provider
+> catalogue, conversations, and `/api/settings/api-keys` — answered anonymous
+> requests even with a key configured. Binding to a non-loopback interface
+> without first fixing that would have handed JARVIS to the network. The gate is
+> now applied once, at the router, and `tests/contract/test_console_auth.py`
+> pins it.
+
+---
+
 ## Procedure
 
 ### 1. Set the API key (once)
@@ -130,20 +161,38 @@ done                                                                  # all 200
 
 # 4. The API answers
 curl -s $BASE/api/v1/health                                          # {"status":"healthy",...}
+
+# 5. The console refuses an anonymous caller, and accepts the key
+KEY=$(grep '^JARVIS_API_KEY=' .env | cut -d= -f2)
+curl -s -o /dev/null -w '%{http_code}\n' $BASE/api/models              # 401
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $KEY" $BASE/api/models   # 200
+
+# 6. ...while the installable surface stays public
+curl -s -o /dev/null -w '%{http_code}\n' $BASE/manifest.json           # 200
 ```
+
+This has been verified on the live tailnet deployment (`rebel`, 2026-09-17):
+all twelve app paths returned 200 over `http://rebel.tail4ed6b0.ts.net:8000`,
+the console returned 401 anonymously and 200 with the key, and the service
+worker reported `activated` with root scope in a real browser at a 390×844
+phone viewport.
 
 **In the browser**, the install succeeded when all of these hold:
 
 - `chrome://serviceworker-internals` (or Safari's *Web Inspector → Storage*)
   shows the JARVIS worker **activated**, not *waiting*.
 - DevTools → *Application → Manifest* shows the name, icons and no errors.
+- The console loads with **no 401s** in the network panel — if it shows 401s,
+  the key has not been entered in *Settings → Access* on that device.
+- At a 390px viewport there is no horizontal scrolling, the sidebar is
+  off-canvas, and the composer text is 16px (below that, iOS zooms on focus).
 - With the host stopped, reloading the page shows the offline screen rather than
   a browser error.
 
 The repository's own contract tests pin this surface:
 
 ```bash
-.venv/bin/pytest tests/contract/test_mobile_pwa.py -q
+.venv/bin/pytest tests/contract/test_mobile_pwa.py tests/contract/test_console_auth.py -q
 ```
 
 ---
@@ -158,7 +207,9 @@ The repository's own contract tests pin this surface:
 | No notification permission prompt | Worker not active, or the page is not a secure context | Fix the worker first. `localhost` is treated as secure; a plain-HTTP LAN IP is **not** on iOS |
 | Notifications to a LAN address never arrive, Tailscale works | Browsers require HTTPS for Push on non-localhost origins | Use the Tailscale option; its HTTPS/MagicDNS path satisfies the secure-context rule |
 | Installed app shows a stale UI | Old cache version still active | Bump `CACHE_NAME` in `frontend/assets/service-worker.js`; the worker deletes superseded caches on activate |
-| `401 Unauthorized` from the phone | `JARVIS_API_KEY` set but not entered in the app | Re-enter the key in the app's settings |
+| Console loads but every panel is empty | `JARVIS_API_KEY` set on the server, not entered on this device | *Settings → Access* → paste the key → *Save key*; it should report "Key accepted" |
+| `JARVIS rejected that API key` | Key entered does not match the server's `JARVIS_API_KEY` | Re-copy from `.env`; the two must be byte-identical |
+| Console answered anonymously before this change | Older tree, where the key gated only `/api/upload` | Update to a build containing this runbook; verify with the 401 check above |
 | Everything works on the host, phone times out | Firewall blocking the port | Allow inbound TCP 8000 on the host |
 
 ---

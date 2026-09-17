@@ -219,6 +219,27 @@ export function toast(message, kind = 'ok') {
 // arrives. `onProgress` lets a caller show elapsed time for long waits.
 export const CHAT_TIMEOUT_MS = 180000;
 
+// The console API enforces JARVIS_API_KEY. A browser cannot read the server's
+// environment, so the operator's key is captured once (see the Settings entry)
+// and replayed on every request. localStorage is per-origin and the origin is
+// the tailnet host, so the key never leaves a device the operator unlocked.
+const API_KEY_STORAGE = 'jarvis.apiKey';
+
+export function getApiKey() {
+  try { return localStorage.getItem(API_KEY_STORAGE) || ''; } catch { return ''; }
+}
+
+export function setApiKey(key) {
+  try {
+    if (key) localStorage.setItem(API_KEY_STORAGE, key);
+    else localStorage.removeItem(API_KEY_STORAGE);
+  } catch { /* private mode: the session still works while the tab lives */ }
+}
+
+export function hasApiKey() {
+  return Boolean(getApiKey());
+}
+
 async function request(path, options = {}) {
   const { timeoutMs = 30000, onProgress, ...init } = options;
   const controller = new AbortController();
@@ -228,16 +249,30 @@ async function request(path, options = {}) {
     ? setInterval(() => onProgress(Date.now() - started), 1000)
     : null;
 
+  const key = getApiKey();
+  const headers = { 'Content-Type': 'application/json', ...(init.headers || {}) };
+  if (key) headers.Authorization = `Bearer ${key}`;
+
   try {
     const res = await fetch(path, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
       ...init,
+      headers,
+      signal: controller.signal,
     });
     const text = await res.text();
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
     if (!res.ok) {
+      // A 401 with no stored key is a setup problem, not a failure -- say so,
+      // instead of showing the raw "Unauthorized" to someone who has not yet
+      // been told a key is needed.
+      if (res.status === 401) {
+        throw new Error(
+          key
+            ? 'JARVIS rejected that API key. Re-enter it in Settings → Access.'
+            : 'JARVIS requires an API key. Add it in Settings → Access.'
+        );
+      }
       const detail = data?.detail || data?.error || `HTTP ${res.status}`;
       throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
     }
