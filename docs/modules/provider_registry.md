@@ -38,7 +38,7 @@ class ProviderSpec:
 ## Configuration
 
 Providers are stored in two places:
-1. **Static config**: `app/resources/providers.yaml` (shipped defaults)
+1. **Static config**: `app/resources/manager.py` (shipped defaults)
 2. **Runtime overrides**: `~/jarvis_providers.json` (user customizations)
 
 Runtime overrides take precedence.
