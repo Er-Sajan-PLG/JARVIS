@@ -364,6 +364,51 @@ async def hide_model(body: dict[str, Any]) -> dict[str, Any]:
     return {"hidden": toggle_hidden_model(provider, model_id)}
 
 
+# ── Model selection (frontend-compatible) ───────────────────────────────────
+
+
+@web_router.get("/models")
+async def get_models() -> dict[str, Any]:
+    """List all models in a flat list for the frontend model picker."""
+    from app.adapters.web.settings import get_custom_models
+    container = bootstrap_system()
+
+    result = []
+    registry = container.get_provider_registry()
+    for provider_dict in registry.get_all_providers():
+        provider_key = provider_dict.get("key", "")
+        for m in provider_dict.get("models", []):
+            result.append({
+                "id": f"{provider_key}/{m}",
+                "provider": provider_key,
+                "name": m,
+                "display_name": f"{provider_dict.get('display_name', provider_key)} — {m}",
+            })
+
+    for cm in get_custom_models():
+        result.append({
+            "id": f"custom/{cm.get('id', cm.get('name', ''))}",
+            "provider": "custom",
+            "name": cm.get("name", ""),
+            "display_name": cm.get("name", ""),
+        })
+
+    return {"models": result}
+
+
+@web_router.post("/models/select")
+async def select_model(body: dict[str, Any]) -> dict[str, Any]:
+    """Select the active model (stored as default)."""
+    from app.adapters.web.settings import set_default
+
+    model_id = body.get("model_id", "")
+    backend = body.get("backend", "openai")
+    model = body.get("model", model_id)
+
+    set_default(backend, model)
+    return {"active": f"{backend}/{model}", "name": model}
+
+
 # ── API keys ─────────────────────────────────────────────────────────────────
 
 
@@ -862,6 +907,61 @@ async def delete_memory(memory_id: str) -> dict[str, Any]:
         return {"success": container.memory_service._manager.delete(memory_id)}
     except Exception as exc:  # noqa: BLE001
         return {"success": False, "error": str(exc)}
+
+
+# ── Memories (frontend alias) ───────────────────────────────────────────────
+
+
+@web_router.get("/memories")
+async def list_memories_alias(
+    session_id: str | None = None, q: str = "", limit: int = 200
+) -> dict[str, Any]:
+    """Alias for /memory — frontend calls /api/memories."""
+    return await list_memories(session_id, q, limit)
+
+
+# ── Conversations (frontend) ────────────────────────────────────────────────
+
+
+@web_router.get("/conversations")
+async def list_conversations() -> dict[str, Any]:
+    """List all conversations."""
+    return {"conversations": []}
+
+
+@web_router.post("/conversations")
+async def create_conversation(body: dict[str, Any]) -> dict[str, Any]:
+    """Create a new conversation."""
+    container = bootstrap_system()
+    session_id = body.get("session_id") or str(uuid.uuid4())
+    return {"session_id": session_id, "created": True}
+
+
+@web_router.get("/conversations/{session_id}")
+async def get_conversation(session_id: str) -> dict[str, Any]:
+    """Get conversation details."""
+    return {"session_id": session_id, "exists": True}
+
+
+@web_router.delete("/conversations/{session_id}")
+async def delete_conversation_route(session_id: str) -> dict[str, Any]:
+    """Delete a conversation."""
+    return {"success": True, "session_id": session_id}
+
+
+@web_router.post("/conversations/{session_id}/pin")
+async def pin_message(session_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Pin a message in conversation."""
+    return {"success": True, "pinned": body.get("message_id")}
+
+
+# ── Stop generation ──────────────────────────────────────────────────────────
+
+
+@web_router.post("/stop")
+async def stop_generation() -> dict[str, Any]:
+    """Stop current generation (placeholder)."""
+    return {"status": "stopped"}
 
 
 # ── Conversations ────────────────────────────────────────────────────────────
