@@ -150,6 +150,76 @@ Authorization: Bearer <JARVIS_API_KEY>
 | `TOOL_SEARCH` | Search/execute tools | Yes (tool tools) |
 | `MULTI_STEP` | Multi-step planning | Yes (multiple tools) |
 
+### 3.4 HITL (Human-in-the-Loop) Endpoints
+
+```http
+GET /api/v1/hitl/pending
+```
+
+**Auth**: Required
+
+**Query params**:
+- `include_decided` (bool, optional) — include already-decided requests
+
+**Response 200**:
+```json
+{
+  "pending_requests": [
+    {
+      "approval_id": "xxx",
+      "tool": "delete_file",
+      "params": {"path": "/tmp/old.log"},
+      "plan_id": "plan-abc",
+      "step_id": "step-1"
+    }
+  ]
+}
+```
+
+```http
+POST /api/v1/hitl/approve
+Content-Type: application/json
+```
+
+**Auth**: Required
+
+**Request**:
+```json
+{
+  "plan_id": "plan-abc (required)",
+  "step_id": "step-1 (required)",
+  "approve": true
+}
+```
+
+**Response 200**:
+```json
+{
+  "status": "resumed",
+  "plan_id": "plan-abc"
+}
+```
+
+```http
+POST /api/v1/hitl/notified
+Content-Type: application/json
+```
+
+**Auth**: Required
+
+**Request**:
+```json
+{
+  "approval_id": "xxx",
+  "notified_via": "telegram"
+}
+```
+
+**Response 200**:
+```json
+{"status": "ok"}
+```
+
 ---
 
 ## 4. WebSocket Endpoints (`/ws/`)

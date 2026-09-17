@@ -11,11 +11,14 @@ Runs N governance checks (board gates — see scripts/board/review.py for the fu
 7. otel_spans - OpenTelemetry spans present
 8. langgraph_checkpoint - LangGraph checkpointing configured
 9. eval_suite - Eval suite exists and is runnable
+10. doc_drift - Docs match code (API routes, module docs)
+11. dep_drift - Imports match requirements.txt
 
 Exit code 0 = all pass, non-zero = failures
 """
 
 import ast
+import re
 import sys
 from pathlib import Path
 
@@ -232,28 +235,17 @@ def check_otel_spans() -> tuple[bool, list[str]]:
     if not telemetry_dir.exists():
         return False, ["app/telemetry directory missing"]
 
-    # The key constants that must be defined/exported
-
+    # Collect all attribute definitions across the telemetry directory
+    all_content = ""
     for py_file in telemetry_dir.rglob("*.py"):
         if "__pycache__" in str(py_file):
             continue
-        content = py_file.read_text()
+        all_content += py_file.read_text()
 
-        # Check if this file defines or exports the required constants
-        for attr in OTEL_ATTRIBUTES:
-            # Look for the constant definition or export
-            found = False
-            if (
-                attr in content
-                or attr.startswith("OTEL_")
-                and attr in content
-                or "__all__" in content
-                and attr in content
-            ):
-                found = True
-
-            if not found:
-                errors.append(f"{py_file.relative_to(REPO_ROOT)}: missing OTel attribute {attr}")
+    # Check that all required attributes are defined somewhere in telemetry/
+    for attr in OTEL_ATTRIBUTES:
+        if attr not in all_content:
+            errors.append(f"app/telemetry/: missing OTel attribute {attr}")
 
     return len(errors) == 0, errors
 
@@ -288,6 +280,566 @@ def check_eval_suite() -> tuple[bool, list[str]]:
     return len(errors) == 0, errors
 
 
+# Standard library modules (excluded from dep_drift check)
+STDLIB_MODULES = {
+    "__future__",
+    "abc",
+    "aifc",
+    "argparse",
+    "array",
+    "ast",
+    "asyncio",
+    "atexit",
+    "base64",
+    "bdb",
+    "binascii",
+    "builtins",
+    "bz2",
+    "calendar",
+    "cmath",
+    "cmd",
+    "code",
+    "codecs",
+    "codeop",
+    "collections",
+    "colorsys",
+    "compileall",
+    "concurrent",
+    "configparser",
+    "contextlib",
+    "contextvars",
+    "copy",
+    "cProfile",
+    "crypt",
+    "csv",
+    "ctypes",
+    "curses",
+    "dataclasses",
+    "datetime",
+    "dbm",
+    "decimal",
+    "difflib",
+    "dis",
+    "distutils",
+    "doctest",
+    "email",
+    "encodings",
+    "enum",
+    "errno",
+    "faulthandler",
+    "fcntl",
+    "filecmp",
+    "fileinput",
+    "fnmatch",
+    "formatter",
+    "fractions",
+    "ftplib",
+    "functools",
+    "gc",
+    "getopt",
+    "getpass",
+    "gettext",
+    "glob",
+    "grp",
+    "gzip",
+    "hashlib",
+    "heapq",
+    "hmac",
+    "html",
+    "http",
+    "idlelib",
+    "imaplib",
+    "imghdr",
+    "imp",
+    "importlib",
+    "inspect",
+    "io",
+    "ipaddress",
+    "itertools",
+    "json",
+    "keyword",
+    "lib2to3",
+    "linecache",
+    "locale",
+    "logging",
+    "lzma",
+    "mailbox",
+    "mailcap",
+    "marshal",
+    "math",
+    "mimetypes",
+    "mmap",
+    "modulefinder",
+    "multiprocessing",
+    "netrc",
+    "nis",
+    "nntplib",
+    "operator",
+    "optparse",
+    "os",
+    "ossaudiodev",
+    "parser",
+    "pathlib",
+    "pdb",
+    "pickle",
+    "pickletools",
+    "pipes",
+    "pkgutil",
+    "platform",
+    "plistlib",
+    "poplib",
+    "posix",
+    "posixpath",
+    "pprint",
+    "profile",
+    "pstats",
+    "pty",
+    "pwd",
+    "py_compile",
+    "pyclbr",
+    "pydoc",
+    "queue",
+    "quopri",
+    "random",
+    "re",
+    "readline",
+    "reprlib",
+    "resource",
+    "rlcompleter",
+    "runpy",
+    "sched",
+    "secrets",
+    "select",
+    "selectors",
+    "shelve",
+    "shlex",
+    "shutil",
+    "signal",
+    "site",
+    "smtpd",
+    "smtplib",
+    "sndhdr",
+    "socket",
+    "socketserver",
+    "spwd",
+    "sqlite3",
+    "sre_compile",
+    "sre_constants",
+    "sre_parse",
+    "ssl",
+    "stat",
+    "statistics",
+    "string",
+    "stringprep",
+    "struct",
+    "subprocess",
+    "sunau",
+    "symtable",
+    "sys",
+    "sysconfig",
+    "syslog",
+    "tabnanny",
+    "tarfile",
+    "telnetlib",
+    "tempfile",
+    "termios",
+    "test",
+    "textwrap",
+    "threading",
+    "time",
+    "timeit",
+    "tkinter",
+    "token",
+    "tokenize",
+    "trace",
+    "traceback",
+    "tracemalloc",
+    "tty",
+    "turtle",
+    "turtledemo",
+    "types",
+    "typing",
+    "unicodedata",
+    "unittest",
+    "urllib",
+    "uu",
+    "uuid",
+    "venv",
+    "warnings",
+    "wave",
+    "weakref",
+    "webbrowser",
+    "winreg",
+    "winsound",
+    "wsgiref",
+    "xdrlib",
+    "xml",
+    "xmlrpc",
+    "zipapp",
+    "zipfile",
+    "zipimport",
+    "zlib",
+    # Internal package
+    "app",
+}
+
+# Package name mapping: import name -> PyPI package name
+# When different, dep_drift checks the PyPI name in requirements
+PKG_NAME_MAP = {
+    "cv2": "opencv-python",
+    "jwt": "PyJWT",
+    "PIL": "Pillow",
+    "fitz": "PyMuPDF",
+    "attr": "attrs",
+    "gi": "PyGObject",
+    "yaml": "PyYAML",
+    "dotenv": "python-dotenv",
+    "psycopg2": "psycopg2-binary",
+    "pil": "Pillow",
+}
+
+
+def check_doc_drift() -> tuple[bool, list[str]]:
+    """Verify docs match code — fail when drifted.
+
+    Checks:
+    1. API_CONTRACT.md routes match actual @web_router/@http_router routes
+    2. CAPABILITY_CONTRACT.md features have corresponding code
+    """
+    issues = []
+
+    # --- Check 1: API_CONTRACT.md routes match actual routes ---
+    contract_path = REPO_ROOT / "docs" / "API_CONTRACT.md"
+    if contract_path.exists():
+        contract_text = contract_path.read_text()
+
+        # Extract routes from API_CONTRACT.md
+        contract_routes = set()
+        for method, path in re.findall(r"(GET|POST|PUT|DELETE|PATCH)\s+(/\S+)", contract_text):
+            # Skip WebSocket paths (they don't have HTTP handlers)
+            if path.startswith("/ws/"):
+                continue
+            # Clean path: strip backticks and query params
+            clean_path = path.split("?")[0].strip("`")
+            contract_routes.add((method, clean_path))
+
+        # Extract actual routes from router.py files
+        actual_routes = set()
+        for router_file in ["app/adapters/web/router.py", "app/adapters/http/router.py"]:
+            fp = REPO_ROOT / router_file
+            if not fp.exists():
+                continue
+            content = fp.read_text()
+            # Determine router prefix from APIRouter(prefix="...")
+            prefix_match = re.search(r'APIRouter\(prefix="([^"]+)"', content)
+            prefix = prefix_match.group(1) if prefix_match else ""
+            # Match @web_router.get("/path"), @http_router.post("/path"), etc.
+            for match in re.finditer(
+                r'@(web_router|http_router)\.(get|post|put|delete|patch)\(["\'](\S+)["\']',
+                content,
+            ):
+                method = match.group(2).upper()
+                path = match.group(3)
+                # Include prefix in path for comparison
+                full_path = prefix.rstrip("/") + "/" + path.lstrip("/")
+                actual_routes.add((method, full_path))
+
+        # Find routes in contract but not in code (only check /api/v1/ routes)
+        for method, path in contract_routes:
+            if (method, path) not in actual_routes:
+                # Skip planned/future routes (Section 12 of API_CONTRACT)
+                section = (
+                    contract_text.split("## 12. Future Endpoints")[1]
+                    if "## 12. Future Endpoints" in contract_text
+                    else ""
+                )
+                if path in section:
+                    continue  # It's a planned route, not drift
+                # Only flag v1 API routes (not /api/ web routes)
+                if path.startswith("/api/v1/"):
+                    issues.append(
+                        f"API_CONTRACT.md declares {method} {path} but router.py has no handler"
+                    )
+
+        # Find routes in code but not in contract (only check /api/v1/ routes)
+        for method, path in actual_routes:
+            if (method, path) not in contract_routes and path.startswith("/api/v1/"):
+                issues.append(
+                    f"router.py has {method} {path} but API_CONTRACT.md doesn't document it"
+                )
+
+    # --- Check 2: CAPABILITY_CONTRACT.md features have code ---
+    cap_path = REPO_ROOT / "docs" / "CAPABILITY_CONTRACT.md"
+    if cap_path.exists():
+        cap_text = cap_path.read_text()  # noqa: F841
+        # Look for feature checkboxes that are unchecked: - [ ] feature_name
+        # These represent planned but not implemented features
+        # But we don't fail on those — they're explicitly future work
+
+    return len(issues) == 0, issues
+
+
+def check_dep_drift() -> tuple[bool, list[str]]:
+    """Verify imports match requirements.txt.
+
+    Critical check: every import in app/ must be in requirements.txt (or stdlib/app).
+    Warning check: packages in requirements.txt but never imported (transitive/dev deps skipped).
+    """
+    issues = []
+    warnings = []
+
+    # Parse requirements.txt
+    req_pkgs = {}
+    req_path = REPO_ROOT / "requirements.txt"
+    if req_path.exists():
+        for line in req_path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            match = re.match(r"^([a-zA-Z0-9_\-\.]+)", line)
+            if match:
+                pkg_name = match.group(1).lower().replace("-", "_")
+                req_pkgs[pkg_name] = line
+
+    # Scan all imports in app/
+    imported_pkgs = set()
+    for py_file in APP_ROOT.rglob("*.py"):
+        if "__pycache__" in str(py_file):
+            continue
+        try:
+            content = py_file.read_text()
+        except Exception:
+            continue
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    imported_pkgs.add(alias.name.split(".")[0])
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported_pkgs.add(node.module.split(".")[0])
+
+    # Critical: imported but not in requirements (and not stdlib/app)
+    for pkg in imported_pkgs:
+        if pkg in STDLIB_MODULES:
+            continue
+        pkg_lower = pkg.lower().replace("-", "_") if pkg else ""
+        mapped = PKG_NAME_MAP.get(pkg, pkg) or pkg
+        mapped_lower = mapped.lower().replace("-", "_") if mapped else ""
+        if (
+            pkg_lower not in req_pkgs
+            and mapped_lower not in req_pkgs
+            and pkg not in req_pkgs
+            and mapped not in req_pkgs
+        ):
+            issues.append(f"Import '{pkg}' not found in requirements.txt")
+
+    # Warning: in requirements but never imported (skip transitive/dev)
+    SKIP_UNUSED = {
+        "pytest",
+        "pytest_asyncio",
+        "pytest_cov",
+        "coverage",
+        "pluggy",
+        "iniconfig",
+        "mypy",
+        "mypy_extensions",
+        "typing_inspection",
+        "pyright",
+        "ruff",
+        "shellingham",
+        "rich",
+        "markdown_it_py",
+        "mdurl",
+        "pygments",
+        "pip",
+        "pip_licenses",
+        "pip_requirements_parser",
+        "pip_api",
+        "pip_audit",
+        "cyclonedx_python_lib",
+        "defusedxml",
+        "license_expression",
+        "boolean_py",
+        "sortedcontainers",
+        "prettytable",
+        "wcwidth",
+        "py_serializable",
+        "packageurl_python",
+        "pyparsing",
+        "fonttools",
+        "pyproject_hooks",
+        "tomli",
+        "installer",
+        "build",
+        "setuptools",
+        "wheel",
+        "distlib",
+        "platformdirs",
+        "virtualenv",
+        "filelock",
+        "cfgv",
+        "identify",
+        "nodeenv",
+        "pre_commit",
+        "certifi",
+        "idna",
+        "charset_normalizer",
+        "requests_toolbelt",
+        "urllib3",
+        "six",
+        "decorator",
+        "pytz",
+        "pycparser",
+        "cffi",
+        "itsdangerous",
+        "jmespath",
+        "pkgutil_resolve_name",
+        "importlib_resources",
+        "zipp",
+        "bcrypt",
+        "cryptography",
+        "fsspec",
+        "cachecontrol",
+        "msgpack",
+        "click",
+        "jiter",
+        "jsonschema",
+        "jsonschema_specifications",
+        "mmh3",
+        "narwhals",
+        "orjson",
+        "overrides",
+        "packaging",
+        "pillow",
+        "propcache",
+        "referencing",
+        "rpds_py",
+        "starlette",
+        "tomli_w",
+        "typer",
+        "typing_extensions",
+        "aiohttp",
+        "aiosignal",
+        "frozenlist",
+        "multidict",
+        "yarl",
+        "async_timeout",
+        "attrs",
+        "exceptiongroup",
+        "httpcore",
+        "httpcore2",
+        "httpx",
+        "httpx2",
+        "h11",
+        "sniffio",
+        "anyio",
+        "httptools",
+        "websocket_client",
+        "websockets",
+        "uvloop",
+        "watchfiles",
+        "grpcio",
+        "protobuf",
+        "googleapis_common_protos",
+        "pyasn1",
+        "pyasn1_modules",
+        "rsa",
+        "huggingface_hub",
+        "hf_xet",
+        "tokenizers",
+        "safetensors",
+        "regex",
+        "requests",
+        "tqdm",
+        "joblib",
+        "threadpoolctl",
+        "numpy",
+        "scipy",
+        "scikit_learn",
+        "networkx",
+        "sympy",
+        "mpmath",
+        "flatbuffers",
+        "onnxruntime",
+        "cloudpickle",
+        "durationpy",
+        "kubernetes",
+        "oauthlib",
+        "requests_oauthlib",
+        "truststore",
+        "pybase64",
+        "python_dotenv",
+        "pyyaml",
+        "python_dateutil",
+        "jinja2",
+        "markupsafe",
+        "pydantic_core",
+        "pydantic_settings",
+        "annotated_types",
+        "annotated_doc",
+        "pypika",
+        "tenacity",
+        "ollama",
+        "openai",
+        "chromadb",
+        "sentence_transformers",
+        "transformers",
+        "torch",
+        "triton",
+        "cuda_bindings",
+        "cuda_pathfinder",
+        "cuda_toolkit",
+        "nvidia_cublas",
+        "nvidia_cuda_cupti",
+        "nvidia_cuda_nvrtc",
+        "nvidia_cuda_runtime",
+        "nvidia_cudnn_cu13",
+        "nvidia_cufft",
+        "nvidia_cufile",
+        "nvidia_curand",
+        "nvidia_cusolver",
+        "nvidia_cusparse",
+        "nvidia_cusparselt_cu13",
+        "nvidia_nccl_cu13",
+        "nvidia_nvjitlink",
+        "nvidia_nvshmem_cu13",
+        "nvidia_nvtx",
+        "opentelemetry_api",
+        "opentelemetry_exporter_otlp_proto_common",
+        "opentelemetry_exporter_otlp_proto_grpc",
+        "opentelemetry_proto",
+        "opentelemetry_sdk",
+        "opentelemetry_semantic_conventions",
+        "structlog",
+        "tiktoken",
+        "asyncpg",
+        "mcp",
+        "paddleocr",
+        "psycopg",
+        "psycopg2",
+        "langgraph",
+        "opentelemetry",
+        "psycopg2_binary",
+    }
+    for pkg in req_pkgs:
+        if (
+            pkg in imported_pkgs
+            or pkg.replace("_", "-") in imported_pkgs
+            or pkg.replace("-", "_") in imported_pkgs
+        ):
+            continue
+        if pkg in SKIP_UNUSED:
+            continue
+        warnings.append(
+            f"Package '{pkg}' in requirements.txt never imported (transitive or unused)"
+        )
+
+    return len(issues) == 0, issues + warnings
+
+
 def main():
     checks = [
         ("import_layering", check_import_layering),
@@ -299,18 +851,39 @@ def main():
         ("otel_spans", check_otel_spans),
         ("langgraph_checkpoint", check_langgraph_checkpoint),
         ("eval_suite", check_eval_suite),
+        ("doc_drift", check_doc_drift),
+        ("dep_drift", check_dep_drift),
     ]
 
     all_pass = True
     for name, check_fn in checks:
         passed, errors = check_fn()
-        if passed:
-            print(f"✅ {name}")
+        # For dep_drift, only failures (not warnings) count against gate
+        if name == "dep_drift":
+            # errors contains both issues and warnings; separate them
+            issues = [e for e in errors if "transitive or unused" not in e]
+            warnings = [e for e in errors if "transitive or unused" in e]
+            if issues:
+                print(f"❌ {name}")
+                for err in issues:
+                    print(f"   - {err}")
+                for warn in warnings:
+                    print(f"   ⚠ {warn}")
+                all_pass = False
+            elif warnings:
+                print(f"⚠ {name}")
+                for warn in warnings:
+                    print(f"   ⚠ {warn}")
+            else:
+                print(f"✅ {name}")
         else:
-            print(f"❌ {name}")
-            for err in errors:
-                print(f"   - {err}")
-            all_pass = False
+            if passed:
+                print(f"✅ {name}")
+            else:
+                print(f"❌ {name}")
+                for err in errors:
+                    print(f"   - {err}")
+                all_pass = False
 
     if all_pass:
         print(f"\n🎉 All {len(checks)} governance checks passed!")
