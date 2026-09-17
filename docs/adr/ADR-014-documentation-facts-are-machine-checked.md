@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: adr
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 
 - **Date**: 2026-09-13
 - **Related**: `docs/DOC-GOVERNANCE.md` (§4 rules, §6 checker, §7 cadence, §8 facts,
@@ -74,7 +75,7 @@ a blank one.
 A document does not contain a number. It contains a claim that a number belongs there:
 
 ```markdown
-The gate runs <!--fact:gate_count-->25<!--/fact--> checks.
+The gate runs <!--fact:gate_count-->26<!--/fact--> checks.
 ```
 
 HTML comments are chosen so that no markdown formatter, linter or renderer touches

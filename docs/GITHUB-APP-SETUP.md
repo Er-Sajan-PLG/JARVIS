@@ -4,6 +4,7 @@
 **Type**: runbook
 **Source**: `scripts/ci_bridge.py` at HEAD
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 
 The CI gate currently publishes with a fine-grained PAT (`JARVIS_CI_TOKEN`). That
 works — verified: `published=8/8`, and GitHub read-back returns

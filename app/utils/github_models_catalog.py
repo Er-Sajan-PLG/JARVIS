@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import threading
 import time
-
-import requests
 
 from app.utils.logging_setup import get_logger
 
@@ -28,13 +27,19 @@ _cache: dict = {"data": None, "fetched_at": 0.0}
 _cache_lock = threading.Lock()
 
 
-def fetch_github_models(force: bool = False) -> list[dict]:
+def _resolve_key(api_key: str = "") -> str:
+    """Fall back to the environment when no key is passed explicitly."""
+    if api_key:
+        return api_key
+    return os.environ.get("GITHUB_TOKEN") or os.environ.get("GITHUB_API_KEY") or ""
+
+
+def fetch_github_models(force: bool = False, api_key: str = "") -> list[dict]:
     """Return available GitHub Models."""
+    api_key = _resolve_key(api_key)
     now = time.time()
     with _cache_lock:
-        if not force and _cache["data"] is not None and (
-            now - _cache["fetched_at"] < 3600
-        ):
+        if not force and _cache["data"] is not None and (now - _cache["fetched_at"] < 3600):
             return _cache["data"]
 
     models = [
@@ -47,11 +52,11 @@ def fetch_github_models(force: bool = False) -> list[dict]:
         }
         for m in MODELS_LIST
     ]
-    
+
     with _cache_lock:
         _cache["data"] = models
         _cache["fetched_at"] = now
-    
+
     return models
 
 

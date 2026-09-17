@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: architecture
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 **Source**: `app/` at HEAD (this document describes HEAD, not a pinned commit)
 
 **Workflow Orchestration**: JARVIS orchestrates; n8n schedules and notifies (ADR-013)

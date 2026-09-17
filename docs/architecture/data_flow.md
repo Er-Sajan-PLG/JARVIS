@@ -3,6 +3,7 @@
 **Status**: ACTIVE
 **Type**: architecture
 **Last Updated**: 2026-09-13
+**Reviewed**: 2026-09-14
 **Source**: `app/domain/`, `app/brain/`, `app/adapters/` at HEAD
 
 > **Source of Truth**: `app/domain/`, `app/brain/`, and `app/adapters/` at `HEAD`.

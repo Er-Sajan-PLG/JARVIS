@@ -22,6 +22,23 @@ class SessionManager:
         self._active_sessions: dict[str, SessionState] = {}
         self._active_conversations: dict[str, ConversationState] = {}
 
+    def get_or_create_session_sync(self, session_id: str = "default") -> SessionState:
+        """Synchronous wrapper for get_or_create_session."""
+        import asyncio
+
+        try:
+            asyncio.get_running_loop()
+            # We're in an async context — can't use run, so we return a coroutine
+            # Callers in sync context should not hit this, but handle gracefully
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, self.get_or_create_session(session_id))
+                return future.result()
+        except RuntimeError:
+            # No running loop — safe to use asyncio.run
+            return asyncio.run(self.get_or_create_session(session_id))
+
     async def get_or_create_session(self, session_id: str = "default") -> SessionState:
         """Retrieve existing active session or load/create one."""
         if session_id in self._active_sessions:
@@ -99,6 +116,20 @@ class SessionManager:
         self._active_sessions[target_id] = forked
         await self.persistence.save_session(forked)
         return forked
+
+    def fork_session_sync(self, session_id: str, new_session_id: str | None = None) -> SessionState:
+        """Synchronous wrapper for fork_session."""
+        import asyncio
+
+        try:
+            asyncio.get_running_loop()
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, self.fork_session(session_id, new_session_id))
+                return future.result()
+        except RuntimeError:
+            return asyncio.run(self.fork_session(session_id, new_session_id))
 
     async def archive_session(self, session_id: str) -> SessionState:
         """Mark a session as archived (keeps it out of the active set)."""

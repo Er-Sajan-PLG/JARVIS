@@ -575,6 +575,30 @@ def gate_pip_audit(worktree: Path) -> Check:
     )
 
 
+def gate_evals(worktree: Path) -> Check:
+    """Run the eval suite (opt-in via --with-evals)."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "scripts/run_evals.py"],
+        cwd=worktree,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode == 0:
+        return Check("evals", "Test", False, "pass", "eval suite passed", exit_code=0)
+    return Check(
+        "evals",
+        "Test",
+        False,
+        "fail",
+        f"eval suite failed:\n{result.stdout[:500]}",
+        exit_code=result.returncode,
+    )
+
+
 def gate_coverage(worktree: Path) -> Check:
     """REPORTED ONLY — measured 98% on 2026-09-13 against the 80% floor (RISK-004 closed).
 
@@ -1544,6 +1568,7 @@ def run_gates(
     with_coverage: bool = False,
     with_docker: bool = False,
     with_mutation: bool = False,
+    with_evals: bool = False,
 ) -> GateReport:
     started = time.time()
     report = GateReport(
@@ -1609,6 +1634,8 @@ def run_gates(
             report.checks.append(gate_docker_build(worktree))
         if with_mutation:
             report.checks.append(gate_mutation(worktree))
+        if with_evals:
+            report.checks.append(gate_evals(worktree))
     finally:
         if not keep:
             _teardown_worktree(worktree)
@@ -1689,6 +1716,7 @@ def main() -> int:
     parser.add_argument(
         "--with-mutation", action="store_true", help="add the (non-blocking, slow) mutation gate"
     )
+    parser.add_argument("--with-evals", action="store_true", help="add the eval suite gate")
     parser.add_argument(
         "--init-signing", action="store_true", help="create the local cosign keypair"
     )
@@ -1712,6 +1740,7 @@ def main() -> int:
         with_coverage=args.with_coverage,
         with_docker=args.with_docker,
         with_mutation=args.with_mutation,
+        with_evals=args.with_evals,
     )
 
     payload = asdict(report)
