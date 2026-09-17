@@ -42,6 +42,7 @@ the code wins — and the document is a bug.
 | **[GITHUB-APP-SETUP.md](GITHUB-APP-SETUP.md)** | Migrating CI auth from long-lived PATs to GitHub Apps |
 | **[N8N-SETUP.md](N8N-SETUP.md)** | Standing up the n8n automation plane |
 | **[N8N-HANDOVER.md](N8N-HANDOVER.md)** | Editing workflows in the UI and reading changes back |
+| **[MOBILE_ACCESS.md](MOBILE_ACCESS.md)** | Running JARVIS as an installable app on a phone over LAN or a private tunnel |
 
 ---
 
