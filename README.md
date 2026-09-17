@@ -1,5 +1,11 @@
 # JARVIS
 
+**Status**: ACTIVE
+**Type**: guide
+**Last Updated**: 2026-09-17
+**Reviewed**: 2026-09-17
+**Source**: `README.md` at HEAD
+
 *A Rather Very Intelligent System.*
 
 ---
