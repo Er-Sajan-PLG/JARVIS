@@ -97,6 +97,19 @@ not exist (`config.md`, `githooks.md`, `scripts.md`, `frontend.md`, `tests.md`).
 Do not recreate them by hand; if a module guide is wanted, write it against the
 code and follow `docs/DOC-GOVERNANCE.md`.
 
+New module docs (2026-09-17):
+| Document | Content |
+|---|---|
+| **[ocr.md](modules/integrations/ocr.md)** | OCR integration (PaddleOCR, Unlimited-OCR) |
+| **[agy.md](modules/integrations/agy.md)** | AGY CLI integration |
+| **[workspace.md](modules/tools/workspace.md)** | Workspace tools (file/directory management) |
+| **[artifacts.md](modules/artifacts.md)** | Artifact manager (execution artifacts) |
+| **[context.md](modules/context.md)** | Context builder (LLM conversation context) |
+| **[session.md](modules/session.md)** | Session manager (conversation state & checkpointing) |
+| **[router.md](modules/models/router.md)** | Model router (multi-provider LLM routing) |
+| **[provider_registry.md](modules/provider_registry.md)** | Provider registry (LLM provider configs) |
+| **[telemetry.md](modules/telemetry.md)** | Telemetry (tracing, metrics, logging) |
+
 ---
 
 ## 📌 Contributor guidelines
