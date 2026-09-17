@@ -20,6 +20,7 @@ from app.adapters import http_router, ws_router  # noqa: E402
 from app.adapters.web.router import web_router  # noqa: E402
 from app.adapters.web.email_routes import email_router  # noqa: E402
 from app.adapters.web.push_routes import push_router  # noqa: E402
+from app.adapters.web.brief_routes import brief_router  # noqa: E402
 from app.api.ocr.routes import ocr_router  # noqa: E402
 from app.bootstrap import bootstrap_system  # noqa: E402
 from app.config.version import VERSION as __version__  # noqa: E402
@@ -97,73 +98,4 @@ app.include_router(web_router)
 app.include_router(ocr_router)
 app.include_router(email_router)
 app.include_router(push_router)
-
-# Mount frontend assets. The HTML references /static/<file>, and the JS/CSS
-# live under frontend/assets/, so serve that directory directly.
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
-if (FRONTEND_DIR / "assets").exists():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR / "assets")), name="static")
-elif FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
-
-
-@app.get("/")
-async def serve_frontend():
-    from fastapi.responses import FileResponse
-
-    index_path = FRONTEND_DIR / "index.html"
-    if index_path.exists():
-        return FileResponse(str(index_path))
-    return {"message": "JARVIS API — frontend not built"}
-
-
-@app.get("/health")
-async def health_check() -> dict[str, object]:
-    return {"status": "healthy", "system": "JARVIS v3.0"}
-
-
-@app.get("/ready")
-async def readiness_check() -> Response:
-    import json as _json
-
-    try:
-        container = bootstrap_system()
-        checks = {
-            "model_router": container.model_router is not None,
-            "memory_service": container.memory_service is not None,
-            "session_manager": container.session_manager is not None,
-            "safety_policy": container.safety_policy is not None,
-        }
-        all_ready = all(checks.values())
-        status_code = 200 if all_ready else 503
-        return Response(
-            content=_json.dumps({"ready": all_ready, "checks": checks}),
-            status_code=status_code,
-            media_type="application/json",
-        )
-    except Exception as e:
-        return Response(
-            content=_json.dumps({"ready": False, "error": str(e)}),
-            status_code=503,
-            media_type="application/json",
-        )
-
-
-@app.get("/metrics")
-async def metrics_endpoint() -> Response:
-    container = bootstrap_system()
-    metrics = container.metrics if hasattr(container, "metrics") else None
-    if metrics:
-        metrics_text = (
-            metrics.export_prometheus()
-            if hasattr(metrics, "export_prometheus")
-            else "# No metrics available"
-        )
-        return Response(content=metrics_text, media_type="text/plain")
-    return Response(content="# Metrics not available", media_type="text/plain")
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+app.include_router(brief_router)
