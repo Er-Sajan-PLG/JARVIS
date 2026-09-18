@@ -18,6 +18,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from app.adapters import http_router, ws_router  # noqa: E402
 from app.adapters.web.router import web_router  # noqa: E402
+from app.api.ocr.routes import ocr_router  # noqa: E402
 from app.bootstrap import bootstrap_system  # noqa: E402
 from app.config.version import VERSION as __version__  # noqa: E402
 
@@ -91,6 +92,7 @@ async def logging_middleware(
 app.include_router(http_router)
 app.include_router(ws_router)
 app.include_router(web_router)
+app.include_router(ocr_router)
 
 # Mount frontend assets. The HTML references /static/<file>, and the JS/CSS
 # live under frontend/assets/, so serve that directory directly.

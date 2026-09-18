@@ -57,11 +57,15 @@ class ApplicationContainer:
 
         return create_client(config)
 
-    def get_provider_spec(self, provider: str):
-        """Get provider spec by key (delegates to app.provider_registry)."""
+    def get_provider_registry(self):
+        """Get the provider registry (delegates to app.provider_registry)."""
         from app.provider_registry import get_provider_registry
 
-        return get_provider_registry().get_provider(provider)
+        return get_provider_registry()
+
+    def get_provider_spec(self, provider: str):
+        """Get provider spec by key (delegates to app.provider_registry)."""
+        return self.get_provider_registry().get_provider(provider)
 
 
 _container_instance: ApplicationContainer | None = None

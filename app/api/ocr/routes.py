@@ -29,21 +29,21 @@ from app.integrations.ocr.service import OCRService, OCRServiceError, get_ocr_se
 
 log = structlog.get_logger()
 
-router = APIRouter(prefix="/ocr", tags=["OCR"])
+ocr_router = APIRouter(prefix="/api/ocr", tags=["OCR"])
 
 
 def get_service() -> OCRService:
     return get_ocr_service()
 
 
-@router.get("/health", response_model=HealthResponse)
+@ocr_router.get("/health", response_model=HealthResponse)
 async def health_check(service: OCRService = Depends(get_service)):
     """Check OCR service and model health."""
     health = await service.health_check()
     return HealthResponse(**health)
 
 
-@router.post("/process", response_model=OCRResult)
+@ocr_router.post("/process", response_model=OCRResult)
 async def process_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="Image or PDF file"),
@@ -143,7 +143,7 @@ async def process_document(
         raise HTTPException(500, f"Processing failed: {e}")
 
 
-@router.post("/process-path", response_model=OCRResult)
+@ocr_router.post("/process-path", response_model=OCRResult)
 async def process_server_path(
     file_path: str = Form(..., description="Server-side file path"),
     backend: OCRBackend = Form(default=OCRBackend.AUTO),

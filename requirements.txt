@@ -152,3 +152,16 @@ wcwidth==0.8.3
 websocket-client==1.9.2
 websockets==17.1
 yarl==1.24.5
+structlog==24.4.0
+tiktoken==0.8.0
+asyncpg==0.30.1
+mcp==1.2.0
+paddleocr==2.7.0
+psycopg==3.2.3
+psycopg2-binary==2.9.10
+langgraph==0.4.1
+opentelemetry-api==1.44.0
+opentelemetry-sdk==1.44.0
+opentelemetry-exporter-otlp-proto-grpc==1.44.0
+opentelemetry-semantic-conventions==0.65b0
+opentelemetry==1.44.0
