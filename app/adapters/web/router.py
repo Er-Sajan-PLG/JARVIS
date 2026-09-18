@@ -37,6 +37,37 @@ load_dotenv(_PROJECT_ROOT / ".env")
 logger = logging.getLogger(__name__)
 
 
+# Asking for the brief ("send me today's brief", "morning briefing").
+_BRIEF_HINTS = ("brief", "briefing")
+
+
+def _wants_brief(message: str) -> bool:
+    """True when the operator is asking for the (morning) brief."""
+    import re
+
+    text = message.lower()
+    return any(re.search(rf"\b{re.escape(h)}s?\b", text) for h in _BRIEF_HINTS)
+
+
+_VOICE_DELIVERY_HINTS = (
+    "voice note",
+    "voice message",
+    "as audio",
+    "speak it",
+    "read it to me",
+    "send.*voice",
+    "voice.*brief",
+)
+
+
+def _wants_voice_delivery(message: str) -> bool:
+    """True when the operator wants the reply spoken/sent as voice."""
+    import re
+
+    text = message.lower()
+    return any(re.search(h, text) for h in _VOICE_DELIVERY_HINTS)
+
+
 # Asking about mail ("any important email?", "what did I miss?", "who emailed
 # me?") injects an unread digest. Word boundaries keep "blackmail" and
 # "remailed" from triggering it.
@@ -582,7 +613,20 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Email context failed: %s", exc)
 
-    full_message = f"{message}{memory_context}{file_context}{email_context}"
+    # Brief context: "send me today's brief" / "morning briefing" generates
+    # the brief and injects it so the model narrates live data.
+    brief_context = ""
+    if _wants_brief(message):
+        try:
+            from app.integrations.brief import BriefConfig, BriefService
+
+            service = BriefService(BriefConfig.from_env())
+            brief = await service.generate_brief()
+            brief_context = f"\n\n[Brief Context]\n{service._format_brief_text(brief)}"
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Brief context failed: %s", exc)
+
+    full_message = f"{message}{memory_context}{file_context}{email_context}{brief_context}"
 
     # ``model`` arrives in two shapes, both legitimate:
     #   {"provider": "nvidia", "id": "nvidia/nemotron-3-super-120b-a12b"}  (dict)
@@ -728,11 +772,24 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Memory store failed: %s", exc)
 
+    # Spoken delivery: on Telegram sessions, "send me today's brief as a voice
+    # note" speaks the reply into the chat. Web sessions have no voice target
+    # and skip silently. Never blocks the text reply.
+    voice_sent = False
+    if _wants_voice_delivery(message) and session_id.startswith("telegram:"):
+        try:
+            from app.integrations.telegram import send_voice
+
+            voice_sent = await send_voice(response_content, chat_id=session_id.split(":", 1)[1])
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Voice delivery failed: %s", exc)
+
     return {
         "response": response_content,
         "model": model_info,
         "session_id": session_id,
         "tokens_used": response_tokens,
+        "voice_sent": voice_sent,
     }
 
 

@@ -218,10 +218,19 @@ class TelegramPoller:
         chat = message.get("chat", {})
         chat_id = str(chat.get("id", ""))
         text = (message.get("text") or "").strip()
-        if not chat_id or not text:
-            return  # non-text content (stickers, photos) is ignored
+        if not chat_id:
+            return
         if chat_id not in self.config.allowed_chat_ids:
             logger.warning("Ignoring Telegram message from unknown chat %s", chat_id)
+            return
+
+        # Voice/audio messages are transcribed first, then handled as text.
+        # Without this, talking to the bot was silently ignored.
+        if not text and ("voice" in message or "audio" in message):
+            text = await self._transcribe_message(message) or ""
+            if text:
+                logger.info("Transcribed Telegram voice: %s", text[:80])
+        if not text:
             return
 
         # Flood guard: at most one reply per interval per chat.
@@ -239,6 +248,45 @@ class TelegramPoller:
                 reply_to=message.get("message_id"),
                 config=self.config,
             )
+
+    async def _transcribe_message(self, message: dict) -> str:
+        """Download a voice/audio attachment and transcribe it locally."""
+        import tempfile
+        from pathlib import Path
+
+        file_id = ((message.get("voice") or message.get("audio")) or {}).get("file_id")
+        if not file_id:
+            return ""
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=60) as client:
+                info = await client.get(
+                    f"{_API_BASE}{self.config.token}/getFile",
+                    params={"file_id": file_id},
+                )
+                if info.status_code != 200:
+                    return ""
+                file_path = info.json().get("result", {}).get("file_path", "")
+                if not file_path:
+                    return ""
+                dl = await client.get(
+                    f"https://api.telegram.org/file/bot{self.config.token}/{file_path}"
+                )
+                if dl.status_code != 200 or not dl.content:
+                    return ""
+                from faster_whisper import WhisperModel
+
+                model = WhisperModel("tiny", device="cpu", compute_type="int8")
+                suffix = Path(file_path).suffix or ".ogg"
+                with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
+                    tmp.write(dl.content)
+                    tmp.flush()
+                    segments, _ = model.transcribe(tmp.name)
+                    return " ".join(s.text for s in segments).strip()
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Telegram voice transcribe error: %s", exc)
+            return ""
 
     async def _answer(self, text: str, chat_id: str) -> str:
         """Route one message through the web chat pipeline."""

@@ -93,3 +93,47 @@ class TestCommsToolsRegistered:
         ):
             out = await comms_read_emails(unread_only=True)
         assert '"count": 0' in out
+
+
+class TestBriefTrigger:
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "send me today's brief",
+            "morning briefing please",
+            "give me the daily brief",
+            "brief me",
+        ],
+    )
+    def test_triggers(self, message):
+        from app.adapters.web.router import _wants_brief
+
+        assert _wants_brief(message) is True
+
+    @pytest.mark.parametrize(
+        "message", ["hello", "briefly explain", "debrief the team"]
+    )
+    def test_no_trigger(self, message):
+        from app.adapters.web.router import _wants_brief
+
+        assert _wants_brief(message) is False
+
+
+class TestVoiceDeliveryTrigger:
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "send me today's brief as a voice note",
+            "speak it",
+            "read it to me",
+        ],
+    )
+    def test_triggers(self, message):
+        from app.adapters.web.router import _wants_voice_delivery
+
+        assert _wants_voice_delivery(message) is True
+
+    def test_no_trigger(self):
+        from app.adapters.web.router import _wants_voice_delivery
+
+        assert _wants_voice_delivery("what is the brief") is False

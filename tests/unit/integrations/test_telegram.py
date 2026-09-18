@@ -172,3 +172,46 @@ class TestPoller:
         assert args[0] == "hello back"
         assert kwargs["chat_id"] == "111"
         assert kwargs["reply_to"] == 7
+
+
+class TestVoiceHandling:
+    @pytest.mark.asyncio
+    async def test_voice_message_transcribed_then_answered(self, config):
+        poller = TelegramPoller(config)
+        with (
+            patch.object(
+                poller, "_transcribe_message", new=AsyncMock(return_value="read my mail")
+            ),
+            patch.object(poller, "_answer", new=AsyncMock(return_value="done")) as answer,
+            patch(
+                "app.integrations.telegram.send_message",
+                new=AsyncMock(return_value=True),
+            ) as sender,
+        ):
+            await poller._handle_update(
+                {
+                    "message": {
+                        "chat": {"id": 111},
+                        "message_id": 9,
+                        "voice": {"file_id": "abc", "duration": 3},
+                    }
+                }
+            )
+        sender.assert_called_once()
+        answer.assert_called_once_with("read my mail", "111")
+
+    @pytest.mark.asyncio
+    async def test_untranscribable_voice_ignored(self, config):
+        poller = TelegramPoller(config)
+        with (
+            patch.object(poller, "_transcribe_message", new=AsyncMock(return_value="")),
+            patch.object(poller, "_answer", new=AsyncMock(return_value="x")),
+            patch(
+                "app.integrations.telegram.send_message",
+                new=AsyncMock(return_value=True),
+            ) as sender,
+        ):
+            await poller._handle_update(
+                {"message": {"chat": {"id": 111}, "voice": {"file_id": "abc"}}}
+            )
+        sender.assert_not_called()
