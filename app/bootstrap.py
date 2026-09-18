@@ -51,6 +51,18 @@ class ApplicationContainer:
     execution_runner: ExecutionRunner
     response_synthesizer: ResponseSynthesizer
 
+    def create_model_client(self, config):
+        """Create a model client from config (delegates to app.models.factory)."""
+        from app.models.factory import create_client
+
+        return create_client(config)
+
+    def get_provider_spec(self, provider: str):
+        """Get provider spec by key (delegates to app.provider_registry)."""
+        from app.provider_registry import get_provider_registry
+
+        return get_provider_registry().get_provider(provider)
+
 
 _container_instance: ApplicationContainer | None = None
 

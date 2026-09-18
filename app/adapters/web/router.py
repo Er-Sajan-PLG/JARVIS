@@ -552,7 +552,6 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
 
         else:
             from app.config.settings import ModelConfig
-            from app.models.factory import create_client
 
             custom = {p["key"]: p for p in get_custom_providers_with_keys()}
 
@@ -573,9 +572,8 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
                 )
             else:
                 from app.adapters.web.settings import resolve_api_key
-                from app.provider_registry import get_provider_registry
 
-                spec = get_provider_registry().get_provider(provider)
+                spec = container.get_provider_spec(provider)
                 if spec is None:
                     raise HTTPException(status_code=400, detail=f"Unknown provider '{provider}'")
 
@@ -596,7 +594,7 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
                     base_url=spec.get("api_endpoint") or "",
                 )
 
-            client = create_client(config)
+            client = container.create_model_client(config)
             response_content, response_tokens = _extract_content(
                 client.generate([{"role": "user", "content": full_message}])
             )

@@ -4,9 +4,8 @@ Subscribes to InMemoryAsyncBus events for passive telemetry, token cost auditing
 """
 
 import logging
-from typing import Any
 
-from app.events import Event, InMemoryAsyncBus, StepExecutionEvent, TelemetryEvent, TokenUsageEvent
+from app.events import InMemoryAsyncBus, StepExecutionEvent, TelemetryEvent, TokenUsageEvent
 
 logger = logging.getLogger("jarvis.telemetry")
 

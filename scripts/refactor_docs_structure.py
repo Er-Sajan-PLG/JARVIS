@@ -7,6 +7,7 @@ Refactors and reorganizes docs/ into a clean, modern, zero-clutter hierarchy.
 import os
 import shutil
 
+
 def refactor_docs():
     print("[*] Starting /docs directory refactor...")
 
@@ -19,7 +20,7 @@ def refactor_docs():
         "docs/api_graph.json",
         "docs/module_graph.json",
         "docs/history_graph.json",
-        "docs/knowledge_graph.json"
+        "docs/knowledge_graph.json",
     ]
     for jf in json_files:
         if os.path.exists(jf):
@@ -49,7 +50,7 @@ def refactor_docs():
         "docs/modules/docs.md",
         "docs/modules/app.md",
         "docs/modules/external.md",
-        "docs/modules/prompts.md"
+        "docs/modules/prompts.md",
     ]
     for sf in scratch_files:
         if os.path.exists(sf):
@@ -76,6 +77,7 @@ def refactor_docs():
             print(f"  [+] Renamed {old_p} -> {new_p}")
 
     print("[+] /docs directory refactor completed successfully!")
+
 
 if __name__ == "__main__":
     refactor_docs()

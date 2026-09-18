@@ -90,7 +90,9 @@ class ArtifactManager:
             return ContentType.PDF
         if "image" in mime or any(name.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".webp")):
             return ContentType.IMAGE
-        if any(name.endswith(ext) for ext in (".py", ".js", ".ts", ".html", ".css", ".go", ".rs", ".c")):
+        if any(
+            name.endswith(ext) for ext in (".py", ".js", ".ts", ".html", ".css", ".go", ".rs", ".c")
+        ):
             return ContentType.CODE
         return ContentType.FILE
 

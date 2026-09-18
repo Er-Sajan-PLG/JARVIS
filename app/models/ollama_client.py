@@ -1,12 +1,13 @@
 # app/models/ollama_client.py
-from typing import Optional, Callable
+from collections.abc import Callable
+
 import ollama
 
 from app.models.client import ModelClient, ModelResponse
 from app.models.exceptions import (
-    ModelResponseError,
-    ModelConnectionError,
     RESPONSE_SHAPE_ERRORS,
+    ModelConnectionError,
+    ModelResponseError,
     map_ollama_error,
     ollama_transport_errors,
 )
@@ -18,13 +19,14 @@ class OllamaClient(ModelClient):
         model: str,
         base_url: str = "http://localhost:11434",
         api_key: str = "not-needed",
-        role: str = "general"
+        role: str = "general",
     ):
         self._model = model
         self._role = role
 
         if api_key and api_key.startswith("env:"):
             import os
+
             api_key = os.environ.get(api_key[4:].strip(), "not-needed")
 
         if not api_key:
@@ -36,22 +38,21 @@ class OllamaClient(ModelClient):
         # SDK (same pattern as LlamaCppClient) so generate()'s chat.completions
         # calls work against Ollama too.
         from openai import OpenAI
+
         self._client = OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
 
     def generate(
-        self, 
-        messages: list[dict], 
-        stream: bool = False, 
+        self,
+        messages: list[dict],
+        stream: bool = False,
         on_token: Callable[[str], None] = None,
-        **kwargs
+        **kwargs,
     ) -> ModelResponse:
         try:
             if not stream:
                 # --- STANDARD PATH ---
                 response = self._client.chat.completions.create(
-                    model=self._model, 
-                    messages=messages, 
-                    **kwargs
+                    model=self._model, messages=messages, **kwargs
                 )
                 choice = response.choices[0]
                 return ModelResponse(
@@ -60,15 +61,12 @@ class OllamaClient(ModelClient):
                     tokens_used=response.usage.total_tokens if response.usage else None,
                     finish_reason=choice.finish_reason,
                 )
-            
+
             # --- STREAMING PATH ---
             full_content = ""
             finish_reason = None
             stream_response = self._client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-                stream=True,
-                **kwargs
+                model=self._model, messages=messages, stream=True, **kwargs
             )
 
             for chunk in stream_response:
@@ -112,7 +110,9 @@ class OllamaClient(ModelClient):
             ) from exc
 
     @property
-    def model_name(self) -> str: return self._model
+    def model_name(self) -> str:
+        return self._model
 
     @property
-    def role(self) -> str: return self._role
+    def role(self) -> str:
+        return self._role

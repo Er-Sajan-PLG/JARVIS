@@ -8,14 +8,14 @@ Usage:
   Set HF_API_TOKEN in your environment or .env file.
 """
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import requests
 
 from app.models.client import ModelClient, ModelResponse
 from app.models.exceptions import (
-    ModelResponseError,
     ModelConnectionError,
+    ModelResponseError,
 )
 
 
@@ -45,7 +45,7 @@ class HuggingFaceClient(ModelClient):
         self,
         messages: list[dict],
         stream: bool = False,
-        on_token: Optional[Callable[[str], None]] = None,
+        on_token: Callable[[str], None] | None = None,
         **kwargs,
     ) -> ModelResponse:
         """Generate a response via Hugging Face."""
@@ -63,7 +63,7 @@ class HuggingFaceClient(ModelClient):
 
         url = f"{self.BASE_URL}/models/{self._model}"
         headers = {"Authorization": f"Bearer {self._api_key}"}
-        
+
         payload = {"inputs": prompt}
         if "temperature" in kwargs:
             payload["parameters"] = {"temperature": kwargs["temperature"]}
@@ -76,7 +76,7 @@ class HuggingFaceClient(ModelClient):
             res = requests.post(url, json=payload, headers=headers, timeout=120)
             res.raise_for_status()
             data = res.json()
-            
+
             # Handle different response formats
             if isinstance(data, list) and len(data) > 0:
                 output = data[0]
@@ -99,9 +99,7 @@ class HuggingFaceClient(ModelClient):
         except requests.exceptions.RequestException as exc:
             raise ModelConnectionError(str(exc)) from exc
         except Exception as exc:
-            raise ModelResponseError(
-                f"Malformed response from Hugging Face.", cause=exc
-            ) from exc
+            raise ModelResponseError("Malformed response from Hugging Face.", cause=exc) from exc
 
     @property
     def model_name(self) -> str:

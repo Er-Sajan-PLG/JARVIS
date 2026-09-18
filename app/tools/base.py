@@ -1,5 +1,5 @@
 """
-Tool infrastructure for JARVIS 
+Tool infrastructure for JARVIS
 
 Three classes:
 - ToolResult:     what a tool returns (success/failure + output)
@@ -10,8 +10,8 @@ Designed to support future agent runtime expansions.
 The schema format is already OpenAI function-calling compatible.
 """
 
-from dataclasses import dataclass, field
-from typing import Callable, Any
+from collections.abc import Callable
+from dataclasses import dataclass
 
 
 @dataclass
@@ -21,6 +21,7 @@ class ToolResult:
     The executor catches exceptions and wraps them here.
     The agent loop never has to handle raw exceptions from tools.
     """
+
     success: bool
     output: str
     error: str = ""
@@ -48,9 +49,10 @@ class ToolDefinition:
         "medium" — writes files or external state (write_file)
         "high"   — executes code or shell commands (run_python) — v3.0+
     """
+
     name: str
     description: str
-    parameters: dict          # JSON Schema for parameters
+    parameters: dict  # JSON Schema for parameters
     handler: Callable
     risk_level: str = "low"
     requires_confirmation: bool = False
@@ -77,7 +79,7 @@ class ToolDefinition:
                 "name": self.name,
                 "description": self.description,
                 "parameters": self.parameters,
-            }
+            },
         }
 
 
@@ -122,7 +124,13 @@ class ToolRegistry:
             for k, v in props.items():
                 type_str = v.get("type", "any")
                 default = v.get("default", None)
-                req = "" if k in required else f" = {default}" if default is not None else " (optional)"
+                req = (
+                    ""
+                    if k in required
+                    else f" = {default}"
+                    if default is not None
+                    else " (optional)"
+                )
                 params.append(f"{k}: {type_str}{req}")
             param_str = ", ".join(params)
             risk = f" [{tool.risk_level} risk]" if tool.risk_level not in ("none", "low") else ""

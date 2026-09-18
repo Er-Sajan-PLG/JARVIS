@@ -37,7 +37,9 @@ def check_command(cmd: str) -> bool:
 
 def check_status() -> int:
     # Check git status for unexpected dirty state
-    result = subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT, capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=REPO_ROOT, capture_output=True, text=True
+    )
     if result.stdout.strip():
         print("Git status: dirty (preserved, not cleaned)")
         print(result.stdout.strip()[:500])

@@ -1,44 +1,44 @@
 """Unlimited-OCR Backend (Baidu Unlimited-OCR via Transformers)."""
-import torch
-import structlog
-from typing import List, Optional, Any
 
-from app.integrations.ocr.backends.base import OCRBackend, OCRResult
+import structlog
+import torch
+
 from app.config.settings import get_settings
+from app.integrations.ocr.backends.base import OCRBackend, OCRResult
 
 log = structlog.get_logger()
 
 
 class UnlimitedOCRBackend(OCRBackend):
     name = "unlimited"
-    
+
     def __init__(self):
         self.settings = get_settings()
         self.tokenizer = None
         self.model = None
         self._loaded = False
-    
+
     def load(self) -> None:
         if self._loaded:
             return
-        
+
         log.info("loading_unlimited_ocr", model=self.settings.ocr.unlimited_model_id)
-        
+
         # Import here to avoid loading transformers unless needed
         from transformers import AutoModel, AutoTokenizer
-        
+
         dtype_map = {
             "bfloat16": torch.bfloat16,
             "float16": torch.float16,
             "float32": torch.float32,
         }
         torch_dtype = dtype_map.get(self.settings.ocr.unlimited_dtype, torch.bfloat16)
-        
+
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.settings.ocr.unlimited_model_id,
             trust_remote_code=self.settings.ocr.unlimited_trust_remote_code,
         )
-        
+
         self.model = AutoModel.from_pretrained(
             self.settings.ocr.unlimited_model_id,
             trust_remote_code=self.settings.ocr.unlimited_trust_remote_code,
@@ -46,17 +46,19 @@ class UnlimitedOCRBackend(OCRBackend):
             torch_dtype=torch_dtype,
             device_map="auto" if self.settings.ocr.unlimited_device == "cuda" else None,
         )
-        
+
         if self.settings.ocr.unlimited_device != "cuda":
             self.model = self.model.to(self.settings.ocr.unlimited_device)
-        
+
         self.model.eval()
         self._loaded = True
-        
-        log.info("unlimited_ocr_loaded", 
-                 device=self.settings.ocr.unlimited_device, 
-                 dtype=str(torch_dtype))
-    
+
+        log.info(
+            "unlimited_ocr_loaded",
+            device=self.settings.ocr.unlimited_device,
+            dtype=str(torch_dtype),
+        )
+
     def unload(self) -> None:
         if self.model:
             del self.model
@@ -68,10 +70,10 @@ class UnlimitedOCRBackend(OCRBackend):
             torch.cuda.empty_cache()
         self._loaded = False
         log.info("unlimited_ocr_unloaded")
-    
+
     def is_loaded(self) -> bool:
         return self._loaded
-    
+
     def get_info(self) -> dict:
         return {
             "backend": self.name,
@@ -80,20 +82,20 @@ class UnlimitedOCRBackend(OCRBackend):
             "dtype": self.settings.ocr.unlimited_dtype,
             "loaded": self._loaded,
         }
-    
+
     def process(
         self,
-        image_paths: List[str],
+        image_paths: list[str],
         mode: str = "gundam",
         prompt: str = "",
         ngram_window: int = 0,
         max_tokens: int = 0,
-        **kwargs
+        **kwargs,
     ) -> OCRResult:
         """Blocking inference - run in thread pool."""
         if not self._loaded:
             raise RuntimeError("Unlimited-OCR model not loaded")
-        
+
         # Determine prompt and params based on mode
         if mode == "base":
             final_prompt = prompt or "<image>Multi page parsing."
@@ -103,12 +105,13 @@ class UnlimitedOCRBackend(OCRBackend):
             final_prompt = prompt or "<image>document parsing."
             ngram_window = ngram_window or 128
             base_size, image_size, crop_mode = 1024, 640, True
-        
+
         max_length = max_tokens or self.settings.ocr.unlimited_max_length
-        
-        log.info("unlimited_ocr_infer", 
-                 pages=len(image_paths), mode=mode, ngram_window=ngram_window)
-        
+
+        log.info(
+            "unlimited_ocr_infer", pages=len(image_paths), mode=mode, ngram_window=ngram_window
+        )
+
         # Single image with gundam mode
         if len(image_paths) == 1 and mode == "gundam":
             result = self.model.infer(
@@ -125,7 +128,7 @@ class UnlimitedOCRBackend(OCRBackend):
                 save_results=False,
             )
             markdown = result if isinstance(result, str) else ""
-        
+
         # Multi-image / PDF (base mode)
         else:
             result = self.model.infer_multi(
@@ -140,7 +143,7 @@ class UnlimitedOCRBackend(OCRBackend):
                 save_results=False,
             )
             markdown = result if isinstance(result, str) else ""
-        
+
         return OCRResult(
             markdown=markdown,
             pages_processed=len(image_paths),

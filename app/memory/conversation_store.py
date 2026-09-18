@@ -14,13 +14,11 @@ from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
 
 from app.config.settings import PathsConfig
 
-
 # Backward-compatible defaults; main.py overrides these from Settings.paths.
 _DEFAULT_PATHS = PathsConfig()
 
 
 class ConversationVectorStore:
-
     def __init__(
         self,
         persist_dir: str = str(_DEFAULT_PATHS.chroma_dir),
@@ -35,7 +33,7 @@ class ConversationVectorStore:
         # multiple collections in the same directory cleanly
         self._client = chromadb.PersistentClient(path=persist_dir)
         self._collection = self._client.get_or_create_collection(
-            name="jarvis-conversations",       # different collection from jarvis-memories
+            name="jarvis-conversations",  # different collection from jarvis-memories
             embedding_function=self._embedding_fn,
             metadata={"hnsw:space": "cosine"},
         )
@@ -55,14 +53,10 @@ class ConversationVectorStore:
 
         return len(pairs)
 
-    def add_exchange(
-        self, user_msg: str, assistant_msg: str, timestamp: float = None
-    ) -> None:
+    def add_exchange(self, user_msg: str, assistant_msg: str, timestamp: float = None) -> None:
         """Add a single new exchange after it completes."""
         ts = timestamp or time.time()
-        pair_id = hashlib.sha256(
-            f"{ts}{user_msg[:20]}".encode()
-        ).hexdigest()[:8]
+        pair_id = hashlib.sha256(f"{ts}{user_msg[:20]}".encode()).hexdigest()[:8]
         self._upsert(pair_id, user_msg, assistant_msg, ts)
 
     def search(self, query: str, limit: int = 2) -> list[dict]:
@@ -81,10 +75,12 @@ class ConversationVectorStore:
 
         exchanges = []
         for metadata in results["metadatas"][0]:
-            exchanges.append({
-                "user":      metadata["user"],
-                "assistant": metadata["assistant"],
-            })
+            exchanges.append(
+                {
+                    "user": metadata["user"],
+                    "assistant": metadata["assistant"],
+                }
+            )
 
         return exchanges
 
@@ -93,18 +89,18 @@ class ConversationVectorStore:
 
     # ── Internal ─────────────────────────────────────────────────────────────
 
-    def _upsert(
-        self, pair_id: str, user_msg: str, assistant_msg: str, timestamp: float
-    ) -> None:
+    def _upsert(self, pair_id: str, user_msg: str, assistant_msg: str, timestamp: float) -> None:
         """Store an exchange. The document field is what gets embedded."""
         self._collection.upsert(
             ids=[pair_id],
             documents=[f"User: {user_msg}\nAssistant: {assistant_msg}"],
-            metadatas=[{
-                "user":      user_msg[:1000],       # cap — ChromaDB metadata limit
-                "assistant": assistant_msg[:1000],
-                "timestamp": timestamp,
-            }],
+            metadatas=[
+                {
+                    "user": user_msg[:1000],  # cap — ChromaDB metadata limit
+                    "assistant": assistant_msg[:1000],
+                    "timestamp": timestamp,
+                }
+            ],
         )
 
     def _extract_pairs(self, messages: list) -> list[tuple]:
@@ -120,19 +116,21 @@ class ConversationVectorStore:
             msg = messages[i]
 
             # Handle both Message dataclass and plain dict
-            role    = msg.role    if hasattr(msg, "role")    else msg.get("role", "")
+            role = msg.role if hasattr(msg, "role") else msg.get("role", "")
             content = msg.content if hasattr(msg, "content") else msg.get("content", "")
 
             if role == "user" and i + 1 < len(messages):
                 next_msg = messages[i + 1]
-                next_role    = next_msg.role    if hasattr(next_msg, "role")    else next_msg.get("role", "")
-                next_content = next_msg.content if hasattr(next_msg, "content") else next_msg.get("content", "")
+                next_role = next_msg.role if hasattr(next_msg, "role") else next_msg.get("role", "")
+                next_content = (
+                    next_msg.content
+                    if hasattr(next_msg, "content")
+                    else next_msg.get("content", "")
+                )
 
                 if next_role == "assistant":
                     ts = getattr(msg, "timestamp", time.time())
-                    pair_id = hashlib.sha256(
-                        f"{ts}{content[:20]}".encode()
-                    ).hexdigest()[:8]
+                    pair_id = hashlib.sha256(f"{ts}{content[:20]}".encode()).hexdigest()[:8]
                     pairs.append((pair_id, content, next_content, ts))
                     i += 2
                     continue

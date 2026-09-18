@@ -49,7 +49,7 @@ def get_models() -> list[dict[str, Any]]:
     exe = _agy_which()
     if not exe:
         return []
-    
+
     try:
         result = subprocess.run(
             [exe, "models"],
@@ -60,7 +60,7 @@ def get_models() -> list[dict[str, Any]]:
         if result.returncode != 0:
             logger.warning("agy models failed: %s", result.stderr[:200])
             return []
-        
+
         models = []
         for line in (result.stdout or "").splitlines():
             line = line.strip()
@@ -72,13 +72,15 @@ def get_models() -> list[dict[str, Any]]:
                 slug = parts[0].strip()
                 display_name = parts[1].strip()
                 if slug:
-                    models.append({
-                        "id": slug,
-                        "name": display_name,
-                        "description": f"AGY model: {display_name}",
-                        "context_length": 1000000,
-                        "pricing": {},
-                    })
+                    models.append(
+                        {
+                            "id": slug,
+                            "name": display_name,
+                            "description": f"AGY model: {display_name}",
+                            "context_length": 1000000,
+                            "pricing": {},
+                        }
+                    )
         return models
     except Exception as e:
         logger.error("Failed to get agy models: %s", e)
@@ -93,20 +95,20 @@ def chat(
 ) -> dict[str, Any]:
     """
     Send a chat request via agy CLI.
-    
+
     Args:
         messages: OpenAI-style messages list
         model: Model ID from `agy models`
         effort: Reasoning effort (low/medium/high)
         timeout: Timeout in seconds
-    
+
     Returns:
         Dict with content, model, tokens_used, finish_reason
     """
     exe = _agy_which()
     if not exe:
         raise RuntimeError("AGY CLI not found. Install from https://antigravity.google/")
-    
+
     # Build prompt from messages
     prompt_parts = []
     for msg in messages:
@@ -118,21 +120,24 @@ def chat(
             prompt_parts.append(f"[Assistant]\n{content}")
         else:
             prompt_parts.append(f"[User]\n{content}")
-    
+
     prompt = "\n\n".join(prompt_parts)
-    
+
     # Build command - prompt must be attached to --print with =
     cmd = [
         exe,
         f"--print={prompt}",
-        "--output-format", "json",
-        "--print-timeout", f"{timeout // 60}m",
-        "--model", model,
+        "--output-format",
+        "json",
+        "--print-timeout",
+        f"{timeout // 60}m",
+        "--model",
+        model,
     ]
-    
+
     if effort:
         cmd += ["--effort", effort]
-    
+
     try:
         result = subprocess.run(
             cmd,
@@ -144,15 +149,15 @@ def chat(
         raise RuntimeError(f"AGY CLI timed out after {timeout}s")
     except OSError as e:
         raise RuntimeError(f"AGY CLI failed to start: {e}")
-    
+
     if result.returncode != 0:
         tail = (result.stderr or result.stdout or "").strip()[-400:]
         raise RuntimeError(f"AGY CLI returned {result.returncode}: {tail}")
-    
+
     out = (result.stdout or "").strip()
     if not out:
         raise RuntimeError("AGY CLI returned no response")
-    
+
     # Parse JSON response
     try:
         parsed = json.loads(out)
@@ -171,7 +176,7 @@ def chat(
             content = str(parsed)
     except json.JSONDecodeError:
         content = out
-    
+
     return {
         "content": content,
         "model": model,
@@ -188,13 +193,13 @@ def analyze_file(
 ) -> str:
     """
     Ask agy to analyze a file.
-    
+
     Args:
         file_path: Path to the file
         query: What to ask about the file
         model: Model ID
         mime_type: Optional MIME type hint
-    
+
     Returns:
         Response text
     """
@@ -203,18 +208,21 @@ def analyze_file(
     try:
         with open(file_path, "rb") as f:
             content = f.read()
-        
+
         # Try to decode as text
         try:
             text_content = content.decode("utf-8", errors="replace")
         except Exception:
             text_content = f"[Binary file: {file_path}]"
-        
+
         messages = [
             {"role": "system", "content": "You are analyzing a file. Be thorough and accurate."},
-            {"role": "user", "content": f"{query}\n\n[File: {os.path.basename(file_path)}]\n{text_content}"},
+            {
+                "role": "user",
+                "content": f"{query}\n\n[File: {os.path.basename(file_path)}]\n{text_content}",
+            },
         ]
-        
+
         result = chat(messages, model=model)
         return result["content"]
     except Exception as e:

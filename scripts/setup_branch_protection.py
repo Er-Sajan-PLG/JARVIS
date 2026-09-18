@@ -13,10 +13,10 @@ Run with: python scripts/setup_branch_protection.py
 Requires: GITHUB_TOKEN environment variable with repo admin permissions
 """
 
-import os
-import sys
 import json
+import os
 import subprocess
+import sys
 
 REPO_OWNER = "Er-Sajan-PLG"
 REPO_NAME = "JARVIS"
@@ -59,16 +59,13 @@ def get_current_protection() -> dict:
 def create_protection_payload() -> dict:
     """Create branch protection configuration payload."""
     return {
-        "required_status_checks": {
-            "strict": True,
-            "contexts": REQUIRED_CHECKS
-        },
+        "required_status_checks": {"strict": True, "contexts": REQUIRED_CHECKS},
         "enforce_admins": True,
         "required_pull_request_reviews": {
             "required_approving_review_count": 0,
             "dismiss_stale_reviews": True,
             "require_code_owner_reviews": False,
-            "require_last_push_approval": False
+            "require_last_push_approval": False,
         },
         "restrictions": {},
         "required_linear_history": True,
@@ -76,7 +73,7 @@ def create_protection_payload() -> dict:
         "allow_deletions": False,
         "required_conversation_resolution": True,
         "lock_branch": False,
-        "allow_fork_syncing": True
+        "allow_fork_syncing": True,
     }
 
 
@@ -104,7 +101,9 @@ def main():
     payload = create_protection_payload()
     print(f"Required checks: {REQUIRED_CHECKS}")
 
-    result = run_gh_api("PUT", f"repos/{REPO_OWNER}/{REPO_NAME}/branches/{BRANCH}/protection", payload)
+    result = run_gh_api(
+        "PUT", f"repos/{REPO_OWNER}/{REPO_NAME}/branches/{BRANCH}/protection", payload
+    )
     if result:
         print("✅ Branch protection configured successfully!")
         print(f"Required checks: {result.get('required_status_checks', {}).get('contexts', [])}")

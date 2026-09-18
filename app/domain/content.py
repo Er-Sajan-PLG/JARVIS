@@ -4,13 +4,14 @@ Zero infrastructure or framework dependencies. Modern Python 3.11+ syntax.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
 
 class ContentType(str, Enum):
     """Enumeration of content source types."""
+
     TEXT = "text"
     CODE = "code"
     FILE = "file"
@@ -23,6 +24,7 @@ class ContentType(str, Enum):
 @dataclass
 class DocumentReference:
     """Reference to a specific location within a document or file."""
+
     uri: str
     title: str | None = None
     page_number: int | None = None
@@ -34,6 +36,7 @@ class DocumentReference:
 @dataclass
 class ContentSource:
     """Generic abstraction for all external content consumed by the LLM & ContextBuilder."""
+
     source_id: str
     content_type: ContentType
     uri: str
@@ -41,7 +44,7 @@ class ContentSource:
     raw_text: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
     references: list[DocumentReference] = field(default_factory=list)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def token_estimate(self) -> int:
@@ -52,6 +55,7 @@ class ContentSource:
 @dataclass
 class ArtifactHandle(ContentSource):
     """Concrete ContentSource for disk-spilled large files (PDFs, images, binary payloads)."""
+
     file_path: str = ""
     mime_type: str = "application/octet-stream"
     byte_size: int = 0

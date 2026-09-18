@@ -44,9 +44,7 @@ def backup_corrupt_file(path) -> Path | None:
         except OSError:
             shutil.copy2(path, backup)
     except OSError as exc:
-        logging.getLogger(__name__).warning(
-            "Could not back up corrupt file %s: %s", path, exc
-        )
+        logging.getLogger(__name__).warning("Could not back up corrupt file %s: %s", path, exc)
         return None
     return backup
 
@@ -66,10 +64,7 @@ def report_corruption(
     if backup is not None:
         backup_msg = f" The original file was quarantined to: {backup}"
     else:
-        backup_msg = (
-            " WARNING: could not back up the file - data may be lost on the "
-            "next save!"
-        )
+        backup_msg = " WARNING: could not back up the file - data may be lost on the " "next save!"
 
     logger.error(
         "Failed to load %s from %s (%s: %s). Starting with an EMPTY %s.%s",

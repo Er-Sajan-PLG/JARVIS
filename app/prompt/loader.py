@@ -68,7 +68,9 @@ class PromptLoader:
         parsed_content = self._env.parse(source)
         return find_undeclared_variables(parsed_content)
 
-    def render(self, template_name: str, **kwargs: str | int | float | bool | list[str] | dict[str, str]) -> str:
+    def render(
+        self, template_name: str, **kwargs: str | int | float | bool | list[str] | dict[str, str]
+    ) -> str:
         """Render prompt template with keyword arguments.
 
         Args:

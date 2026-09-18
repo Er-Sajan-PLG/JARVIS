@@ -4,13 +4,14 @@ Zero infrastructure or framework dependencies. Modern Python 3.11+ syntax.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
 
 class Role(str, Enum):
     """Message sender role."""
+
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
@@ -20,6 +21,7 @@ class Role(str, Enum):
 @dataclass
 class MessageAttachment:
     """Attachment associated with a conversation message."""
+
     name: str
     size: int
     mime_type: str = "application/octet-stream"
@@ -30,10 +32,11 @@ class MessageAttachment:
 @dataclass
 class Message:
     """Single message within a conversation."""
+
     id: str
     role: Role
     content: str
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     pinned: bool = False
     attachments: list[MessageAttachment] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -62,17 +65,18 @@ class Message:
 @dataclass
 class ConversationState:
     """Aggregate domain entity representing a complete conversation thread."""
+
     id: str
     title: str = "New Chat"
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     messages: list[Message] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def add_message(self, message: Message) -> None:
         """Append a message and update last modified timestamp."""
         self.messages.append(message)
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(UTC)
 
     @property
     def message_count(self) -> int:

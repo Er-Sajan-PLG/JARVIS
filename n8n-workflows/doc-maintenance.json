@@ -1,0 +1,92 @@
+{
+  "id": "ab5877a6-7703-4c40-88aa-e222f13d34bf",
+  "name": "JARVIS-doc-maintenance",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 */15 * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8770/docs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ checkOnly: false }) }}",
+        "options": {
+          "timeout": 900000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "run-docs",
+      "name": "Run Doc Maintenance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [550, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "S3tItkgWZjUI9Dmg",
+          "name": "ci-bridge-auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nif (d.ok !== true) {\n  throw new Error('Doc maintenance failed (exit ' + d.exitCode + '): ' + (d.stderrTail || d.tail || 'no detail'));\n}\nreturn [{ json: d }];"
+      },
+      "id": "fail-if-not-ok",
+      "name": "Fail If Not OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Doc Maintenance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Doc Maintenance": {
+      "main": [
+        [
+          {
+            "node": "Fail If Not OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

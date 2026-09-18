@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
-"""JARVIS CI Bridge — a tiny localhost HTTP wrapper around scripts/ci_bridge.py.
+"""JARVIS CI Bridge — a tiny localhost HTTP wrapper around execution scripts.
 
-WHY THIS EXISTS
----------------
 n8n v2 removed the "Execute Command" node, so n8n can no longer shell out to a
 script directly. This bridge gives n8n a safe, HTTP-only way to trigger the
 JARVIS local-CI execution plane:
 
     n8n (orchestration)  --HTTP-->  ci_bridge_server.py (execution plane)  -->  ci_bridge.py
+                                                                       \\->  scheduled_doc_maintenance.py
 
 It binds to 127.0.0.1 only and (optionally) requires a shared token
 (env CI_BRIDGE_TOKEN), so it is not reachable from the network.
 
 ENDPOINTS
----------
+--------
     GET  /health            -> {"status":"ok", ...}
     POST /run               -> runs scripts/ci_bridge.py, returns captured output
          body (JSON, all optional): {"limit": 1, "dryRun": true, "pr": null}
+    POST /docs              -> runs scripts/scheduled_doc_maintenance.py
+         body (JSON, all optional): {"checkOnly": true}
     GET  /last              -> last run result (handy for quick debugging)
 
 USAGE
@@ -41,6 +42,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 PYTHON = str(REPO / ".venv" / "bin" / "python")
 BRIDGE = str(REPO / "scripts" / "ci_bridge.py")
+DOCS = str(REPO / "scripts" / "scheduled_doc_maintenance.py")
 
 HOST = os.environ.get("CI_BRIDGE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("CI_BRIDGE_PORT", "8770"))
@@ -67,6 +69,42 @@ def _build_cmd(body: dict) -> list[str]:
 def run_bridge(body: dict) -> dict:
     global LAST
     cmd = _build_cmd(body)
+    started = time.time()
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
+            timeout=MAX_TIMEOUT,
+            shell=False,
+        )
+        result = {
+            "ok": proc.returncode == 0,
+            "exitCode": proc.returncode,
+            "durationSec": round(time.time() - started, 1),
+            "cmd": " ".join(cmd),
+            "stdout": proc.stdout[-20000:],
+            "stderr": proc.stderr[-8000:],
+        }
+    except subprocess.TimeoutExpired as exc:
+        result = {
+            "ok": False,
+            "exitCode": 124,
+            "durationSec": round(time.time() - started, 1),
+            "cmd": " ".join(cmd),
+            "stdout": (exc.stdout or "") if isinstance(exc.stdout, str) else "",
+            "stderr": f"timed out after {MAX_TIMEOUT}s",
+        }
+    LAST = result
+    return result
+
+
+def run_docs(body: dict) -> dict:
+    global LAST
+    cmd = [PYTHON, DOCS]
+    if bool(body.get("checkOnly", False)):
+        cmd += ["--check-only"]
     started = time.time()
     try:
         proc = subprocess.run(
@@ -129,26 +167,42 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/last":
             self._send(200, LAST or {"info": "no runs yet"})
         else:
-            self._send(404, {"error": "not found", "paths": ["/health", "/run", "/last"]})
+            self._send(404, {"error": "not found", "paths": ["/health", "/run", "/last", "/docs"]})
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path.split("?")[0] != "/run":
-            self._send(404, {"error": "not found", "paths": ["/health", "/run", "/last"]})
-            return
-        if not self._authorized():
-            self._send(401, {"error": "invalid or missing X-Bridge-Token"})
-            return
-        length = int(self.headers.get("Content-Length") or 0)
-        raw = self.rfile.read(length) if length else b""
-        try:
-            body = json.loads(raw) if raw else {}
-        except json.JSONDecodeError:
-            self._send(400, {"error": "invalid JSON body"})
-            return
-        if not isinstance(body, dict):
-            self._send(400, {"error": "body must be a JSON object"})
-            return
-        self._send(200, run_bridge(body))
+        path = self.path.split("?")[0]
+        if path == "/run":
+            if not self._authorized():
+                self._send(401, {"error": "invalid or missing X-Bridge-Token"})
+                return
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length) if length else b""
+            try:
+                body = json.loads(raw) if raw else {}
+            except json.JSONDecodeError:
+                self._send(400, {"error": "invalid JSON body"})
+                return
+            if not isinstance(body, dict):
+                self._send(400, {"error": "body must be a JSON object"})
+                return
+            self._send(200, run_bridge(body))
+        elif path == "/docs":
+            if not self._authorized():
+                self._send(401, {"error": "invalid or missing X-Bridge-Token"})
+                return
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length) if length else b""
+            try:
+                body = json.loads(raw) if raw else {}
+            except json.JSONDecodeError:
+                self._send(400, {"error": "invalid JSON body"})
+                return
+            if not isinstance(body, dict):
+                self._send(400, {"error": "body must be a JSON object"})
+                return
+            self._send(200, run_docs(body))
+        else:
+            self._send(404, {"error": "not found", "paths": ["/run", "/docs"]})
 
     def log_message(self, format: str, *args) -> None:  # keep logs quiet-ish, but useful
         sys.stderr.write("[ci-bridge] " + (format % args) + "\n")
@@ -158,8 +212,8 @@ def main() -> int:
     if not Path(PYTHON).exists():
         print(f"FATAL: python not found at {PYTHON}", file=sys.stderr)
         return 2
-    if not Path(BRIDGE).exists():
-        print(f"FATAL: ci_bridge.py not found at {BRIDGE}", file=sys.stderr)
+    if not Path(BRIDGE).exists() or not Path(DOCS).exists():
+        print(f"FATAL: script not found at {BRIDGE} or {DOCS}", file=sys.stderr)
         return 2
     srv = ThreadingHTTPServer((HOST, PORT), Handler)
     print(

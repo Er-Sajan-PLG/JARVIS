@@ -1,8 +1,7 @@
-"""Project entity & metadata domain model for workspace management.
-"""
+"""Project entity & metadata domain model for workspace management."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -10,11 +9,12 @@ from typing import Any
 @dataclass
 class Project:
     """Domain model representing an active workspace project."""
+
     project_id: str
     name: str
     root_path: Path
     description: str = ""
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def exists(self) -> bool:

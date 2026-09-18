@@ -19,17 +19,17 @@ This wrapper implements the `ModelClient` protocol.
 from __future__ import annotations
 
 import time
-from typing import Callable, List, Optional
+from collections.abc import Callable
 
 from app.models.client import ModelClient, ModelResponse
-from app.models.exceptions import ModelError, ModelRateLimitError, ModelConnectionError
+from app.models.exceptions import ModelConnectionError, ModelError, ModelRateLimitError
 from app.utils.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
 
 class OmniModelClient(ModelClient):
-    def __init__(self, clients: List[ModelClient], backoff_seconds: int = 30):
+    def __init__(self, clients: list[ModelClient], backoff_seconds: int = 30):
         if not clients:
             raise ValueError("OmniModelClient requires at least one underlying client")
         self._clients = list(clients)
@@ -56,15 +56,25 @@ class OmniModelClient(ModelClient):
             backoff = min(self._backoff, 10)
         self._failed_until[idx] = time.time() + backoff
 
-    def generate(self, messages: list[dict], stream: bool = False, on_token: Optional[Callable[[str], None]] = None, **kwargs) -> ModelResponse:
-        last_exc: Optional[ModelError] = None
+    def generate(
+        self,
+        messages: list[dict],
+        stream: bool = False,
+        on_token: Callable[[str], None] | None = None,
+        **kwargs,
+    ) -> ModelResponse:
+        last_exc: ModelError | None = None
 
         # Round-robin starting point advanced for the next call.
         start_idx = self._idx
         self._idx = (self._idx + 1) % len(self._clients)
 
         for idx, client in self._next_candidates():
-            logger.info("OmniModelClient: trying client %s (idx=%d)", getattr(client, 'model_name', str(client)), idx)
+            logger.info(
+                "OmniModelClient: trying client %s (idx=%d)",
+                getattr(client, "model_name", str(client)),
+                idx,
+            )
             try:
                 if not stream:
                     return client.generate(messages, stream=False, **kwargs)
@@ -76,7 +86,11 @@ class OmniModelClient(ModelClient):
                     return client.generate(messages, stream=True, on_token=on_token, **kwargs)
                 except ModelError as exc:
                     # mark failed and remember the exception
-                    logger.warning("OmniModelClient: client %s failed during streaming: %s", getattr(client, 'model_name', str(client)), exc)
+                    logger.warning(
+                        "OmniModelClient: client %s failed during streaming: %s",
+                        getattr(client, "model_name", str(client)),
+                        exc,
+                    )
                     self._mark_failed(idx, exc)
                     last_exc = exc
                     # continue to next client for non-streaming completion
@@ -84,7 +98,11 @@ class OmniModelClient(ModelClient):
 
             except ModelError as exc:
                 # For synchronous failures
-                logger.warning("OmniModelClient: client %s failed: %s", getattr(client, 'model_name', str(client)), exc)
+                logger.warning(
+                    "OmniModelClient: client %s failed: %s",
+                    getattr(client, "model_name", str(client)),
+                    exc,
+                )
                 self._mark_failed(idx, exc)
                 last_exc = exc
                 continue

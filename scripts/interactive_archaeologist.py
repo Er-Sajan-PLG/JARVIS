@@ -6,15 +6,16 @@ Version-Window Archaeology Driver for Antigravity IDE.
 - Signals when a version tag boundary requires merging across ALL docs/
 """
 
-import subprocess
-import shlex
 import json
 import os
+import shlex
+import subprocess
 import sys
 
 STATE_FILE = ".archaeology/state.json"
 PAYLOAD_FILE = ".archaeology/current_commit.json"
 BUFFER_FILE = ".archaeology/version_buffer.json"
+
 
 def run_git(cmd):
     args = shlex.split(cmd)
@@ -25,40 +26,46 @@ def run_git(cmd):
         raise Exception(f"Git failed: {' '.join(args)}\n{res.stderr}")
     return res.stdout.strip()
 
+
 def get_commits():
     raw = run_git('log --reverse --format="%H|%d|%an|%ci|%s"')
     commits = []
-    for line in raw.split('\n'):
+    for line in raw.split("\n"):
         if not line.strip():
             continue
-        parts = line.split('|')
+        parts = line.split("|")
         ref_names = parts[1]
         tags = []
-        if 'tag:' in ref_names:
-            for item in ref_names.strip(' ()').split(','):
+        if "tag:" in ref_names:
+            for item in ref_names.strip(" ()").split(","):
                 item = item.strip()
-                if item.startswith('tag:'):
-                    tags.append(item.replace('tag:', '').strip())
+                if item.startswith("tag:"):
+                    tags.append(item.replace("tag:", "").strip())
 
-        commits.append({
-            "hash": parts[0],
-            "tags": tags,
-            "author": parts[2],
-            "date": parts[3],
-            "subject": parts[4]
-        })
+        commits.append(
+            {
+                "hash": parts[0],
+                "tags": tags,
+                "author": parts[2],
+                "date": parts[3],
+                "subject": parts[4],
+            }
+        )
     return commits
+
 
 def load_json(path, default):
     if not os.path.exists(path):
         return default
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
+
 
 def save_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+
 
 def prepare_current():
     commits = get_commits()
@@ -77,7 +84,7 @@ def prepare_current():
     is_tag_boundary = len(c["tags"]) > 0
     tag_name = c["tags"][0] if is_tag_boundary else state["active_tag"]
 
-    patch = run_git(f'show --patch --stat {commit_hash}')
+    patch = run_git(f"show --patch --stat {commit_hash}")
     numstat = run_git(f'show --numstat --format="" {commit_hash}')
 
     commit_data = {
@@ -90,7 +97,7 @@ def prepare_current():
         "tags": c["tags"],
         "is_tag_boundary": is_tag_boundary,
         "changed_files_summary": numstat,
-        "patch": patch[:10000]
+        "patch": patch[:10000],
     }
 
     # Append to version buffer
@@ -103,26 +110,32 @@ def prepare_current():
         "version_tag": tag_name,
         "is_tag_boundary": is_tag_boundary,
         "buffered_commits_count": len(buffer),
-        "version_buffer": buffer
+        "version_buffer": buffer,
     }
 
     save_json(PAYLOAD_FILE, payload)
 
-    print(json.dumps({
-        "status": "READY",
-        "step": payload["current_commit"]["step"],
-        "total": len(commits),
-        "commit": payload["current_commit"]["short_hash"],
-        "subject": payload["current_commit"]["subject"],
-        "is_tag_boundary": is_tag_boundary,
-        "tag": tag_name,
-        "buffered_commits": len(buffer)
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "status": "READY",
+                "step": payload["current_commit"]["step"],
+                "total": len(commits),
+                "commit": payload["current_commit"]["short_hash"],
+                "subject": payload["current_commit"]["subject"],
+                "is_tag_boundary": is_tag_boundary,
+                "tag": tag_name,
+                "buffered_commits": len(buffer),
+            },
+            indent=2,
+        )
+    )
+
 
 def advance():
     state = load_json(STATE_FILE, {"current_index": 0, "active_tag": "v0.0.0-draft"})
     commits = get_commits()
-    
+
     # If the commit was a tag boundary, update active tag and clear buffer
     c = commits[state["current_index"]]
     if c["tags"]:
@@ -137,10 +150,12 @@ def advance():
     else:
         prepare_current()
 
+
 def reset():
     save_json(STATE_FILE, {"current_index": 0, "active_tag": "v0.0.0-draft"})
     save_json(BUFFER_FILE, [])
     print(json.dumps({"status": "RESET"}))
+
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "current"

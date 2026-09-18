@@ -1,19 +1,31 @@
 """OCR API Routes."""
+
 import os
-import tempfile
 import shutil
-import structlog
+import tempfile
 from pathlib import Path
+
+import structlog
 from fastapi import (
-    APIRouter, UploadFile, File, Form, HTTPException, 
-    Depends, BackgroundTasks, status
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
 )
 
 from app.integrations.ocr.config import get_ocr_settings
 from app.integrations.ocr.schemas import (
-    OCRRequest, OCRResult, OCRBackend, UnlimitedOCRMode, PaddleMode, HealthResponse
+    HealthResponse,
+    OCRBackend,
+    OCRRequest,
+    OCRResult,
+    PaddleMode,
+    UnlimitedOCRMode,
 )
-from app.integrations.ocr.service import get_ocr_service, OCRService, OCRServiceError
+from app.integrations.ocr.service import OCRService, OCRServiceError, get_ocr_service
 
 log = structlog.get_logger()
 
@@ -36,16 +48,15 @@ async def process_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="Image or PDF file"),
     backend: OCRBackend = Form(default=OCRBackend.AUTO, description="OCR engine"),
-    
     # Unlimited-OCR options
-    mode: UnlimitedOCRMode = Form(default=UnlimitedOCRMode.GUNDAM, description="Unlimited-OCR mode"),
+    mode: UnlimitedOCRMode = Form(
+        default=UnlimitedOCRMode.GUNDAM, description="Unlimited-OCR mode"
+    ),
     prompt: str = Form(default="", description="Custom prompt (optional)"),
     ngram_window: int = Form(default=0, description="N-gram window (0=auto)"),
     max_tokens: int = Form(default=0, description="Max tokens (0=default)"),
-    
     # PaddleOCR options
     paddle_mode: PaddleMode = Form(default=PaddleMode.OCR, description="PaddleOCR mode"),
-    
     # Common
     dpi: int = Form(default=300, description="PDF render DPI"),
     return_json: bool = Form(default=False, description="Return structured JSON"),
@@ -53,30 +64,30 @@ async def process_document(
 ):
     """
     Process a document through OCR.
-    
+
     **Backends:**
     - `auto`: Unlimited-OCR on GPU, PaddleOCR on CPU
     - `unlimited`: Baidu Unlimited-OCR (best for complex docs, tables, formulas)
     - `paddle`: PaddleOCR (fast, good for simple text)
-    
+
     **Unlimited-OCR Modes:**
     - `gundam`: Single page, high quality (default)
     - `base`: Multi-page / PDF
-    
+
     **PaddleOCR Modes:**
     - `ocr`: Text detection + recognition
     - `structure`: Table/layout recognition (PP-StructureV3)
     """
     settings = get_ocr_settings()
-    
+
     # Validate file
     ext = Path(file.filename).suffix.lower()
     if ext not in settings.allowed_extensions:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type: {ext}. Allowed: {settings.allowed_extensions}"
+            detail=f"Unsupported file type: {ext}. Allowed: {settings.allowed_extensions}",
         )
-    
+
     # Check file size
     file.file.seek(0, 2)
     size_mb = file.file.tell() / (1024 * 1024)
@@ -84,20 +95,24 @@ async def process_document(
     if size_mb > settings.max_upload_size_mb:
         raise HTTPException(
             status_code=413,
-            detail=f"File too large: {size_mb:.1f}MB > {settings.max_upload_size_mb}MB"
+            detail=f"File too large: {size_mb:.1f}MB > {settings.max_upload_size_mb}MB",
         )
-    
+
     # Save to temp file
     temp_dir = tempfile.mkdtemp(prefix="jarvis_ocr_")
     temp_path = os.path.join(temp_dir, file.filename)
-    
+
     try:
         with open(temp_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
-        
-        log.info("processing_document",
-                 filename=file.filename, size_mb=round(size_mb, 2), backend=backend.value)
-        
+
+        log.info(
+            "processing_document",
+            filename=file.filename,
+            size_mb=round(size_mb, 2),
+            backend=backend.value,
+        )
+
         # Build request
         request = OCRRequest(
             backend=backend,
@@ -109,15 +124,15 @@ async def process_document(
             dpi=dpi,
             return_json=return_json,
         )
-        
+
         # Process
         result = await service.process_upload(temp_path, request)
-        
+
         # Schedule cleanup
         background_tasks.add_task(shutil.rmtree, temp_dir, True)
-        
+
         return result
-    
+
     except OCRServiceError as e:
         background_tasks.add_task(shutil.rmtree, temp_dir, True)
         log.error("ocr_service_error", error=str(e))
@@ -140,13 +155,13 @@ async def process_server_path(
     """Process a file already on the server filesystem (for batch/internal use)."""
     if not os.path.exists(file_path):
         raise HTTPException(404, f"File not found: {file_path}")
-    
+
     request = OCRRequest(
         backend=backend,
         mode=mode,
         prompt=prompt,
         dpi=dpi,
     )
-    
+
     result = await service.process_upload(file_path, request)
     return result

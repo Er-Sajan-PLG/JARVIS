@@ -3,9 +3,8 @@
 Tracks requests per minute (RPM) and tokens per minute (TPM) per provider.
 """
 
-from collections import deque
-from datetime import datetime, timezone
 import time
+from collections import deque
 
 
 class RateLimitTracker:

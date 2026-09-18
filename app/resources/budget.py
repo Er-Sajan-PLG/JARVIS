@@ -3,9 +3,8 @@
 Tracks session and global token usage across prompt/completion tokens.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 import logging
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +12,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TokenUsage:
     """Container for token usage metrics."""
+
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -40,7 +40,7 @@ class TokenBudgetManager:
         u = self._session_usage[session_id]
         u.prompt_tokens += prompt_tokens
         u.completion_tokens += completion_tokens
-        u.total_tokens += (prompt_tokens + completion_tokens)
+        u.total_tokens += prompt_tokens + completion_tokens
         u.estimated_cost_usd += cost_usd
 
         logger.debug("Recorded usage for session %s: %d total tokens", session_id, u.total_tokens)
