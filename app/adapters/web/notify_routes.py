@@ -24,7 +24,7 @@ notify_router = APIRouter(
 
 _push_service = PushService()
 
-VALID_CHANNELS = ("push", "telegram")
+VALID_CHANNELS = ("push", "telegram", "whatsapp")
 
 
 @notify_router.post("/")
@@ -51,6 +51,8 @@ async def notify(payload: dict[str, Any]) -> dict[str, Any]:
         results["push"] = await _push_service.send(message)
     if "telegram" in channels:
         results["telegram"] = await _send_telegram(title, body, payload.get("chat_id"))
+    if "whatsapp" in channels:
+        results["whatsapp"] = await _send_whatsapp(title, body)
     return {"success": True, "results": results}
 
 
@@ -67,4 +69,20 @@ async def _send_telegram(title: str, body: str, chat_id: str | None) -> dict[str
         return {"success": ok}
     except Exception as exc:  # noqa: BLE001 - alert path must not raise
         logger.error("Telegram send error: %s", exc)
+        return {"success": False, "error": str(exc)}
+
+
+async def _send_whatsapp(title: str, body: str) -> dict[str, Any]:
+    """Send via WhatsApp Cloud API if configured, else skip."""
+    try:
+        from app.integrations.whatsapp import send_message
+    except Exception as exc:
+        logger.warning("WhatsApp channel unavailable: %s", exc)
+        return {"success": False, "error": "whatsapp not configured"}
+    try:
+        text = f"*{title}*\n{body}" if title != "JARVIS" else body
+        ok = await send_message(text)
+        return {"success": ok}
+    except Exception as exc:  # noqa: BLE001 - alert path must not raise
+        logger.error("WhatsApp send error: %s", exc)
         return {"success": False, "error": str(exc)}
