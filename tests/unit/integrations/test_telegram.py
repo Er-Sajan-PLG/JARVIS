@@ -1,6 +1,6 @@
 """Unit tests for the Telegram two-way integration."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -58,6 +58,73 @@ class TestSendMessage:
         config.allowed_chat_ids = []
         ok = await send_message("hi", config=config)
         assert ok is False
+
+
+class TestSendVoice:
+    @pytest.mark.asyncio
+    async def test_no_token_skips(self):
+        from app.integrations.telegram import send_voice
+
+        ok = await send_voice("hi", config=TelegramConfig(token=""))
+        assert ok is False
+
+    @pytest.mark.asyncio
+    async def test_empty_text_skips(self, config):
+        from app.integrations.telegram import send_voice
+
+        assert await send_voice("  ", config=config) is False
+
+    @pytest.mark.asyncio
+    async def test_voice_upload(self, config):
+        import sys
+        from pathlib import Path
+
+        from app.integrations.telegram import send_voice
+
+        async def fake_stream():
+            for chunk in (b"mp3", b"data"):
+                yield {"type": "audio", "data": chunk}
+
+        edge_mod = MagicMock()
+        edge_mod.Communicate.return_value.stream.return_value = fake_stream()
+
+        completed = MagicMock()
+        completed.returncode = 0
+
+        def fake_run(cmd, **kwargs):
+            Path(cmd[-1]).write_bytes(b"ogg")
+            return completed
+
+        posted = {}
+
+        class FakeResp:
+            status_code = 200
+            text = "ok"
+
+        class FakeClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def post(self, url, data=None, files=None):
+                posted["url"] = url
+                posted["files"] = files
+                return FakeResp()
+
+        httpx_mod = MagicMock()
+        httpx_mod.AsyncClient.return_value = FakeClient()
+
+        with (
+            patch.dict(sys.modules, {"edge_tts": edge_mod}),
+            patch("subprocess.run", side_effect=fake_run),
+            patch.dict(sys.modules, {"httpx": httpx_mod}),
+        ):
+            assert await send_voice("hello there", config=config) is True
+
+        assert posted["url"].endswith("/sendVoice")
+        assert posted["files"]["voice"][0] == "brief.ogg"
 
 
 class TestPoller:

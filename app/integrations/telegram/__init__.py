@@ -85,6 +85,80 @@ async def send_message(
         return False
 
 
+async def send_voice(
+    text: str,
+    chat_id: str | None = None,
+    config: TelegramConfig | None = None,
+) -> bool:
+    """Speak text as a Telegram voice message (bot API sendVoice).
+
+    Free, works today, no call needed: Edge TTS synthesizes MP3, ffmpeg
+    converts to OGG/Opus (what voice bubbles require), then upload.
+    Returns True when Telegram accepts the upload.
+    """
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    cfg = config or TelegramConfig.from_env()
+    if not cfg.token:
+        logger.warning("Telegram token not configured, skipping voice send")
+        return False
+    target = (chat_id or "").strip() or (cfg.allowed_chat_ids[0] if cfg.allowed_chat_ids else "")
+    if not target:
+        return False
+    clean = (text or "").strip()[:2000]
+    if not clean:
+        return False
+
+    import httpx
+
+    try:
+        import edge_tts
+
+        communicate = edge_tts.Communicate(clean, "en-US-ChristopherNeural")
+        mp3 = b"".join([c["data"] async for c in communicate.stream() if c["type"] == "audio"])
+        if not mp3:
+            return False
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "brief.mp3"
+            dst = Path(tmp) / "brief.ogg"
+            src.write_bytes(mp3)
+            proc = await asyncio.to_thread(
+                subprocess.run,
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-v",
+                    "error",
+                    "-i",
+                    str(src),
+                    "-c:a",
+                    "libopus",
+                    "-b:a",
+                    "48k",
+                    str(dst),
+                ],
+                capture_output=True,
+            )
+            if proc.returncode != 0 or not dst.exists():
+                logger.error("ffmpeg voice convert failed")
+                return False
+            async with httpx.AsyncClient(timeout=60) as client:
+                res = await client.post(
+                    f"{_API_BASE}{cfg.token}/sendVoice",
+                    data={"chat_id": target},
+                    files={"voice": ("brief.ogg", dst.read_bytes(), "audio/ogg")},
+                )
+                if res.status_code != 200:
+                    logger.error("Telegram voice failed: %s", res.text[:200])
+                    return False
+                return True
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Telegram voice error: %s", exc)
+        return False
+
+
 class TelegramPoller:
     """Long-poll getUpdates and answer operator messages via the chat pipeline."""
 
