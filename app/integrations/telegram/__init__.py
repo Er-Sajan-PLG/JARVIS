@@ -239,6 +239,15 @@ class TelegramPoller:
             return
         self._last_reply[chat_id] = now
 
+        # HITL approval commands (ADR-017, Sprint 8.4): /approve and /deny
+        # decide the most recent pending worker/step approval from the phone.
+        # Must run before the general chat route so "approve"/"deny" are not
+        # swallowed by the model.
+        approved = await self._maybe_decide_approval(text, chat_id)
+        if approved is not None:
+            await send_message(approved, chat_id=chat_id, config=self.config)
+            return
+
         reply = await self._answer(text, chat_id)
         chunks = [reply[i : i + _MAX_MESSAGE] for i in range(0, len(reply), _MAX_MESSAGE)]
         for chunk in chunks or ["…"]:
@@ -287,6 +296,46 @@ class TelegramPoller:
         except Exception as exc:  # noqa: BLE001
             logger.error("Telegram voice transcribe error: %s", exc)
             return ""
+
+    async def _maybe_decide_approval(self, text: str, chat_id: str) -> str | None:
+        """Handle /approve or /deny against the newest pending HITL approval.
+
+        Returns a human reply when the message was an approval command,
+        else None (the caller falls through to normal chat).
+        """
+        cmd = text.strip().lower()
+        decision: str | None = None
+        if cmd == "/approve" or cmd.startswith("/approve "):
+            decision = "approve"
+        elif cmd == "/deny" or cmd.startswith("/deny "):
+            decision = "deny"
+        if decision is None:
+            return None
+        try:
+            from app.adapters.http.router import _approve_pending_via_registry
+            from app.bootstrap import bootstrap_system
+
+            registry = bootstrap_system().approval_registry
+            pending = registry.list_pending(include_decided=False)
+            if not pending:
+                return "No pending approvals right now."
+            # Optional explicit target: "/approve <plan_id> <step_id>".
+            parts = text.strip().split()
+            plan_id = pending[0].plan_id
+            step_id = pending[0].step_id
+            if len(parts) >= 3 and parts[1] and parts[2]:
+                plan_id, step_id = parts[1], parts[2]
+            ok = await _approve_pending_via_registry(
+                plan_id, step_id, decision, approver=f"telegram:{chat_id}"
+            )
+            return (
+                f"Approved {plan_id} step {step_id}."
+                if ok
+                else f"Could not decide {plan_id} step {step_id}."
+            )
+        except Exception as exc:  # noqa: BLE001 - never crash the poller
+            logger.error("Telegram approval error: %s", exc)
+            return "Approval command failed."
 
     async def _answer(self, text: str, chat_id: str) -> str:
         """Route one message through the web chat pipeline."""

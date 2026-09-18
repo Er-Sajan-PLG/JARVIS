@@ -215,3 +215,91 @@ class TestVoiceHandling:
                 {"message": {"chat": {"id": 111}, "voice": {"file_id": "abc"}}}
             )
         sender.assert_not_called()
+
+
+class TestApprovalCommands:
+    @pytest.mark.asyncio
+    async def test_approve_resolves_newest(self, config):
+        poller = TelegramPoller(config)
+        with (
+            patch(
+                "app.integrations.telegram.TelegramPoller._maybe_decide_approval",
+                new=AsyncMock(return_value="Approved plan-x step-y."),
+            ) as decide,
+            patch(
+                "app.integrations.telegram.send_message",
+                new=AsyncMock(return_value=True),
+            ) as sender,
+        ):
+            await poller._handle_update(
+                {"message": {"chat": {"id": 111}, "text": "/approve", "message_id": 3}}
+            )
+        decide.assert_awaited_once()
+        sender.assert_called_once()
+        args, kwargs = sender.call_args
+        assert "Approved" in args[0]
+
+    @pytest.mark.asyncio
+    async def test_plain_message_skips_approval(self, config):
+        poller = TelegramPoller(config)
+        with (
+            patch(
+                "app.integrations.telegram.TelegramPoller._maybe_decide_approval",
+                new=AsyncMock(return_value=None),
+            ) as decide,
+            patch.object(poller, "_answer", new=AsyncMock(return_value="hi")),
+            patch(
+                "app.integrations.telegram.send_message",
+                new=AsyncMock(return_value=True),
+            ),
+        ):
+            await poller._handle_update(
+                {"message": {"chat": {"id": 111}, "text": "hello", "message_id": 3}}
+            )
+        decide.assert_awaited_once()
+
+
+class TestApproveHelper:
+    @pytest.mark.asyncio
+    async def test_decides_and_resumes(self):
+        from app.adapters.http.router import _approve_pending_via_registry
+
+        container = MagicMock()
+        registry = MagicMock()
+        record = MagicMock()
+        record.to_dict.return_value = {"plan_id": "p", "step_id": "s"}
+        registry.decide.return_value = record
+        registry.get_plan.return_value = MagicMock()
+        registry.register_paused_plan.return_value = []
+        container.approval_registry = registry
+        container.execution_runner.execute_plan = AsyncMock(return_value=MagicMock())
+
+        with patch(
+            "app.adapters.http.router.bootstrap_system", return_value=container
+        ):
+            result = await _approve_pending_via_registry(
+                "p", "s", "approve", approver="telegram:1"
+            )
+        registry.decide.assert_called_once()
+        assert result["plan_id"] == "p"
+        container.execution_runner.execute_plan.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_deny_skips(self):
+        from app.adapters.http.router import _approve_pending_via_registry
+
+        container = MagicMock()
+        registry = MagicMock()
+        registry.decide.return_value = MagicMock()
+        registry.get_plan.return_value = MagicMock()
+        registry.register_paused_plan.return_value = []
+        container.approval_registry = registry
+        container.execution_runner.execute_plan = AsyncMock(return_value=MagicMock())
+        with patch(
+            "app.adapters.http.router.bootstrap_system", return_value=container
+        ):
+            await _approve_pending_via_registry(
+                "p", "s", "deny", approver="telegram:1"
+            )
+        _, kwargs = container.execution_runner.execute_plan.await_args
+        assert kwargs["hitl_approvals"] == {"s": False}

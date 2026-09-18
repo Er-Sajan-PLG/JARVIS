@@ -137,9 +137,6 @@ async def hitl_approve(payload: dict[str, Any]) -> dict[str, Any]:
     Approving re-queues the step and resumes the plan; denying skips the destructive
     step and resumes the remainder. A second decision for the same step returns 409.
     """
-    container = bootstrap_system()
-    registry = container.approval_registry
-
     plan_id = payload.get("plan_id")
     step_id = payload.get("step_id")
     if not plan_id or not step_id:
@@ -168,11 +165,10 @@ async def hitl_approve(payload: dict[str, Any]) -> dict[str, Any]:
 
     approver = str(payload.get("approver") or "unknown")
     reason = str(payload.get("reason") or "")
-    approve = decision == DECISION_APPROVE
 
     try:
-        record = registry.decide(
-            plan_id, step_id, approve=approve, approver=approver, reason=reason
+        result = await _approve_pending_via_registry(
+            str(plan_id), str(step_id), decision, approver=approver, reason=reason
         )
     except KeyError as err:
         # ApprovalNotFoundError subclasses KeyError — surface as 404.
@@ -180,6 +176,28 @@ async def hitl_approve(payload: dict[str, Any]) -> dict[str, Any]:
     except ValueError as err:
         # ApprovalAlreadyDecidedError subclasses ValueError — surface as 409.
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(err)) from err
+
+    return result
+
+
+async def _approve_pending_via_registry(
+    plan_id: str,
+    step_id: str,
+    decision: str,
+    *,
+    approver: str = "unknown",
+    reason: str = "",
+) -> dict[str, Any]:
+    """Decide a paused HITL approval and resume its plan. HTTP-free.
+
+    Shared by the HTTP route and out-of-band channels (Telegram /approve,
+    /deny). Raises KeyError (unknown) / ValueError (already decided).
+    """
+    container = bootstrap_system()
+    registry = container.approval_registry
+
+    approve = decision == DECISION_APPROVE
+    record = registry.decide(plan_id, step_id, approve=approve, approver=approver, reason=reason)
 
     # Resume the plan. Approved steps execute; denied steps were set to SKIPPED and are
     # therefore passed over by the runner.

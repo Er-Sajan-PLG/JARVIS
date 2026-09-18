@@ -87,6 +87,14 @@ allowed message through the chat pipeline, replying in-thread. Voice and
 audio attachments are downloaded via `getFile` and transcribed locally
 before handling, so talking to the bot works like typing to it.
 
+**HITL approval from the phone (ADR-017, Sprint 8.4):** `/approve` and
+`/deny` decide the newest pending human-in-the-loop approval — a paused
+DESTRUCTIVE step or worker request — through the shared
+`_approve_pending_via_registry` helper (`app/adapters/http/router.py`).
+`/approve <plan_id> <step_id>` targets a specific one. The decision
+resumes the plan (approve) or skips the step (deny) exactly like
+`POST /api/v1/hitl/approve`.
+
 Enablement (see also `docs/N8N-SETUP.md` §Telegram): set the three
 variables above, send the bot a message from the operator chat, and add
 that chat's ID to the allowlist. Until the ID is known the n8n Telegram
