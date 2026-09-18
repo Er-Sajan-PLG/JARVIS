@@ -3,8 +3,8 @@
 **Status**: ACTIVE
 **Type**: governance
 **Source**: `AGENTS.md`, `docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md`
-**Last Updated**: 2026-09-13
-**Reviewed**: 2026-09-14
+**Last Updated**: 2026-09-18
+**Reviewed**: 2026-09-18
 
 **Version:** 1.0.0
 **Status:** Contract definition (not code). Both repos implement to this contract.
@@ -93,22 +93,28 @@ extract → manage → store → retrieve
 ### 2.1 Memory Schema (both repos support)
 
 ```python
-class MemoryItem(BaseModel):
+# Canonical shape (both repos implement equivalent).
+# JARVIS implements this as a pure-domain dataclass in
+# app/domain/memory.py (MemoryItem with MemoryKind / MemoryScope /
+# DraftStatus enums plus a metadata dict).
+@dataclass
+class MemoryItem:
     id: str
     content: str
-    kind: Literal["fact", "episode", "procedure", "preference", "conversation"]
-    scope: Literal["session", "user", "global"]  # JARVIS uses all; PROFESSOR-J: user/global
-    created_at: datetime
-    updated_at: datetime
-    expires_at: Optional[datetime]
+    kind: MemoryKind = MemoryKind.FACT  # fact | episode | procedure | preference | conversation
+    scope: MemoryScope = MemoryScope.USER  # session | user | global
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    expires_at: Optional[datetime] = None
     # Retrieval hints
     embedding: Optional[List[float]] = None  # dense (optional leg)
-    keywords: List[str] = []                 # sparse (always present)
+    keywords: List[str] = field(default_factory=list)  # sparse (always present)
     # Provenance (PROFESSOR-J requirement)
-    source: Literal["user", "stemma", "web", "tool", "inferred"] = "user"
+    source: str = "user"  # user | stemma | web | tool | inferred
     confidence: float = 1.0
-    draft_status: Literal["canonical", "draft", "deprecated"] = "canonical"
-    lhs_entity_ids: List[str] = []           # e.g., ["lhs:phys.force"]
+    draft_status: DraftStatus = DraftStatus.CANONICAL  # canonical | draft | deprecated
+    lhs_entity_ids: List[str] = field(default_factory=list)  # e.g., ["lhs:phys.force"]
+    metadata: Dict[str, Any] = field(default_factory=dict)
 ```
 
 ### 2.2 Retrieval Contract
@@ -161,7 +167,9 @@ SafetyPolicy → ToolExecutor → @safety_gate(tier=DESTRUCTIVE) → HITL
 ```
 
 Both systems MUST implement:
-- Tiered tool classification: `READ` / `WRITE` / `DESTRUCTIVE`
+- Tiered tool classification: `SAFE` / `SENSITIVE` / `DESTRUCTIVE` (JARVIS:
+  `SafetyTier` in `app/domain/plan.py`, enforced by `@safety_gate` in
+  `app/guardrails/`)
 - `DESTRUCTIVE` tools **must not execute** without explicit human confirmation
 - The gate is a **runtime wrapper**, not a policy document — it intercepts and blocks
 - HITL is blocking; agent cannot auto-continue or auto-approve
@@ -198,8 +206,8 @@ Both systems MUST implement:
 |---------|--------|-------------|
 | Personal data / user-owned files | Full access | No |
 | Web search / research agents | Yes (general) | Restricted to STEMMA-grounded paths |
-| Voice I/O | Optional | Yes (Piper + faster-whisper) |
-| Frontend framework | TBD (Next.js / desktop) | Next.js 15 web |
+| Voice I/O | ✅ shipped (faster-whisper STT + Edge TTS, `app/adapters/web/voice_routes.py`, `app/integrations/voice/__init__.py`) | Yes (Piper + faster-whisper) |
+| Frontend framework | ✅ shipped (FastAPI + SPA + PWA + APK: `app/main.py`, `frontend/index.html`, `frontend/assets/manifest.json`, `frontend/assets/service-worker.js`, `mobile/android/`) | Next.js 15 web |
 | Learning-specific agents | No | ProfessorAgent, ResearchAgent, EvaluatorAgent |
 | Curriculum / grade awareness | No | Yes (via LHS adapter) |
 | Ecosystem development context (skills, MCPs, tools, governance) | No | **Yes (unique to PROFESSOR-J)** — full workspace dev context so it can develop the ecosystem |
@@ -220,12 +228,16 @@ Both systems MUST implement:
 
 | Capability | PROFESSOR-J | JARVIS |
 |------------|-------------|--------|
-| Cognitive Engine (LangGraph) | ✅ ADR-003 | ❌ to port |
-| Memory (rich schema, hybrid) | ✅ PR #75 | ❌ to port |
+| Cognitive Engine (LangGraph) | ✅ ADR-003 | ✅ shipped (`app/brain/graph.py`: `build_cognitive_graph`, `StateGraph[CognitiveState]`, 5 nodes) |
+| Memory (rich schema, hybrid) | ✅ PR #75 | ✅ shipped (`app/domain/memory.py`: `MemoryItem`; `app/memory/pipeline.py`) |
 | Provider Routing | ✅ | ✅ (JARVIS has this) |
 | Safety Gate (HITL) | ✅ | ✅ (JARVIS has this) |
-| MCP Client | ✅ PR #86 | ❌ to port |
-| Voice | ✅ | ❌ not in JARVIS |
+| MCP Client | ✅ PR #86 | ✅ shipped (`app/integrations/mcp/transports.py`: stdio + Streamable HTTP) |
+| Voice | ✅ | ✅ shipped (STT `/stt`, TTS `/tts`, `app/adapters/web/voice_routes.py`) |
+| Comms (email send/read) | ✅ | ✅ shipped (`app/tools/comms_tools.py`: 6 tools; `app/integrations/email/`) |
+| Morning brief | ✅ | ✅ shipped (`app/integrations/brief/`, `get_brief` runner tool) |
+| Push notifications | ✅ | ✅ shipped (Web Push PWA, `app/integrations/push/`, `app/adapters/web/push_routes.py`) |
+| WhatsApp | ✅ | ⚠️ send-only (`app/integrations/whatsapp/`; receive/webhook path not implemented — see deviation register in `docs/CAPABILITY_TRACKER.md` §5) |
 | STEMMA Grounding (LHS Adapter) | ✅ | N/A (explicitly out of scope) |
 | Ecosystem Development Context (skills, MCPs, tools, governance) | ✅ (unique) | N/A (JARVIS doesn't need this) |
 | Session/Checkpoint | ✅ | ✅ |

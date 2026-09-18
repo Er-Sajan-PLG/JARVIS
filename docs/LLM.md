@@ -9,12 +9,9 @@
 > **Scope / verification note.** Every statement below was verified against the
 > source code in `app/`.
 >
-> **Corrected 2026-09-13:** this preamble previously stated that `config.yaml`
-> could not be read because tooling blocked it as a security concern. That was an
-> artefact of the session that wrote this file, not a property of the repository —
-> `config.yaml` is tracked and readable. The statements below that were derived
-> from `app/config/settings.py` defaults remain accurate as *defaults*; where the
-> shipped `config.yaml` differs, that is noted inline.
+> **Config note.** `config.yaml` is tracked and readable; where the shipped
+> `config.yaml` differs from the Python defaults in `app/config/settings.py`,
+> that is noted inline (see §5.3).
 
 > **Version.** `app/config/version.py` derives `VERSION` from git tags (see
 > `docs/VERSIONING.md`). The model layer
@@ -77,6 +74,12 @@ class ModelClient(Protocol):
 All four implement `generate()`, `model_name`, and `role` identically, so the
 router/switcher cannot tell them apart — this is stated explicitly in the
 `OpenRouterClient` docstring ("The router can't tell the difference").
+
+**More backends exist.** `app/models/factory.py` additionally dispatches
+`"groq"`, `"github"`, `"mistral"`, `"nvidia"`, `"cloudflare"`, `"zhipu"`,
+`"together"`, `"cerebras"`, `"openai"`, `"cohere"`, `"hf"` and `"anthropic"`
+to their own clients (see `app/models/`); the four above are the original
+set this document details. Anything else falls through to `LlamaCppClient`.
 
 ---
 
@@ -254,12 +257,17 @@ In `__init__`:
   returns `False` (and `main.py` reports "Unknown profile").
 - `switcher.get_client(key)` returns a raw client by key (used to feed the
   `DocumentationAgent`).
+
+> **Wiring note.** The profile/switcher path above is the mechanism as built
+> in `app/models/switcher.py`, but the live HTTP runtime does not hold a
+> `ModelSwitcher`: the console route builds a client per request via
+> `container.create_model_client(config)` (`app/adapters/web/router.py`),
+> and startup model selection lives in `app/utils/model_selector.py`
+> (default local + omni routers). Treat §5.1–§5.2 as the switcher's own
+> contract, not as the request path — the request path is §6.
 - `switcher.status()` / `list_profiles()` print active profile + loaded models.
 
-### 5.3 ⚠️ What is actually active under the shipped defaults
-
-> **This is the most important caveat in this document.** It is derived purely
-> from `app/config/settings.py` because `config.yaml` was unreadable.
+### 5.3 What is actually active under the shipped config
 
 The hardcoded `Settings` defaults define only **two** models:
 
@@ -358,10 +366,13 @@ loops `model.generate(messages)` (non-streaming) inside a tool-calling agent
   model=self._model)` — **`tokens_used` is `None` and `finish_reason` is
   `None`** on this path.
 
-Back in `main.py`, the streamed tokens are printed token-by-token. After the
-generator returns, `response.content` is persisted (§6 step 10). If
-`context_manager.fit()` trimmed anything, a `[Context] Trimmed …` line is
-printed from `context_manager.get_stats()`.
+On the console route (`POST /api/chat` in `app/adapters/web/router.py`),
+`generate()` is called non-streaming with a single user message built from the
+provider spec; the route returns
+`{response, model, session_id, tokens_used, voice_sent}`. Only the **user's**
+turn is stored to memory afterwards — the assistant's reply is generated prose,
+not a fact about the user. On the WS surface the streamed tokens go out as
+`token_chunk` frames followed by `stream_end` (§6).
 
 The `DocumentationAgent` instead consumes the full `response.content` as text,
 parses `<tool_call>` tags, executes them via `ToolExecutor`, injects results as
@@ -380,28 +391,17 @@ Verified failure modes and their handling:
 | `switcher.__init__` | client load fails | Caught; prints `⚠️ Could not load '<key>'`; continues. |
 | `switcher._build_router` | unknown role string | `TaskType(role)` raises `ValueError`, swallowed (`pass`). |
 | `router.select` | task type unregistered **and** no default | Raises `ValueError`. |
-| `main.py` generate | any exception from the model/network | Caught; prints `[Error] Model unavailable: <e>`; calls `conversation.pop_last_message()` to remove the just-added user message; `continue`s to next loop iteration. |
+| console `/api/chat` (`app/adapters/web/router.py`) | any exception from the model/network | Caught; logged (`Chat failed`), returns `{"error": "Model request failed: <e>"}`; the user's turn was already stored, the assistant reply is never stored. |
 
 Notes / caveats:
-- **The `main.py` model-failure handler rolls back only the user message, not the
-  facts.** Steps 3–4 of the prompt flow already stored extracted facts into
-  `memory` before generation. On a model failure those facts remain stored while
-  the user turn is popped from the conversation. This asymmetry is observable in
-  the code; whether it is intentional is not documented.
-- **Dead/unsafe fallback in `main.py`.** Immediately after `route()`, the code
-  reads:
-  ```python
-  if selected_model is None:
-      selected_model = router.default_model
-  ```
-  `router` is **not defined** in `main()`'s scope (the object is `switcher.router`),
-  so this branch would raise `NameError` if ever executed. It is currently
-  **unreachable** because `route()` never returns `None` — it either returns a
-  client or raises inside `select()`. Documented here as a latent defect, not an
-  active behavior.
+- **Removed CLI failure paths.** An earlier revision of this section described
+  a `main.py` REPL handler (`[Error] Model unavailable`, `pop_last_message()`
+  rollback, and a dead `router.default_model` fallback that would have raised
+  `NameError`). That loop no longer exists — `app/main.py` is FastAPI +
+  uvicorn, and the rows above describe the live HTTP surfaces instead.
 - `OllamaClient` and `LlamaCppClient` rely on their underlying SDKs raising on
-  connection errors; those exceptions propagate to the `main.py` try/except and
-  are reported as "Model unavailable".
+  connection errors; those exceptions propagate to the route-level try/except
+  and are returned as `{"error": ...}`.
 
 ---
 
@@ -428,11 +428,12 @@ Items drawn directly from code comments / unused scaffolding (not speculation):
 5. **Conversation summarization.** `ConversationManager.set_summary` /
    `get_summary` and `ConversationConfig.enable_summarization` exist but are
    unused ("Future" per docstrings).
-6. **Robust error rollback.** On model failure, roll back stored facts in
-   addition to the popped user message (see §8).
-7. **Fix the dead `router.default_model` fallback** in `main.py` (use
-   `switcher.router.default_model`, or remove the branch since `route()` cannot
-   return `None`).
+6. **Robust error rollback.** The console route stores the user turn before
+   generation and returns `{"error": ...}` on model failure (see §8) — a
+   retry-safe rollback for the stored turn is still open.
+7. ~~**Fix the dead `router.default_model` fallback** in `main.py`.~~
+   **Done by deletion:** the CLI loop that carried it no longer exists
+   (`app/main.py` is FastAPI + uvicorn).
 8. **Profile validity checks.** `ModelSwitcher.switch("cloud")` can succeed while
    the target router has no models/default (under defaults). A startup warning
    for empty profiles would prevent silent `ValueError`s at request time.
@@ -444,6 +445,19 @@ Items drawn directly from code comments / unused scaffolding (not speculation):
 | Concern | File |
 |---------|------|
 | Client interface + `ModelResponse` | `app/models/client.py` |
-| Client implementations | `app/models/llamacpp_client.py`, `app/models/ollama_client.py`, `app/models/openrouter_client.py`, `app/models/google_client.py` |
-| Factory | `app/models/factory.py` |
-| Router / task classification | `app/models/
+| Client implementations (original four) | `app/models/llamacpp_client.py`, `app/models/ollama_client.py`, `app/models/openrouter_client.py`, `app/models/google_client.py` |
+| Further provider clients | `app/models/anthropic_client.py`, `app/models/cerebras_client.py`, `app/models/cloudflare_ai_client.py`, `app/models/cohere_client.py`, `app/models/github_models_client.py`, `app/models/groq_client.py`, `app/models/hf_client.py`, `app/models/mistral_client.py`, `app/models/nvidia_nim_client.py`, `app/models/openai_client.py`, `app/models/together_client.py`, `app/models/zhipu_client.py` |
+| Failover / round-robin wrapper | `app/models/omni_client.py` |
+| Errors | `app/models/exceptions.py` |
+| Shared client surface | `app/models/interface.py` |
+| Factory (backend dispatch) | `app/models/factory.py` |
+| Router / task classification | `app/models/router.py` |
+| Profile switcher | `app/models/switcher.py` |
+| Env-key resolution | `app/models/utils.py` |
+| Startup model select (default + omni routers) | `app/utils/model_selector.py` |
+| HTTP chat completions + HITL | `app/adapters/http/router.py` |
+| Console chat route (provider specs) | `app/adapters/web/router.py` |
+| WS chat + SSE stream | `app/adapters/websocket/stream.py` |
+| WS voice (experimental) | `app/adapters/websocket/voice_handler.py` |
+| Shipped model selection | `config.yaml` |
+| Doc agent (tool-calling loop) | `app/agents/doc_agent.py` |

@@ -204,6 +204,8 @@ Vector search is implemented using ChromaDB and `OllamaEmbeddingFunction` for bo
 -   **`chromadb.PersistentClient`**: Initializes a client that persists data to disk in a specified directory (`data/chroma`).
 -   **Collections**:
     -   `VectorRetriever` uses a collection named "jarvis-memories".
+    -   `ConversationVectorStore` uses a collection named "jarvis-conversations".
+    -   Both collections use "cosine" similarity for HNSW (Hierarchical Navigable Small World) indexing.
 
 ---
 
@@ -216,8 +218,8 @@ Full git history for this file (commit|author|date|subject):
 ```
 
 Notes: This log was generated from the repository history for `docs/MEMORY.md`.
-    -   `ConversationVectorStore` uses a collection named "jarvis-conversations".
-    -   Both collections use "cosine" similarity for HNSW (Hierarchical Navigable Small World) indexing.
+
+---
 
 ### How it works:
 
@@ -258,3 +260,37 @@ Based on code comments and common patterns in memory systems, several areas are 
 -   **Proactive Memory Generation**: The current system primarily reacts to user input for memory creation. A proactive system could infer new memories or update existing ones based on observations, agent actions, or long-term trends.
 -   **Forgetting Mechanisms**: While recency is a factor in ranking, explicit forgetting or consolidation mechanisms for less important or redundant memories could be explored to manage memory growth and focus on salient information.
 -   **Memory of Interactions with Tools/Skills**: Extending the memory system to store details about how JARVIS uses tools or skills, which could inform future decision-making.
+
+## 10. Operator procedures (remediate / migrate / seed / inspect)
+
+Three one-shot scripts repair or populate the store. All operate on
+`data/memories.json` (default store) and write a timestamped backup to
+`data/backups/` before touching anything.
+
+| Script | Purpose | Dry run | Write |
+|---|---|---|---|
+| `scripts/remediate_memory_store.py` | normalize values, drop pipeline junk + conversation echoes, collapse exact duplicates, quarantine poisoned records | default (prints plan) | `--apply` |
+| `scripts/migrate_memory_temporal.py` | backfill time-bound validity fields on facts | default (prints plan) | `--apply` |
+| `scripts/seed_memory_from_profile.py` | reconcile the store against verified profile data (drops bogus/superseded rows, dedupes, appends seed) | n/a — always writes, but always backs up first (`memories-preseed-<stamp>.json`) | runs on invoke |
+
+```bash
+cd /home/sajan/Projects/JARVIS
+
+# 1. Inspect the live store (read-only)
+python3 -c "import json; d=json.load(open('data/memories.json')); print(d.get('version'), len(d.get('memories',[])), 'records')"
+ls data/backups/                      # every operator run leaves a backup here
+ls data/chroma/                       # persistent ChromaDB (memories + conversations)
+
+# 2. Plan a remediation or migration (writes nothing)
+.venv/bin/python scripts/remediate_memory_store.py
+.venv/bin/python scripts/migrate_memory_temporal.py
+
+# 3. Apply (backup is printed to stdout — keep it)
+.venv/bin/python scripts/remediate_memory_store.py --apply
+.venv/bin/python scripts/migrate_memory_temporal.py --apply
+```
+
+Rules: never edit `data/memories.json` by hand (use the scripts, so the
+Chroma collections stay consistent with the JSON); never delete
+`data/backups/` entries for a run you might need to revert; restart the
+server after an `--apply` so the in-memory `MemoryStore` reloads from disk.

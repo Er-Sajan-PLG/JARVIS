@@ -13,21 +13,32 @@
 
 ### 1.1 One-Command Setup
 
-> There is no `JARVIS-Setup-Env` n8n workflow. This is a repo shell script.
+> There is no `JARVIS-Setup-Env` n8n workflow, and there is no setup shell
+> script either — environment setup is the venv + pip flow below, and
+> versioning is git tags (see §9). Do not look for
+> `scripts/setup_dev_env.sh`, `requirements-dev.txt` or `.releaserc.json`:
+> none of them exist in this tree.
 
 ```bash
 # Run once per machine
 cd /home/sajan/Projects/JARVIS
-./scripts/setup_dev_env.sh
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+pre-commit install
+
+# Generate a key and write it into .env
+grep -q JARVIS_API_KEY .env 2>/dev/null || \
+  printf 'JARVIS_API_KEY=%s\n' "$(openssl rand -hex 32)" >> .env
 ```
 
 **What it does**:
-1. Checks Python 3.11/3.12 available
-2. Creates `.venv` with correct Python version
-3. Installs `requirements.txt` with frozen lockfile
-4. Generates `JARVIS_API_KEY` if missing
-5. Installs pre-commit hooks (ruff, mypy, gitleaks)
-6. Verifies: `.venv/bin/python -m app.main` starts cleanly
+1. Creates `.venv` with Python 3.11/3.12 (`requires-python = ">=3.11"`)
+2. Installs `requirements.txt` (the single frozen dependency set)
+3. Generates `JARVIS_API_KEY` if missing
+4. Installs pre-commit hooks (ruff, mypy, gitleaks)
+5. Verifies: `.venv/bin/python -m app.main` starts cleanly
 
 ### 1.2 Manual Setup (if needed)
 
@@ -68,7 +79,7 @@ git checkout main && git pull
 git checkout -b feature/your-feature-name
 
 # Start n8n dev environment (if needed)
-n8n start --tunnel  # or use n8n cloud dev environment
+n8n start  # plain start; the bridge listens on 127.0.0.1:8770, no tunnel flag
 ```
 
 ### 2.2 Code Changes
@@ -149,12 +160,66 @@ schedules the poll that invokes it (ADR-013).
 | n8n Workflow | JARVIS Endpoint | Purpose |
 |--------------|-----------------|---------|
 | `JARVIS-HITL` | `GET /api/v1/hitl/pending` + decision webhook | Human approval for DESTRUCTIVE tools |
-| `JARVIS-CI-Local` | `POST localhost:8770/run` (bridge) | Triggers `ci_bridge.py`, which gates PR heads |
+| `JARVIS-CI-Local` (file: `n8n/workflows/JARVIS-Local-CI.json`) | `POST localhost:8770/run` (bridge) | Triggers `ci_bridge.py`, which gates PR heads |
 | `JARVIS-Cleanup` | GitHub API | Deletes merged branches and stale runs |
 
 `WS /ws/chat` now requires the same `JARVIS_API_KEY` bearer credential as the
 REST surface (Phase 0 F4) — a browser cannot set that header, so an n8n workflow
 is not the right client for it.
+
+### 3.4 Integration endpoints you will call in development
+
+Comms/voice surfaces (full reference: `docs/COMMS.md`, `docs/VOICE.md`).
+All require `Authorization: Bearer $JARVIS_API_KEY`.
+
+```bash
+# Unified notify dispatcher (channels: push, telegram, whatsapp; default push)
+curl -s -X POST http://127.0.0.1:8000/api/v1/notify/ \
+  -H "Authorization: Bearer $JARVIS_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"title":"dev","body":"hello from dev","channels":["push"]}'
+
+# Morning brief: generate, or generate + deliver (slack/email/push)
+curl -s -H "Authorization: Bearer $JARVIS_API_KEY" http://127.0.0.1:8000/api/v1/brief/
+curl -s -X POST -H "Authorization: Bearer $JARVIS_API_KEY" http://127.0.0.1:8000/api/v1/brief/deliver
+
+# Email: list / search / send / reply
+curl -s -H "Authorization: Bearer $JARVIS_API_KEY" 'http://127.0.0.1:8000/api/v1/emails/?limit=5'
+curl -s -X POST -H "Authorization: Bearer $JARVIS_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"to":"<recipient>","subject":"hi","body":"test"}' \
+  http://127.0.0.1:8000/api/v1/emails/
+
+# Voice: status (no model load), TTS; STT takes multipart audio
+curl -s -H "Authorization: Bearer $JARVIS_API_KEY" http://127.0.0.1:8000/api/v1/voice/status
+curl -s -X POST -H "Authorization: Bearer $JARVIS_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"text":"hello"}' http://127.0.0.1:8000/api/v1/voice/tts -o /tmp/t.mp3
+
+# Push: public VAPID key, then authed subscribe + test
+curl -s http://127.0.0.1:8000/api/v1/push/vapid-public-key
+```
+
+### 3.5 Messaging env (Telegram / WhatsApp)
+
+| Group | Variables | Notes |
+|---|---|---|
+| Telegram | `TELEGRAM_ENABLED`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS` | two-way + voice notes; chat ID allowlist enforced by `TelegramPoller` |
+| WhatsApp | `WHATSAPP_ENABLED`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TO`, `WHATSAPP_TEMPLATE` | send-only; first contact must use the approved template (Meta rule) |
+| Email | `JARVIS_EMAIL_IMAP_HOST/PORT`, `JARVIS_EMAIL_SMTP_HOST/PORT`, `JARVIS_EMAIL_ADDRESS/PASSWORD` | IMAP/SMTP backing `api/v1/emails` |
+| Push | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CLAIMS_EMAIL` | without keys, push skips instead of failing |
+
+### 3.6 Mobile APK build
+
+The APK wraps the web console via Capacitor (`mobile/`). Full flow:
+`docs/MOBILE_ACCESS.md` §5.
+
+```bash
+cd /home/sajan/Projects/JARVIS/mobile
+npm install
+npm run build-apk   # sync-www → cap sync → gradlew assembleDebug
+```
+
+`mobile/capacitor.config.json` (`appId "dev.jarvis.app"`, `webDir "www"`)
+is the shell identity; Server URL + API key are set on-device in
+*Settings → Access* after install.
 
 ---
 
@@ -298,7 +363,7 @@ JARVIS_LOG_LEVEL=DEBUG .venv/bin/python -m app.main
 | `ModuleNotFoundError: app.prompt.builder` | Legacy server import | Archive legacy servers |
 | `401 Unauthorized` | Missing/wrong `JARVIS_API_KEY` | Check `.env` |
 | `ImportError: chromadb` | Venv not installed / wrong Python | Recreate venv with 3.11 |
-| `pytest not found` | Dev deps not installed | `pip install -r requirements-dev.txt` |
+| `pytest not found` | Deps not installed | `pip install -r requirements.txt` |
 
 ### 7.3 n8n Debugging
 
@@ -365,7 +430,7 @@ curl -H "Authorization: Bearer $JARVIS_API_KEY" http://localhost:8000/api/v1/hea
 | `pre-commit` | Git hooks | `.pre-commit-config.yaml` |
 | `n8n` | Workflow orchestration | `n8n/workflows/` |
 | `docker` | Containerization | `Dockerfile`, `docker-compose.yml` |
-| `semantic-release` | Versioning | `.releaserc.json` |
+| `bump_version` | Versioning (git tags are the authority) | `scripts/bump_version.py` |
 
 ---
 

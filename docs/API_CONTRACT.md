@@ -2,9 +2,9 @@
 
 **Status**: ACTIVE
 **Type**: reference
-**Source**: `app/api/` at HEAD
-**Last Updated**: 2026-09-13
-**Reviewed**: 2026-09-14
+**Source**: `app/adapters/http/router.py`, `app/adapters/websocket/`, `app/adapters/web/*.py`, `app/api/ocr/routes.py`, `app/main.py` at HEAD
+**Last Updated**: 2026-09-18
+**Reviewed**: 2026-09-18
 
 **Authentication**: Bearer Token (`JARVIS_API_KEY`) + X-API-Key header
 **Workflow Orchestration**: n8n (external)
@@ -42,21 +42,27 @@ X-API-Key: <JARVIS_API_KEY>
 ### 2.3 Validation Logic
 
 The credential decision is shared by every surface through
-`app/adapters/security.py:is_authorized`; `validate_api_key`
-(`app/adapters/http/router.py`) raises `HTTPException(401)` when it returns false.
+`is_authorized` in `app/adapters/security.py`. `validate_api_key`
+(`app/adapters/http/router.py:34-48`) is a thin FastAPI dependency over it:
 
 ```python
-expected = os.environ.get("JARVIS_API_KEY", "").strip()
-if not expected:
-    return True  # Dev fallback — no key configured, all requests allowed
-
-presented = bearer_token or x_api_key          # header forms
-if not presented or not hmac.compare_digest(presented, expected):
-    raise HTTPException(401, "Unauthorized")
+async def validate_api_key(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    x_api_key: str | None = Header(default=None),
+) -> bool:
+    if is_authorized(authorization=authorization, x_api_key=x_api_key):
+        return True
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 ```
 
-Credentials are compared with `hmac.compare_digest`, so a wrong key cannot be
-recovered byte-by-byte from response timing.
+`is_authorized` reads `JARVIS_API_KEY` from the environment; when it is unset
+(local development) every request is allowed. Otherwise the presented
+`Authorization: Bearer <key>` / `X-API-Key: <key>` credential must match, and
+the comparison uses `hmac.compare_digest`, so a wrong key cannot be recovered
+byte-by-byte from response timing. A failed check surfaces as `401` with
+`{"detail": "Unauthorized"}`. The web-console router (`app/adapters/web/router.py:94-117`)
+applies the same rule router-wide (headers only — never the query string).
 
 ### 2.4 Streaming Surfaces (WebSocket / SSE)
 
@@ -88,21 +94,16 @@ does not accept it. Header forms still work for non-browser clients (n8n, curl).
 GET /api/v1/health
 ```
 
-**Auth**: Required (Bearer/X-API-Key)
+**Auth**: None — liveness probe, no dependency on `validate_api_key`
+(`app/adapters/http/router.py:51-60`).
 
 **Response 200**:
 ```json
 {
   "status": "healthy",
-  "system": "JARVIS v3.0",
-  "providers_registered": ["local_general", "grok", "openrouter", "google_general"]
-}
-```
-
-**Response 401**:
-```json
-{
-  "detail": "Invalid or missing JARVIS_API_KEY authentication credentials"
+  "service": "JARVIS",
+  "version": "v3.x.x",
+  "tools_registered": 12
 }
 ```
 
@@ -116,22 +117,27 @@ Content-Type: application/json
 Authorization: Bearer <JARVIS_API_KEY>
 ```
 
-**Request**:
+**Request** (`app/adapters/http/router.py:74-83` — `messages[]` wins, `prompt` is the
+fallback, a missing prompt degrades to `""` and never 500s):
 ```json
 {
-  "prompt": "string (required)",
+  "messages": [{"role": "user", "content": "summarise inbox"}],
+  "prompt": "summarise inbox",
   "session_id": "string (optional, default: 'default_session')"
 }
 ```
 
-**Response 200**:
+**Response 200** — statuses are lowercase lifecycle words, plus tool metadata
+and any paused HITL steps:
 ```json
 {
   "session_id": "string",
   "plan_id": "string",
-  "status": "COMPLETED | AWAITING_APPROVAL | FAILED",
+  "status": "completed | running | failed",
   "steps_count": 5,
-  "complexity": "DIRECT_CHAT | FILE_QUERY | TOOL_SEARCH | MULTI_STEP"
+  "complexity": "DIRECT_CHAT | FILE_QUERY | TOOL_SEARCH | MULTI_STEP",
+  "requires_tools": true,
+  "awaiting_approval": []
 }
 ```
 
@@ -161,16 +167,26 @@ GET /api/v1/hitl/pending
 **Query params**:
 - `include_decided` (bool, optional) — include already-decided requests
 
-**Response 200**:
+**Response 200** (`app/adapters/http/router.py:115-123`; record shape is
+`PendingApproval.to_dict` from `app/guardrails/approvals.py:149-165`):
 ```json
 {
-  "pending_requests": [
+  "count": 1,
+  "pending": [
     {
-      "approval_id": "xxx",
-      "tool": "delete_file",
-      "params": {"path": "/tmp/old.log"},
       "plan_id": "plan-abc",
-      "step_id": "step-1"
+      "step_id": "step-1",
+      "title": "Delete /tmp/old.log",
+      "tool_name": "delete_file",
+      "description": "…",
+      "safety_tier": "DESTRUCTIVE",
+      "requested_at": "2026-09-18T00:00:00+00:00",
+      "notified_at": null,
+      "decided": false,
+      "decision": null,
+      "approver": null,
+      "reason": "",
+      "decided_at": null
     }
   ]
 }
@@ -181,56 +197,71 @@ POST /api/v1/hitl/approve
 Content-Type: application/json
 ```
 
-**Auth**: Required
+**Auth**: Required. Shipped — approving resumes the plan, denying skips the
+destructive step and resumes the remainder.
 
-**Request**:
+**Request** (`app/adapters/http/router.py:126-139`):
 ```json
 {
   "plan_id": "plan-abc (required)",
   "step_id": "step-1 (required)",
-  "approve": true
+  "decision": "approve | deny (or approved: true/false alias)",
+  "approver": "telegram:12345 (optional, default: 'unknown')",
+  "reason": "optional justification, recorded on deny"
 }
 ```
 
 **Response 200**:
 ```json
 {
-  "status": "resumed",
-  "plan_id": "plan-abc"
+  "decision": {"plan_id": "plan-abc", "step_id": "step-1", "decision": "approve"},
+  "plan_id": "plan-abc",
+  "status": "completed | running | failed",
+  "steps_count": 5,
+  "awaiting_approval": []
 }
 ```
+
+**Errors**: `422` when `plan_id`/`step_id`/`decision` are missing or invalid,
+`404` for an unknown approval, `409` for a second decision on the same step.
 
 ```http
 POST /api/v1/hitl/notified
 Content-Type: application/json
 ```
 
-**Auth**: Required
+**Auth**: Required. Idempotent delivery marker (first timestamp wins) so a
+polling workflow does not re-announce the same approval on every tick.
 
-**Request**:
+**Request** (`app/adapters/http/router.py:199-218`):
 ```json
 {
-  "approval_id": "xxx",
-  "notified_via": "telegram"
+  "plan_id": "plan-abc (required)",
+  "step_id": "step-1 (required)"
 }
 ```
 
 **Response 200**:
 ```json
-{"status": "ok"}
+{"notified": {"plan_id": "plan-abc", "step_id": "step-1"}}
 ```
+
+**Errors**: `422` when `plan_id`/`step_id` are missing, `404` for an unknown approval.
 
 ---
 
 ## 4. WebSocket Endpoints (`/ws/`)
 
-### 4.1 WebSocket Chat (`/ws/chat`)
+### 4.1 WebSocket Chat (`/ws/chat/{session_id}`)
 
 ```http
-GET /ws/chat
+GET /ws/chat/{session_id}
 Upgrade: websocket
 Authorization: Bearer <JARVIS_API_KEY>
 ```
+
+Legacy clients connect at `/ws/chat` (or `/ws`, same handler) and land on the
+`default` session (`app/adapters/websocket/stream.py:59-63`).
 
 **Auth**: Required — `Authorization: Bearer <key>`, `X-API-Key: <key>`, or
 `?api_key=<key>` on the connect URL (browsers cannot set headers on a WebSocket).
@@ -239,15 +270,16 @@ Violation** before any application message is sent.
 
 **Protocol**: Bidirectional JSON streaming
 
-**Client → Server**:
+**Client → Server** — the prompt is read from `content`, falling back to
+`prompt`, then `message` (`app/adapters/websocket/stream.py:29`):
 ```json
 {
-  "prompt": "user message",
-  "session_id": "optional"
+  "content": "user message (or prompt | message)"
 }
 ```
 
-**Server → Client (Stream)**:
+**Server → Client (Stream)** — exactly these four frames, no step-status or
+HITL frames on this socket:
 ```json
 // Intent analysis
 {"type": "intent_analysis", "complexity": "MULTI_STEP", "requires_tools": true}
@@ -255,22 +287,11 @@ Violation** before any application message is sent.
 // Token chunks (streaming)
 {"type": "token_chunk", "content": "partial response"}
 
-// Step execution status
-{"type": "step_status", "step_id": "xxx", "status": "RUNNING | COMPLETED | FAILED"}
-
-// HITL request (DESTRUCTIVE tools)
-{"type": "hitl_request", "tool": "delete_file", "params": {...}, "approval_id": "xxx"}
-
 // Stream end
 {"type": "stream_end"}
-```
 
-**Client → Server (HITL Response)**:
-```json
-{
-  "approval_id": "xxx",
-  "approved": true
-}
+// Failures
+{"type": "error", "content": "…"}
 ```
 
 ---
@@ -297,9 +318,339 @@ data: [DONE]
 
 ---
 
-## 5. Error Responses
+## 5. Web Console API (`/api/*`)
 
-### 5.1 Standard Error Format
+Router-level auth (`app/adapters/web/router.py:94-124`): every endpoint below
+requires `Authorization: Bearer <key>` or `X-API-Key: <key>`; query-string keys
+stay disabled. (`POST /api/upload` additionally carries the dependency
+explicitly — same rule, belt and braces.)
+
+### 5.1 Chat
+
+```http
+POST /api/chat
+Content-Type: application/json
+```
+
+**Auth**: Required.
+
+**Request**: `message` (or attached `files`) is required, `400` otherwise.
+`model` arrives as a dict (`{"provider","id"}`) or a bare string id resolved
+against the live catalogue, falling back to the saved default. Mail/brief
+questions inject an unread-email digest / generated-brief context; Telegram
+sessions requesting voice delivery set `voice_sent`.
+
+```json
+{
+  "message": "any important email?",
+  "model": {"provider": "openrouter", "id": "x-ai/grok-4.20"},
+  "session_id": "telegram:12345 (optional, default: random uuid)",
+  "memory_enabled": true,
+  "files": [],
+  "file_contents": [{"name": "notes.md", "content": "…"}]
+}
+```
+
+**Response 200**:
+```json
+{
+  "response": "…",
+  "model": {"provider": "openrouter", "id": "x-ai/grok-4.20"},
+  "session_id": "telegram:12345",
+  "tokens_used": 123,
+  "voice_sent": false
+}
+```
+
+Model failures return `200` with `{"error": "Model request failed: …"}`;
+unknown provider / missing key / no model selected return `400`.
+
+### 5.2 Files & Upload
+
+```http
+GET /api/files?q=&kind=
+GET /api/files/{file_id}
+GET /api/files/{file_id}/download
+DELETE /api/files/{file_id}
+POST /api/upload
+```
+
+**Auth**: Required (all five).
+
+- `GET /api/files` lists uploads newest-first; `q` filters by filename,
+  `kind` by `pdf | image | spreadsheet | text | other`. → `{"files": [], "total": 0}`
+- `GET /api/files/{file_id}` returns metadata plus an extracted-text `preview`
+  (first 20000 chars). `404` when unknown.
+- `GET /api/files/{file_id}/download` streams the stored bytes. `404` when unknown.
+- `DELETE /api/files/{file_id}` removes the upload. → `{"success": true, "deleted": "<id>"}`
+- `POST /api/upload` (multipart `file`) stores under `data/uploads/` and returns
+  extracted text (images / non-extractable files get a placeholder note):
+
+```json
+{
+  "file_id": "uuid",
+  "filename": "notes.md",
+  "size": 42,
+  "content_type": "text/markdown",
+  "kind": "text",
+  "extracted_text": "… (first 50000 chars)"
+}
+```
+
+### 5.3 Memory
+
+```http
+GET /api/memory?session_id=&q=&limit=200
+DELETE /api/memory/{memory_id}
+GET /api/memories
+```
+
+**Auth**: Required (all three). `GET /api/memories` is a frontend alias of
+`GET /api/memory` (`app/adapters/web/router.py:1037-1042`).
+
+**Response**: `{"memories": [{"id","value","key","type","category","importance","created_at","valid_at","invalid_at","expired_at","occurs_at"}], "total": 1}`.
+`DELETE` → `{"success": true}` (`false` + `error` on failure).
+
+### 5.4 Conversations & Stop
+
+```http
+GET /api/conversations
+POST /api/conversations
+GET /api/conversations/{session_id}
+DELETE /api/conversations/{session_id}
+POST /api/conversations/{session_id}/pin
+POST /api/stop
+```
+
+**Auth**: Required (all six).
+
+- `GET /api/conversations` → `{"conversations": []}`
+- `POST /api/conversations` (`{"session_id"}` optional) → `{"session_id": "…", "created": true}`
+- `GET /api/conversations/{session_id}` → `{"session_id": "…", "exists": true}`
+- `DELETE /api/conversations/{session_id}` wipes every memory tied to the
+  session → `{"success": true, "deleted_memories": 0}`
+- `POST /api/conversations/{session_id}/pin` (`{"message_id"}`) →
+  `{"success": true, "pinned": "…"}`
+- `POST /api/stop` → `{"status": "stopped"}`
+
+### 5.5 Models
+
+```http
+GET /api/models
+POST /api/models/select
+```
+
+**Auth**: Required (both). `GET` is served by the first-registered handler
+(`list_models`, `app/adapters/web/router.py:281-284`) and returns the live
+per-provider catalogue with availability status; the flat frontend-picker
+listing (`get_models`) is registered second on the same path.
+
+**Request** (`POST`):
+```json
+{"model_id": "x-ai/grok-4.20", "backend": "openrouter", "model": "x-ai/grok-4.20"}
+```
+
+**Response**: `{"active": "openrouter/x-ai/grok-4.20", "name": "x-ai/grok-4.20"}`
+(stored as the default).
+
+### 5.6 Settings
+
+```http
+GET /api/settings/default
+POST /api/settings/default
+GET /api/settings/providers
+POST /api/settings/providers
+DELETE /api/settings/providers/{key}
+POST /api/settings/providers/fetch-models
+GET /api/settings/models
+POST /api/settings/models
+DELETE /api/settings/models/{provider}/{model_id:path}
+POST /api/settings/models/hide
+GET /api/settings/api-keys
+POST /api/settings/api-keys
+DELETE /api/settings/api-keys/{provider}
+```
+
+**Auth**: Required (all). Bodies carry `provider`/`model`/`base_url`/`api_key`
+fields as appropriate (`400` when required fields are missing);
+`POST /api/settings/providers/fetch-models` probes an OpenAI-compatible
+`/models` endpoint and returns `{"models": [], "error": …}` on failure.
+`GET /api/settings/api-keys` returns only `{"keys": {"openrouter":
+{"configured": true, "source": "stored|env"}}}` — credential values never
+cross the wire; masked/empty saves are ignored.
+
+### 5.7 AGY (Google AI Pro via Antigravity CLI)
+
+```http
+GET /api/agy/status
+GET /api/agy/models
+POST /api/agy/analyze-file
+```
+
+**Auth**: Required (all three).
+
+- `GET /api/agy/status` → `{"available": true}`
+- `GET /api/agy/models` → `{"models": []}`
+- `POST /api/agy/analyze-file` (`{"file_path"}` required, `400` otherwise;
+  optional `query`, `model`) → `{"response": "…"}` or `{"error": "…"}`.
+
+### 5.8 Console Health
+
+```http
+GET /api/health
+```
+
+**Auth**: Required. → `{"status": "ok", "service": "JARVIS Web API"}`.
+
+---
+
+## 6. Service APIs (`/api/v1/*`)
+
+All routers below gate on `validate_api_key` (`app/adapters/http/router.py:34-48`),
+so Bearer / `X-API-Key` headers are required and the query-string form is not
+accepted — except the public VAPID key.
+
+### 6.1 Emails (`app/adapters/web/email_routes.py`)
+
+```http
+GET /api/v1/emails/?folder=INBOX&limit=50&unread_only=false
+GET /api/v1/emails/search?query=&limit=20
+GET /api/v1/emails/{email_id}
+POST /api/v1/emails/
+POST /api/v1/emails/{email_id}/reply
+```
+
+- `POST /api/v1/emails/` (`{"to","subject"}` required, `400` otherwise; plus `body`)
+  sends a message.
+- `POST /api/v1/emails/{email_id}/reply` (`{"body"}` required) replies.
+- Backend failures surface as `500`; unknown id as `404`.
+
+### 6.2 Notify (`app/adapters/web/notify_routes.py`)
+
+```http
+POST /api/v1/notify/
+Content-Type: application/json
+```
+
+One endpoint for every "tell the operator something" path. `body` is required
+(`400`); `channels` defaults to `["push"]` and only `push | telegram | whatsapp`
+are accepted (`400` on unknown). Unconfigured channels skip with
+`{"success": false, "error": "… not configured"}` instead of failing the alert.
+
+```json
+{
+  "title": "JARVIS",
+  "body": "Backup finished",
+  "channels": ["push", "telegram"],
+  "data": {},
+  "chat_id": "telegram override (optional)"
+}
+```
+
+**Response**: `{"success": true, "results": {"push": {}, "telegram": {}}}`.
+
+### 6.3 Push (`app/adapters/web/push_routes.py`)
+
+```http
+GET /api/v1/push/vapid-public-key
+POST /api/v1/push/subscribe
+DELETE /api/v1/push/unsubscribe
+POST /api/v1/push/test
+GET /api/v1/push/status
+```
+
+- `GET /api/v1/push/vapid-public-key` is **public** (no auth — the browser needs
+  it before any credential exists). → `{"publicKey": "…"}`; `503` when
+  `VAPID_PUBLIC_KEY` is unset.
+- `POST /api/v1/push/subscribe` (`{"endpoint","keys"}` required) →
+  `{"success": true, "message": "Subscribed", "count": 1}`.
+- `DELETE /api/v1/push/unsubscribe` (`{"endpoint"}` required) →
+  `{"success": true, "message": "Unsubscribed", "count": 0}`.
+- `POST /api/v1/push/test` (`{"title","body"}` optional) → `{"success": true, "result": {}}`.
+- `GET /api/v1/push/status` → `{"subscriptions": 0, "vapid_configured": false}`.
+
+### 6.4 Morning Brief (`app/adapters/web/brief_routes.py`)
+
+```http
+GET /api/v1/brief/
+POST /api/v1/brief/deliver
+GET /api/v1/brief/status
+```
+
+- `GET /api/v1/brief/` generates and returns the brief object.
+- `POST /api/v1/brief/deliver` generates and delivers →
+  `{"success": true, "brief": {}, "delivery_results": {}}`.
+- `GET /api/v1/brief/status` →
+  `{"enabled": true, "time": "07:00", "delivery_channels": []}`.
+
+### 6.5 Voice (`app/adapters/web/voice_routes.py`)
+
+```http
+POST /api/v1/voice/stt
+POST /api/v1/voice/tts
+GET /api/v1/voice/status
+```
+
+STT runs locally via faster-whisper; TTS via Edge TTS (no API key).
+Request/response only — nothing streams.
+
+- `POST /api/v1/voice/stt` (multipart `audio`, 10 MB max; `400` empty,
+  `413` oversize) → `{"success": true, "text": "…"}`.
+- `POST /api/v1/voice/tts` (`{"text"}` required, optional `voice`) returns raw
+  MP3 bytes (`audio/mpeg`).
+- `GET /api/v1/voice/status` →
+  `{"stt_model": "tiny", "stt_loaded": false, "tts_voice": "en-US-ChristopherNeural"}`.
+
+---
+
+## 7. OCR (`/api/ocr/*`)
+
+No auth dependency (`app/api/ocr/routes.py`). Multipart upload surface.
+
+```http
+GET /api/ocr/health
+POST /api/ocr/process
+POST /api/ocr/process-path
+```
+
+- `GET /api/ocr/health` → OCR service/model health (`HealthResponse`).
+- `POST /api/ocr/process` (multipart `file` plus form fields `backend`
+  (`auto | unlimited | paddle`), `mode` (`gundam | base`), `prompt`,
+  `ngram_window`, `max_tokens`, `paddle_mode`, `dpi`, `return_json`) →
+  `OCRResult`. Rejects unsupported extensions (`400`) and oversize files
+  (`413`); service failures surface as `502`.
+- `POST /api/ocr/process-path` (form `file_path` of a server-side file plus
+  `backend`/`mode`/`prompt`/`dpi`) → `OCRResult`; `404` when the path is missing.
+
+---
+
+## 8. Installable-App (PWA) Surface
+
+Served unauthenticated from `app/main.py` at the origin root (a browser fetches
+these before any credential exists — gating them would make the app
+uninstallable and block service-worker registration):
+
+```http
+GET /
+GET /manifest.json
+GET /service-worker.js
+GET /offline.html
+```
+
+- `/` serves `frontend/index.html` (console shell).
+- `/manifest.json` serves `frontend/assets/manifest.json`.
+- `/service-worker.js` serves `frontend/assets/service-worker.js` with
+  `Service-Worker-Allowed: /` so the worker controls navigations.
+- `/offline.html` serves `frontend/offline.html` (precached fallback).
+- Icons live at `/icon-192.png`, `/icon-512.png` (plus `/badge.png`), served
+  from `frontend/assets/` with `GET` and `HEAD`.
+- `/static/` mounts `frontend/assets/` (falling back to `frontend/`).
+
+---
+
+## 9. Error Responses
+
+### 9.1 Standard Error Format
 
 ```json
 {
@@ -312,7 +663,7 @@ data: [DONE]
 }
 ```
 
-### 5.2 HTTP Status Codes
+### 9.2 HTTP Status Codes
 
 | Code | Meaning | When |
 |------|---------|------|
@@ -328,9 +679,9 @@ data: [DONE]
 
 ---
 
-## 6. Data Models
+## 10. Data Models
 
-### 6.1 IntentAnalysis
+### 10.1 IntentAnalysis
 ```python
 class IntentAnalysis:
     complexity: Literal["DIRECT_CHAT", "FILE_QUERY", "TOOL_SEARCH", "MULTI_STEP"]
@@ -338,7 +689,7 @@ class IntentAnalysis:
     safety_flags: List[SafetyFlag]
 ```
 
-### 6.2 ExecutionPlan
+### 10.2 ExecutionPlan
 ```python
 class ExecutionPlan:
     plan_id: str
@@ -346,7 +697,7 @@ class ExecutionPlan:
     status: Literal["PENDING", "RUNNING", "COMPLETED", "AWAITING_APPROVAL", "FAILED"]
 ```
 
-### 6.3 ExecutionStep
+### 10.3 ExecutionStep
 ```python
 class ExecutionStep:
     step_id: str
@@ -357,7 +708,7 @@ class ExecutionStep:
     safety_tier: Literal["SAFE", "SENSITIVE", "DESTRUCTIVE"]
 ```
 
-### 6.4 MemoryRecord
+### 10.4 MemoryRecord
 ```python
 class MemoryRecord:
     id: str
@@ -371,9 +722,9 @@ class MemoryRecord:
 
 ---
 
-## 7. n8n Integration Patterns
+## 11. n8n Integration Patterns
 
-### 7.1 n8n → JARVIS: Chat Completion
+### 11.1 n8n → JARVIS: Chat Completion
 
 ```javascript
 // n8n HTTP Request node
@@ -392,7 +743,7 @@ class MemoryRecord:
 }
 ```
 
-### 7.2 n8n → JARVIS: Health Check (Pre-deploy)
+### 11.2 n8n → JARVIS: Health Check (Pre-deploy)
 
 ```javascript
 // n8n HTTP Request node
@@ -406,7 +757,7 @@ class MemoryRecord:
 }
 ```
 
-### 7.3 JARVIS → n8n: HITL Callback
+### 11.3 JARVIS → n8n: HITL Callback
 
 When JARVIS emits `HITLRequestEvent` (DESTRUCTIVE tool), n8n `JARVIS-HITL` workflow:
 1. Receives webhook with approval request
@@ -416,7 +767,7 @@ When JARVIS emits `HITLRequestEvent` (DESTRUCTIVE tool), n8n `JARVIS-HITL` workf
 
 ---
 
-## 8. Rate Limits & Quotas (Planned)
+## 12. Rate Limits & Quotas (Planned)
 
 | Tier | Requests/Min | Tokens/Min | Scope |
 |------|--------------|------------|-------|
@@ -425,7 +776,7 @@ When JARVIS emits `HITLRequestEvent` (DESTRUCTIVE tool), n8n `JARVIS-HITL` workf
 
 ---
 
-## 9. Versioning & Deprecation
+## 13. Versioning & Deprecation
 
 | Version | Status | Deprecation Date |
 |---------|--------|------------------|
@@ -439,7 +790,7 @@ When JARVIS emits `HITLRequestEvent` (DESTRUCTIVE tool), n8n `JARVIS-HITL` workf
 
 ---
 
-## 10. OpenAPI Spec
+## 14. OpenAPI Spec
 
 **Location**: Auto-generated from FastAPI → `/openapi.json` at runtime
 
@@ -459,28 +810,26 @@ with open('openapi.json', 'w') as f:
 
 ---
 
-## 11. Testing Contract
+## 15. Testing Contract
 
 | Endpoint | Contract Test | CI Gate |
 |----------|---------------|---------|
-| `GET /api/v1/health` | Returns 200 + expected fields | ✅ Required |
+| `GET /api/v1/health` | Returns 200 + expected fields, no auth | ✅ Required |
 | `POST /api/v1/chat/completions` | Valid request → valid response schema | ✅ Required |
-| `WS /ws/chat` | Connect → send → receive stream | ✅ Required |
+| `/ws/chat/{session_id}` | Connect → send → receive stream | ✅ Required |
 | Auth | Missing key → 401 | ✅ Required |
 | Auth | Invalid key → 401 | ✅ Required |
 
 ---
 
-## 12. Future Endpoints (Planned)
+## 16. Shipped Since Last Review
 
-| Endpoint | Purpose | Sprint |
-|----------|---------|--------|
-| `GET /api/v1/models` | List available models | 1 |
-| `POST /api/v1/models/select` | Switch active model | 1 |
-| `GET /api/v1/memories` | Query memory | 2 |
-| `POST /api/v1/memories` | Store memory | 2 |
-| `GET /api/v1/sessions` | List sessions | 2 |
-| `POST /api/v1/hitl/approve` | HITL approval REST fallback | 2 |
+| Endpoint | Shipped as | Note |
+|----------|------------|------|
+| `POST /api/v1/hitl/approve` | `POST /api/v1/hitl/approve` (§3.4) | Was "planned"; shipped with approve/deny + resume |
+| `GET /api/v1/models` (planned path) | `GET /api/models` (§5.5) | Lives on the console router, not `/api/v1/` |
+| `POST /api/v1/models/select` (planned path) | `POST /api/models/select` (§5.5) | Same — console router |
+| `GET /api/v1/memories` (planned) | `GET /api/memory`, `GET /api/memories` (§5.3) | Read-only list + alias; no `POST` store endpoint, no sessions endpoint |
 
 ---
 

@@ -2,8 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: reference
-**Last Updated**: 2026-09-13
-**Reviewed**: 2026-09-14
+**Last Updated**: 2026-09-18
+**Reviewed**: 2026-09-18
 **Source**: `app/config/version.py`, `scripts/version_bump.py`
 
 How the version number is produced, and why it is built this way.
@@ -31,8 +31,8 @@ The implementation is `app/config/version.py`. It runs
 | N commits ahead of the nearest tag | `vA.B.C+dev.N` |
 | working tree dirty | `... .dirty` |
 
-Example, as of 2026-09-13: HEAD sits exactly on the `v3.2.2` tag, so the app
-reports `v3.2.2` with no `+dev.N` suffix.
+Example, as of 2026-09-18: HEAD sits exactly on the `v3.23.0` tag, so the app
+reports `v3.23.0` with no `+dev.N` suffix.
 
 Fallbacks, in order, only when git is truly absent:
 
@@ -94,6 +94,14 @@ a **convenience for the metadata**, not the authority — two scripts exist and
 tag (`-s`) first and falls back to an unsigned annotated tag when no GPG key is
 present, because the tag is what matters, not the signature.
 
+> **Precedence, resolved 2026-09-18** (both scripts read end-to-end):
+> **`scripts/version_bump.py` wins.** `githooks/pre-push` invokes
+> `scripts/version_bump.py --apply --tag-only` on every push; nothing in the
+> hook path calls `scripts/bump_version.py`. The latter only bumps the
+> `pyproject.toml` metadata by hand (and installs the hooks via
+> `install-hooks`); its number is never consumed by the app, which derives the
+> version from tags via `app/config/version.py`.
+
 ## What must NOT happen (regressions to watch for)
 
 - **Do not hardcode a version string in the API layer.** The correct pattern
@@ -112,8 +120,12 @@ present, because the tag is what matters, not the signature.
   history is not being rewritten.
 - `v3.0.0` (2026-07-26) and `v3.0.1` (2026-07-28) are the first stable tags.
 - **Every `v3.1.0`+ tag was cut automatically** by the push hook described above,
-  starting 2026-09-13. The current line is `v3.2.x`.
+  starting 2026-09-13. The current line is `v3.23.x`.
 - The API hardcoded `version="3.0.0"` until 2026-09-11, when it was wired to
   the git-derived `VERSION` (the defect described above).
 - `app/config/version.py`'s `_FALLBACK_VERSION` is `v3.0.1` — it is only read when
   git is unavailable, and is deliberately *not* bumped on every release.
+- `mobile/package.json` (`jarvis-mobile`) and `tgcall/package.json` (`tgcall`)
+  each carry an independent `"version": "1.0.0"` for their own packaging (the
+  Capacitor APK wrapper and the Node sidecar). They are **not** git-derived and
+  are **not** the app version — bump them only when that packaging changes.

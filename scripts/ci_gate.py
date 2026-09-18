@@ -1370,6 +1370,45 @@ def gate_doc_types(worktree: Path) -> Check:
     return Check("doc_types", "Virtual Board Governance", True, "pass", summary[:160])
 
 
+def gate_doc_coverage(worktree: Path) -> Check:
+    """Doc coverage gate: every code surface must be documented.
+
+    ``scripts/check_doc_coverage.py`` computes three censuses from the live
+    tree — module Source bindings, served routes vs API_CONTRACT.md, env vars
+    vs CONFIG.md. Any finding fails, blocking the pipeline. This is the gate
+    that makes "a feature with zero docs" impossible: unlike the structure
+    and type gates, it measures code coverage, not doc hygiene.
+    """
+    script = worktree / "scripts" / "check_doc_coverage.py"
+    if not script.is_file():
+        return Check(
+            "doc_coverage",
+            "Virtual Board Governance",
+            True,
+            "skip",
+            "scripts/check_doc_coverage.py absent",
+        )
+    res = _run(
+        [str(PYTHON), str(script), "--strict"],
+        cwd=worktree,
+        timeout=180,
+        env={"PYTHONPATH": str(worktree)},
+    )
+    out = ((res.stdout or "") + (res.stderr or "")).strip()
+    summary = out.splitlines()[0] if out else f"exit {res.returncode}"
+    if res.returncode != 0:
+        return Check(
+            "doc_coverage",
+            "Virtual Board Governance",
+            True,
+            "fail",
+            f"undocumented code surface — {summary[:150]}",
+            exit_code=res.returncode,
+            output=_tail(out),
+        )
+    return Check("doc_coverage", "Virtual Board Governance", True, "pass", summary[:160])
+
+
 def gate_doc_facts(worktree: Path, report: GateReport) -> Check:
     """Doc facts gate: every number a doc asserts must match the repository.
 
@@ -1620,6 +1659,7 @@ def run_gates(
         report.checks.append(gate_board(worktree))
         report.checks.append(gate_docs(worktree))
         report.checks.append(gate_doc_types(worktree))
+        report.checks.append(gate_doc_coverage(worktree))
         # Persist facts from pytest/coverage results BEFORE gate_doc_facts so it can reuse them.
         _persist_doc_facts(report)
         report.checks.append(gate_doc_facts(worktree, report))

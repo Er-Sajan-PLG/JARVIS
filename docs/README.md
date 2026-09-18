@@ -54,6 +54,8 @@ the code wins — and the document is a bug.
 | **[TOOLS.md](TOOLS.md)** | The tool system under `app/tools/` |
 | **[LLM.md](LLM.md)** | Model layer: clients, routing, providers |
 | **[MEMORY.md](MEMORY.md)** | Memory subsystem architecture and lifecycle |
+| **[COMMS.md](COMMS.md)** | Notify/email/brief/push/Telegram/WhatsApp channels |
+| **[VOICE.md](VOICE.md)** | Speech input and spoken replies (console + Telegram) |
 | **[DATABASE.md](DATABASE.md)** | Persistence: JSON stores and ChromaDB collections |
 | **[CONFIG.md](CONFIG.md)** | Configuration system and defaults |
 | **[DEBUGGING.md](DEBUGGING.md)** | Diagnostic matrix for `v0.1.0` → `v3.0.0` — **historical**, not current behaviour |

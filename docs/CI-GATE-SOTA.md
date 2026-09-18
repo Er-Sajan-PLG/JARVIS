@@ -17,6 +17,13 @@ Read this with:
 - `.github/workflows/ci.yml` — the Actions jobs this gate replaces
 - `docs/N8N-SETUP.md` — how n8n invokes the gate
 
+The gate runs <!--fact:gate_count-->26<!--/fact--> checks
+(`def gate_*` in `scripts/ci_gate.py`), published under
+<!--fact:context_count-->9<!--/fact--> commit-status contexts
+(`CONTEXT_ORDER` in `scripts/ci_bridge.py`): Lint & Typecheck, SAST, Tests,
+Security Scan, Supply Chain, Conventional Commits, Virtual Board Governance,
+Build, Mutation Testing.
+
 ## 1. What "SOTA" means here
 
 The reference frame is the union of five widely-adopted standards, not a single
@@ -81,15 +88,21 @@ Beyond parity, the gate adds the supply-chain layer Actions never had:
 | 15 | Commit hygiene | Conventional Commits | `gate_commitlint` (config mirrored from `commitlint.config.cjs`) | **Implemented** | offending subjects |
 | 16 | Dependency-update automation | Scorecard `Dependency-Update-Tool` | Dependabot (repo-native) | Implemented (repo-side) | Dependabot PRs |
 | 17 | Governance / review board | ASVS 1.1, SAMM Governance | `gate_board` | Implemented | board report |
-| 18 | Risk acceptance must be explicit | SSDF RV.3, ASVS 1.14 | `ACCEPTED_RISKS.md` parsed by the gate as a machine-readable exemption source | **Implemented (novel)** | acknowledged findings listed separately |
-| 19 | Reproducible build inputs | SLSA L3, Scorecard `Pinned-Dependencies` | `requirements.txt` is a frozen pin set | **Partial** — no `--require-hashes`, no lockfile digest | pin list |
-| 20 | Branch protection / required checks | Scorecard `Branch-Protection` | n8n publishes the six context names as commit statuses | **Partial** — GitHub returns 403 on private free-tier branch protection; nothing can *enforce* a merge | commit statuses |
-| 21 | DAST (running-app testing) | ASVS 14.2 | — | **Missing** | — |
-| 22 | Fuzzing | Scorecard `Fuzzing` | — | **Missing** | — |
-| 23 | VEX (vuln exploitability) | NTIA VEX | — | **Missing** | — |
-| 24 | Transparency log | Sigstore/Rekor | — | **Missing** (local-only signing) | — |
-| 25 | CodeQL-style deep dataflow | GitHub Advanced Security | semgrep (weaker) | **Partial** | semgrep findings |
-| 26 | Signed commits / DCO | Scorecard `Signed-Commits` | — | **Missing** | — |
+| 18 | Documentation hygiene (structure) | DOC-GOVERNANCE §6 | `gate_docs` → `scripts/check_docs.py --strict` | **Implemented** (blocking) | hygiene findings |
+| 19 | Documentation type contract | DOC-GOVERNANCE §10 | `gate_doc_types` → `scripts/doc_types.py` vs `docs/DOC-GOVERNANCE.md` | **Implemented** (blocking) | contract diff |
+| 20 | Documentation coverage of code | doc coverage | `gate_doc_coverage` → `scripts/check_doc_coverage.py --strict` | **Implemented** (blocking) | undocumented surfaces |
+| 21 | Documentation truth (numbers) | DOC-GOVERNANCE §8 | `gate_doc_facts` → `scripts/sync_doc_facts.py --check` | **Implemented** (blocking) | stale-claim findings |
+| 22 | Eval suite | functional correctness | `gate_evals` → `scripts/run_evals.py` (opt-in `--with-evals`) | **Implemented** (opt-in) | eval verdict |
+| 23 | Contract tests | interface stability | `gate_contract` → `tests/contract` (blocking) | **Implemented** | pytest summary |
+| 24 | Risk acceptance must be explicit | SSDF RV.3, ASVS 1.14 | `ACCEPTED_RISKS.md` parsed by the gate as a machine-readable exemption source | **Implemented (novel)** | acknowledged findings listed separately |
+| 25 | Reproducible build inputs | SLSA L3, Scorecard `Pinned-Dependencies` | `requirements.txt` is a frozen pin set | **Partial** — no `--require-hashes`, no lockfile digest | pin list |
+| 26 | Branch protection / required checks | Scorecard `Branch-Protection` | n8n publishes the nine context names as commit statuses | **Partial** — GitHub returns 403 on private free-tier branch protection; nothing can *enforce* a merge | commit statuses |
+| 27 | DAST (running-app testing) | ASVS 14.2 | — | **Missing** | — |
+| 28 | Fuzzing | Scorecard `Fuzzing` | — | **Missing** | — |
+| 29 | VEX (vuln exploitability) | NTIA VEX | — | **Missing** | — |
+| 30 | Transparency log | Sigstore/Rekor | — | **Missing** (local-only signing) | — |
+| 31 | CodeQL-style deep dataflow | GitHub Advanced Security | semgrep (weaker) | **Partial** | semgrep findings |
+| 32 | Signed commits / DCO | Scorecard `Signed-Commits` | — | **Missing** | — |
 
 ## 4. The nine gaps, stated plainly
 
@@ -143,6 +156,22 @@ mutant), `--with-coverage` (instrumented run). The blocking set stays fast.
 Scan tools live in an isolated venv (`~/.local/share/jarvis-ci-tools/venv`) plus
 `~/.local/bin`, so the project's pinned `.venv` is never polluted by their
 dependency trees.
+
+## 6.1 Doc-maintenance loop (no Actions workflow owns it)
+
+There is no `doc-maintenance.yml` in `.github/workflows/` — Actions are
+billing-blocked and dispatch-only (see §7 changelog, 2026-09-10), so the
+loop below runs in the pre-commit hook and the gate itself instead:
+
+1. `githooks/pre-commit` runs `scripts/sync_doc_facts.py --apply`
+   (re-derives every `<!--fact:…-->` marker), re-stages the corrected
+   documents, then runs `--check` as a backstop.
+2. The gate enforces `gate_docs` (structure), `gate_doc_types` (contract),
+   `gate_doc_coverage` (code surface) and `gate_doc_facts` (truth) as
+   blocking checks under Virtual Board Governance.
+3. Semantic drift — prose that is well-formed and wrong — is caught by the
+   monthly `JARVIS doc staleness review` job via
+   `scripts/doc_review_due.py --packet` (`docs/DOC-GOVERNANCE.md` §7).
 
 ## 7. Change log
 

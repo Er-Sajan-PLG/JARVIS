@@ -3,7 +3,7 @@
 **Status**: ACTIVE
 **Type**: runbook
 **Last Updated**: 2026-09-17
-**Source**: app/main.py, frontend/assets/service-worker.js, frontend/assets/manifest.json
+**Source**: `app/main.py`, `frontend/assets/service-worker.js`, `frontend/assets/manifest.json`, `frontend/assets/voice.js`, `frontend/index.html`, `frontend/assets/core.js`, `app/adapters/web/push_routes.py`, `app/adapters/web/voice_routes.py`, `mobile/package.json`, `mobile/capacitor.config.json`, `mobile/android/app/src/main/AndroidManifest.xml` at HEAD
 
 > Drift trap for this type: The command or endpoint changes and the runbook keeps instructing the old one, so following it fails at the worst moment.
 
@@ -39,9 +39,9 @@ Two facts decide whether this works:
 **Choose an address.** Two supported options:
 
 - **LAN** — simplest, no extra software, works only on the same Wi-Fi:
-  `http://<host-lan-ip>:8000`, e.g. `http://192.168.1.81:8000`.
+  `http://<host-lan-ip>:8000`.
 - **Private tunnel (Tailscale)** — works from any network, encrypted, still not
-  public: `http://<host-tailnet-name>:8000`, e.g. `http://sajan-pc:8000`.
+  public: `http://<host-tailnet-name>:8000`.
   Install Tailscale on the host and the phone, sign both into the same tailnet,
   then use the MagicDNS name.
 
@@ -104,7 +104,7 @@ hostname, name the exact URL the phone will open:
 
 ```bash
 # In .env — the scheme + host + port the phone types, no trailing slash
-JARVIS_PUBLIC_ORIGIN=http://sajan-pc:8000
+JARVIS_PUBLIC_ORIGIN=http://<host-tailnet-name>:8000
 ```
 
 ### 3. Start the server bound for the network
@@ -128,7 +128,7 @@ JARVIS_PORT=8000 .venv/bin/python -m app.main                          # all int
 > `__main__` block, so the Dockerfile's `CMD` was a no-op. Any deployment that
 > relied on that command needs re-checking.
 
-### 4. Install on the phone
+### 4. Install on the phone (PWA)
 
 1. Open `http://<host>:8000/` in the phone's browser.
 2. **Android/Chrome** — menu → *Add to Home screen*. **iOS/Safari** — Share →
@@ -136,6 +136,84 @@ JARVIS_PORT=8000 .venv/bin/python -m app.main                          # all int
 3. Launch from the home-screen icon: it opens full-screen, without browser chrome.
 4. When prompted, **allow notifications** — this needs the service worker to be
    active, so it only appears once step 3 has succeeded.
+
+### 5. Install as APK (Android, optional)
+
+The PWA above is the default. The APK wraps the same console in a
+Capacitor shell for a store-free native install. Source:
+`mobile/package.json`, `mobile/capacitor.config.json`
+(`appId "dev.jarvis.app"`, `webDir "www"`).
+
+```bash
+cd /home/sajan/Projects/JARVIS/mobile
+npm install
+npm run build-apk
+# sync-www bundles frontend/ into mobile/www, cap syncs to android/,
+# then ./android/gradlew -p android assembleDebug builds the APK
+```
+
+Install the artifact (`mobile/android/app/build/outputs/apk/debug/app-debug.apk`)
+on the phone (sideload / `adb install`), open it, then set the target once:
+
+1. *Settings → Access → Server URL* — enter the exact server origin,
+   e.g. `http://<host-tailnet-name>:8000`. The APK's WebView origin is
+   `capacitor://localhost`, which has no backend, so relative `/api/...`
+   paths are resolved against this URL (`getServerUrl()` in
+   `frontend/assets/core.js`). Leave it empty on web/PWA (same-origin).
+2. The app probes candidates on boot and latches onto the first one
+   answering `/api/v1/health`: stored URL first, then baked candidates
+   from `frontend/assets/server-candidates.json` (tailnet name + LAN snapshot
+   written by `mobile/scripts/sync-www.js` at build time), then
+   same-origin. The winner is persisted, so the next boot tries it first.
+3. Enter the API key in the same panel (*Settings → Access*), as with
+   the PWA.
+
+Rebuild the APK after any console change — `sync-www` always overwrites
+`mobile/www` because a skipped copy once shipped stale JS.
+
+### 6. Voice UI (mic / speaker)
+
+The composer bar carries two voice controls, both served by
+`frontend/assets/voice.js` against `app/adapters/web/voice_routes.py`
+(full guide: `docs/VOICE.md`):
+
+- **Mic** (`#micBtn`, 🎤) — tap, speak, tap to send. Records with
+  `MediaRecorder` and POSTs audio to `/api/v1/voice/stt`; the transcript
+  lands in the composer. The APK declares `RECORD_AUDIO` in
+  `mobile/android/app/src/main/AndroidManifest.xml`; Android asks for
+  microphone access on first tap.
+- **Speaker** (`#voiceToggle`, 🔊/🔇) — toggles spoken replies. Reply
+  text is POSTed to `/api/v1/voice/tts` and the returned MP3 plays.
+
+### 7. Push subscribe (VAPID)
+
+Subscription is a three-call flow (UI trigger: the notification prompt
+/ `subscribeToPush()` in `frontend/index.html`):
+
+```bash
+BASE=http://<host>:8000
+KEY=$(grep '^JARVIS_API_KEY=' .env | cut -d= -f2-)
+
+# 1. Fetch the VAPID public key — public by design, no auth
+curl -s $BASE/api/v1/push/vapid-public-key        # {"publicKey":"..."}
+
+# 2. Subscribe in the browser (needs the active service worker):
+#    reg.pushManager.subscribe({ userVisibleOnly: true,
+#      applicationServerKey: <urlB64(publicKey)> })
+#    then POST the subscription JSON with the API key:
+curl -s -X POST $BASE/api/v1/push/subscribe \
+  -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+  -d '{"endpoint":"<push-endpoint>","keys":{"p256dh":"<key>","auth":"<key>"}}'
+
+# 3. Prove delivery
+curl -s -X POST $BASE/api/v1/push/test \
+  -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+  -d '{"title":"JARVIS","body":"push check"}'
+```
+
+Source: `app/adapters/web/push_routes.py`. Server env needed:
+`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — without them step 1 answers
+503 and the phone alerts "Push not configured on the server".
 
 ---
 
@@ -171,8 +249,8 @@ curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $KEY" $BASE/a
 curl -s -o /dev/null -w '%{http_code}\n' $BASE/manifest.json           # 200
 ```
 
-This has been verified on the live tailnet deployment (`rebel`, 2026-09-17):
-all twelve app paths returned 200 over `http://rebel.tail4ed6b0.ts.net:8000`,
+This has been verified on the live tailnet deployment (2026-09-17):
+all eleven app paths returned 200 over `http://<host-tailnet-name>:8000`,
 the console returned 401 anonymously and 200 with the key, and the service
 worker reported `activated` with root scope in a real browser at a 390×844
 phone viewport.
@@ -211,6 +289,10 @@ The repository's own contract tests pin this surface:
 | `JARVIS rejected that API key` | Key entered does not match the server's `JARVIS_API_KEY` | Re-copy from `.env`; the two must be byte-identical |
 | Console answered anonymously before this change | Older tree, where the key gated only `/api/upload` | Update to a build containing this runbook; verify with the 401 check above |
 | Everything works on the host, phone times out | Firewall blocking the port | Allow inbound TCP 8000 on the host |
+| APK shows "Cannot reach JARVIS" after the host rebooted (DHCP moved it) | Stored Server URL / baked LAN snapshot points at the old lease | Prefer the tailnet URL (stable across DHCP); or rebuild the APK so `sync-www` refreshes `frontend/assets/server-candidates.json`, then re-save Server URL in *Settings → Access* |
+| Phone browser blocks API calls with CORS errors on the tunnel URL | `JARVIS_PUBLIC_ORIGIN` does not match the URL the phone opens | Set `JARVIS_PUBLIC_ORIGIN` to the exact `scheme://host:port` typed on the phone (no trailing slash); for extra origins use `CORS_ALLOWED_ORIGINS`. Both are read by `_resolve_cors_origins()` in `app/main.py` at startup, so restart the server |
+| Mic button does nothing in the APK, works in the phone browser | OS microphone permission denied for the app | Grant Microphone in the app's OS permission screen; `RECORD_AUDIO` is already in the manifest |
+| Push never arrives on a plain-HTTP LAN URL, works via tunnel | Browsers require a secure context for Push on non-localhost origins | Use the Tailscale URL; plain-HTTP LAN is not a secure context on iOS |
 
 ---
 

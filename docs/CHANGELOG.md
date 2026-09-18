@@ -2,12 +2,184 @@
 
 **Status**: ACTIVE
 **Type**: changelog
-**Last Updated**: 2026-09-13
+**Last Updated**: 2026-09-18
 
 All notable changes to the JARVIS project from the initial commit (`1999e53`) to the
 current release are recorded here. Entries are newest-first. Versions below `v3.0.0`
 are retained history and are **not** rewritten; see also
 [`archive/`](archive/) for the frozen v3.0.0 release-cycle documents.
+
+## [v3.23.0] — 2026-09-18
+### Added (comms)
+- Telegram two-way bot + notify dispatcher + push VAPID key endpoint (`f92b2c3`),
+  WhatsApp Cloud API send-only channel (`74fff54`), runner comms tools, chat
+  email context, brief push channel and voice endpoints (`ac6544f`), Telegram
+  voice notes + p2p call sidecar scaffold (`a551882`), Telegram voice input,
+  chat brief intent and spoken delivery (`fe3417f`).
+### Added (voice)
+- STT/TTS + wake word detection (`b0122d4`); voice REST (`/api/v1/voice`) and
+  voice WebSocket (`/ws/voice`) endpoints (`ac6544f`).
+### Added (email/brief)
+- IMAP/SMTP email integration (`687dc20`), STARTTLS/app-password fixes
+  (`833e28e`), morning brief service with Slack/email delivery (`7000de1`).
+### Added (mobile/APK)
+- PWA manifest/service worker/push (`07eaf87`), console shell on phone
+  (`35cc133`), Capacitor wrapper + Android platform + voice UI (`06ef3fe`),
+  self-healing server resolution + offline banner (`bdb8b9c`), wake lock during
+  generations (`2b5dea5`).
+### Added (tgcall)
+- P2P call sidecar scaffold under `tgcall/` (`a551882`).
+### Merged (cleanup)
+- `9ed894f` ci-cd gap closure, `aa63906` audit-governance, `7d921b0`
+  doc-hardening cleanup, `6f8cf2b` mobile-phone-access.
+
+## [v3.22.1] — 2026-09-16
+### Changed
+- Conventional Commits enforced at commit time (`ci(commit-msg)`).
+
+## [v3.22.0] — 2026-09-15
+### Added
+- **ADR-015** — *Memory facts are bi-temporal, invalidated not deleted*
+  (`b7affdd`): dedup write path, invalidate-not-delete, `occurs_at`.
+### Changed
+- README ADR count synced 14→15 (`6fc51d5`).
+
+## [v3.21.0] — 2026-09-14
+### Added
+- AGY integration for Google AI Pro models (`0fe8277`); model id/name and
+  parsing fixes (`06efb5c`, `64a3e18`, `b280716`).
+
+## [v3.20.0] — 2026-09-14
+### Added
+- Google AI Pro OAuth login for Gemini models (`2efe508`).
+
+## [v3.19.0] — 2026-09-14
+### Fixed
+- Web app backend: working chat with OpenRouter (`f69a81e`); file
+  upload + conversation rename/delete with memory wipe (`91d6400`).
+
+## [v3.18.0] — 2026-09-14
+### Added
+- Web API routes + ChatGPT-like frontend (`01bfff9`); settings workspace,
+  custom providers, memory API types (`f50aafd`); live provider catalogue
+  (`90b76fc`).
+
+## [v3.17.0] — 2026-09-14
+### Added
+- Closed all capability gaps → 100% compliance (`fe66929`).
+
+## [v3.16.1] — 2026-09-14
+### Fixed
+- Ported fixes from USA + closed remaining doc gaps (`bf2406e`).
+
+## [v3.16.0] — 2026-09-14
+### Added
+- USA-inspired doc governance system (`20d33b9`); Reviewed markers on all
+  living documents (`fbb1f4c`).
+
+## [v3.15.4] — 2026-09-14
+### Changed
+- Reviewed markers added to all living documents, 56 files (`fbb1f4c`).
+
+## [v3.15.3] — 2026-09-14
+### Changed
+- ROADMAP + CAPABILITY_TRACKER marked all sprints complete (`43c3581`).
+
+## [v3.15.2] — 2026-09-14
+### Added
+- Memory pipeline and MCP server tests.
+
+## [v3.15.1] — 2026-09-14
+### Fixed
+- Pre-commit uses cached doc facts for fast commits.
+
+## [v3.15.0] — 2026-09-14
+### Added
+- Working web app with chat UI + WebSocket streaming.
+
+## [v3.14.1] — 2026-09-14
+### Changed
+- Sprint 4 items marked complete in CAPABILITY_TRACKER.
+
+## [v3.14.0] — 2026-09-14
+### Added
+- Sprint 4: MCP server, Cloudflare deploy, workspace awareness.
+
+## [v3.13.1] — 2026-09-14
+### Fixed
+- Pre-commit hooks scoped to active source dirs only.
+
+## [v3.13.0] — 2026-09-14
+### Added
+- Streaming + OTel instrumentation on the cognitive loop.
+
+## [v3.12.0] — 2026-09-14
+### Added
+- Regression eval suite for CI.
+
+## [v3.11.0] — 2026-09-14
+### Added
+- Session MemorySaver, fork/archive lifecycle, token-aware context trimming.
+
+## [v3.10.0] — 2026-09-14
+### Added
+- Contract-compliant MemoryItem schema, LLM extractor, dedup, configurable
+  hybrid fusion.
+
+## [v3.9.0] — 2026-09-14
+### Fixed
+- Doc-facts: `test_count` derived once, deterministically, via `--collect-only`.
+
+## [v3.8.0] — 2026-09-13
+### Added
+- Authoritative fact-computation architecture for doc facts.
+
+## [v3.7.0] — 2026-09-13
+### Added
+- LangGraph cognitive engine wiring (Sprint 3 increment 01).
+
+## [v3.6.1] — 2026-09-13
+### Fixed
+- Closed the silent-skip hole in the doc-facts checker.
+
+## [v3.6.0] — 2026-09-13
+### Added
+- External link checking, an ADR, and the offline invariant.
+
+## [v3.5.0] — 2026-09-13
+### Added
+- Doc type contract, enforced — write docs so they cannot drift.
+
+## [v3.4.1] — 2026-09-13
+### Changed
+- Documented the fact system; prose quotes the anti-pattern.
+
+## [v3.4.0] — 2026-09-13
+### Added
+- Doc facts sync automatically; staleness clock added.
+
+## [v3.3.4] — 2026-09-13
+### Changed
+- Documented why `iter_docs()` has a narrow scope.
+
+## [v3.3.3] — 2026-09-13
+### Changed
+- Recorded the measured reachability of the chromadb CVEs (RISK-001).
+
+## [v3.3.2] — 2026-09-13
+### Changed
+- Enforced the versioning rule; fixed the docs that broke it.
+
+## [v3.3.1] — 2026-09-13
+### Changed
+- Recorded the token reality; added doc versioning rules.
+
+## [v3.3.0] — 2026-09-13
+### Added
+- Documentation hygiene enforced in the gate (`6859f04`); header migration
+  made idempotent across root files (`7695f19`).
+### Merged (cleanup)
+- Dependabot #44, #46, #50–#53 merged (nvidia/cuda + mpmath bumps), #60 (dev).
 
 ## [v3.2.2] — 2026-09-13
 ### Fixed

@@ -32,7 +32,7 @@ n8n is the **conductor, not the orchestra**. It has exactly three jobs:
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `JARVIS-CI-Local` | every 30 min | POSTs to the bridge → the bridge runs the 22-check gate and publishes GitHub statuses |
+| `JARVIS-CI-Local` | every 30 min | POSTs to the bridge → the bridge runs the <!--fact:gate_count-->26<!--/fact-->-check gate and publishes GitHub statuses |
 | `JARVIS-HITL` | every 1 min (poll) + a webhook | Finds JARVIS approvals waiting on a human, tells you on Slack, accepts your approve/deny |
 | `JARVIS-Cleanup` | schedule | Housekeeping |
 
@@ -154,12 +154,20 @@ Within ~1 minute the n8n poll will also have posted a Slack message about it.
 2. **Telegram.** The node is **disabled** on purpose: there is no chat ID yet and
    `getUpdates` returns 409 (another poller holds the connection). Send the bot a message
    and give the agent the chat ID, then enable the node.
-3. **Four Dependabot PRs (#23, #24, #25, #36)** bump `.github/workflows/*` and are refused
-   by GitHub: the fine-grained PAT lacks **Workflows: write**. Add that permission, or merge
-   them yourself. **#40** has a real merge conflict.
-4. **`tests/sprint4/`** are RED TDD stubs for Sprint 4 (incident/release workflows). They
-   are deliberately untracked — committing them turns the gate red. Decide whether Sprint 4
-   is next.
+3. **Dependabot PRs.** *Snapshot 2026-09-10:* four PRs (#23, #24, #25, #36)
+   bumped `.github/workflows/*` and were refused by GitHub because the
+   fine-grained PAT lacked **Workflows: write**; **#40** had a real merge
+   conflict. *Current state:* the open Dependabot PRs touch only
+   `requirements.txt`, so the Workflows-permission refusal no longer applies
+   — merge them normally after the gate is green, or close them if superseded.
+   If a future Dependabot PR touches `.github/workflows/` again, the same
+   refusal will return (the CI token must not hold Workflows: write — see
+   `docs/CI-TOKEN-PERMISSIONS.md`).
+4. **`tests/sprint4/` stubs.** *Snapshot 2026-09-10:* RED TDD stubs for
+   Sprint 4 (incident/release workflows), deliberately untracked — committing
+   them turned the gate red. *Current state:* the directory holds no test
+   sources (only `__pycache__`) and is still untracked. Decide whether
+   Sprint 4 is next before writing new tests there.
 
 ## 9. Where the decisions are written down
 

@@ -2,8 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: architecture
-**Last Updated**: 2026-09-13
-**Reviewed**: 2026-09-14
+**Last Updated**: 2026-09-18
+**Reviewed**: 2026-09-18
 **Source**: `app/` at HEAD (this document describes HEAD, not a pinned commit)
 
 **Workflow Orchestration**: JARVIS orchestrates; n8n schedules and notifies (ADR-013)
@@ -32,7 +32,8 @@ JARVIS is a **single-tenant personal AI platform** built on a **Pragmatic Hybrid
 │  │  HTTP / WS   │     │  ├─ CORSMiddleware (configurable origins)      │  │
 │  └──────────────┘     │  ├─ StaticFiles → /frontend                    │  │
 │                       │  ├─ http_router (REST + Bearer Auth)           │  │
-│                       │  └─ ws_router (WS + SSE, auth REQUIRED)        │  │
+│                       │  ├─ ws_router (/ws/chat, /ws/chat/{session_id}) │  │
+│                       │  └─ voice (/ws/voice WS + /api/v1/voice REST)  │  │
 │                       └────────────────┬───────────────────────────────┘  │
 │                                        │ bootstrap_system()                │
 │                                        ▼                                  │
@@ -46,8 +47,12 @@ JARVIS is a **single-tenant personal AI platform** built on a **Pragmatic Hybrid
 │  │    memory: MemoryService (ChromaDB + BM25 hybrid)                ←  │  │
 │  │    guardrails: ToolSafetyPolicy @safety_gate (SAFE/SENSITIVE/      │  │
 │  │                DESTRUCTIVE)                                      ←  │  │
-│  │    prompt: PromptLoader (Jinja2, mtime-cached)                   ←  │  │
-│  │    session: SessionManager + SessionPersistence                  ←  │  │
+  │  │    prompt: PromptLoader (Jinja2, mtime-cached)                   ←  │  │
+  │  │    context: ContextBuilder (prompts + memory + history)           ←  │  │
+  │  │    session: SessionManager + SessionPersistence                  ←  │  │
+  │  │    checkpointer: MemorySaverAdapter (dev) / Postgres (prod)      ←  │  │
+  │  │    approvals: ApprovalRegistry (persisted HITL, approvals.json)  ←  │  │
+  │  │    tools: DEFAULT_TOOLSET registered on ExecutionRunner (ADR-011)←  │  │
 │  │    workspace: WorkspaceManager                                    ←  │  │
 │  │    telemetry: EventLogger, MetricsCollector, Tracer              ←  │  │
 │  │    artifacts: ArtifactManager                                     ←  │  │
@@ -168,15 +173,26 @@ User Request
 ```
 app/adapters      → app/bootstrap, app/brain
 app/bootstrap     → app/brain, app/models, app/resources, app.memory,
-                    app.session, app.workspace, app.prompt, app.telemetry
+                    app.session, app.workspace, app.prompt, app.telemetry,
+                    app.artifacts, app.tools, app/context, app.guardrails
 app/brain         → app.domain, app.events, app.guardrails
 app.models        → app.resources
 app.memory        → app.integrations (ChromaDB, OCR)
 app.telemetry     → app.events
 app.guardrails    → (standalone, no deps)
+app/tools         → app.guardrails, app.domain (safety_gate tiers; comms tools
+                    for email/notify/brief surface in `app/tools/comms_tools.py`)
+app/artifacts     → (standalone store under data dir; wired by bootstrap)
+app/context       → app.prompt, app.memory (ContextBuilder assembly)
 ```
 
 **Rule**: No reverse dependencies. No circular imports. Violations = build failure.
+
+> **Other packages present at HEAD** (outside the enforced map above, verified
+> by directory listing 2026-09-18): `app/api`, `app/agents`, `app/backend`,
+> `app/conversation`, `app/db`, `app/mcp`. Note: `app/db` currently holds no
+> Python modules. Follow-up: decide whether these join the enforced map in
+> `scripts/board/review.py` or stay unwired.
 
 ---
 
@@ -290,7 +306,7 @@ ModelRouter
 | Aspect | Specification |
 |--------|---------------|
 | **Authentication** | n8n uses `JARVIS_API_KEY` via Bearer header |
-| **Endpoints** | `POST /api/v1/chat/completions`, `GET /api/v1/health`, `WS /ws/chat` |
+| **Endpoints** | `POST /api/v1/chat/completions`, `GET /api/v1/health`, `WS /ws/chat/{session_id}`, `WS /ws/voice`, REST `/api/v1/voice/*`, `/api/v1/notify/*`, `/api/v1/brief/*` |
 | **Workflow Triggers** | n8n webhook nodes → JARVIS REST API |
 | **Human-in-the-Loop** | n8n "Wait for Webhook" / "Manual Approval" nodes → JARVIS HITL endpoints |
 | **State** | n8n owns *scheduling* state. JARVIS owns domain state (memory, sessions, approvals) and is request-scoped per call (`session_id`). |
@@ -316,7 +332,7 @@ ModelRouter
 
 | Component | Version | Notes |
 |-----------|---------|-------|
-| JARVIS Runtime | git-tag derived (currently `v3.2.2`) | `app/config/version.py` derives it; see `docs/VERSIONING.md` |
+| JARVIS Runtime | git-tag derived (currently `v3.23.0`) | `app/config/version.py` derives it; see `docs/VERSIONING.md` |
 | Python | **3.11/3.12** (NOT 3.14) | 3.14 breaks ML deps |
 | FastAPI | 0.115+ | |
 | ChromaDB | 1.5.9 (pinned) | Vector backend — 4 known CVEs, RISK-001 |
@@ -326,7 +342,7 @@ ModelRouter
 
 ## 12. Architectural Decisions (ADR Index)
 
-All thirteen decisions live in [`adr/`](adr/). This is the index; the ADR files are
+All fifteen decisions live in [`adr/`](adr/). This is the index; the ADR files are
 authoritative.
 
 | ADR | Title | Status |
@@ -345,12 +361,42 @@ authoritative.
 | ADR-012 | One GitHub identity per function, short-lived tokens | ✅ Accepted |
 | ADR-013 | JARVIS orchestrates its own work; n8n is a workflow executor it drives | ✅ Accepted |
 | ADR-014 | Documentation facts are machine-synced and machine-checked | ✅ Accepted |
+| ADR-015 | Memory facts are bi-temporal, invalidated not deleted | ✅ Accepted |
 
 > **Corrected 2026-09-13.** This table previously listed **ADR-010 as "n8n External
 > Orchestration — PROPOSED"**. That was wrong on both counts: ADR-010 is *Adapters
 > & Integrations Boundary Isolation*, and the orchestration question was settled by
 > **ADR-013** (Accepted, 2026-09-12) in the opposite direction — JARVIS orchestrates.
 > The table also stopped at ADR-010, hiding ADR-011/012/013 entirely.
+
+---
+
+## 13. External surfaces added after v3.2.2
+
+All paths verified against HEAD 2026-09-18. Each surface is one paragraph plus
+its source path. Follow-up (no new ADR created in this change): record ADR-016+
+for the comms/voice/mobile security boundaries when the board reviews new risks
+RISK-018–RISK-023 in `docs/ACCEPTED_RISKS.md`.
+
+The notify dispatcher is the single "tell the operator something" endpoint: the brain, the brief, HITL approvals and ad-hoc alerts POST to one router instead of learning each channel, with channels resolved lazily so a missing integration skips instead of failing the whole alert. Source: `app/adapters/web/notify_routes.py` (mounted at `/api/v1/notify`, channels push/telegram/whatsapp).
+
+Voice STT/TTS runs over REST for the phone clients: the PWA/APK records with MediaRecorder and POSTs audio for local faster-whisper transcription, and POSTs reply text back for Edge-TTS spoken playback — request/response, nothing streaming, so the phone client stays simple and the server stateless — plus a live voice WebSocket. Source: `app/adapters/web/voice_routes.py` (`/api/v1/voice`), `app/integrations/voice`, `app/adapters/websocket/voice_handler.py` (`/ws/voice`).
+
+The Telegram integration is two-way: a send path via the Bot API used by the notify dispatcher and the brief, and a long-polling chat path that routes each operator message through the same `/api/chat` pipeline keyed to a per-chat session, answering only chats in the allowlist and ignoring everyone else silently. Source: `app/integrations/telegram`.
+
+The WhatsApp integration is send-only over the Cloud API (plain outbound HTTPS, no public endpoint needed); inbound webhooks are deliberately not implemented since the deployment is Tailscale-only, and first contact must use an approved template per Meta's business-initiated rule. Source: `app/integrations/whatsapp`.
+
+The morning brief service generates summaries delivered over Slack/email, with a matching REST surface for fetching and triggering the brief. Source: `app/integrations/brief`, `app/adapters/web/brief_routes.py` (`/api/v1/brief`).
+
+Push notifications serve the mobile PWA: subscriptions persist across restarts and the VAPID public key is exposed so browsers can subscribe without hardcoding anything. Source: `app/integrations/push`, `app/adapters/web/push_routes.py`.
+
+Email is a full IMAP/SMTP integration (read, search, send, reply) with STARTTLS and app-password handling, surfaced both as REST routes and as runner tools. Source: `app/integrations/email`, `app/adapters/web/email_routes.py`.
+
+The comms tools give the ExecutionRunner email/notification/brief capabilities: reads are SAFE, anything that sends is SENSITIVE (rate-limited and policy-checked, but not HITL-gated per message), with async handlers returning compact JSON. Source: `app/tools/comms_tools.py`.
+
+Mobile is a Capacitor wrapper that bundles the web console as an Android debug APK, with PWA manifest/service worker/offline page, self-healing server resolution, wake lock during generations, and voice UI. Source: `mobile/`, `mobile/capacitor.config.json`, `mobile/www`.
+
+The tgcall sidecar is a Node peer-to-peer call scaffold beside the Python server, using user-session Telegram libraries for voice notes and calls. Source: `tgcall/`, `tgcall/call.js`, `tgcall/login.js`.
 
 ---
 

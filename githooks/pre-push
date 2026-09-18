@@ -1,13 +1,36 @@
 #!/usr/bin/env bash
-# JARVIS pre-push hook — cut a SemVer release tag automatically.
+# JARVIS pre-push hook — BLOCKING doc gates, then release tagging.
 #
-# Previously this hook only PRINTED a reminder ("To cut a release: ...") and
-# exited 0, so no tag was ever created and the version drifted (v3.0.1+dev.148).
-# Now it computes the bump from conventional commits since the latest vA.B.C tag
-# (scripts/version_bump.py) and creates the tag when pushing the default branch
-# WITH genuinely bump-worthy commits already committed.
+# Order matters: documentation truth is verified BEFORE anything leaves the
+# machine. Any gate failure exits non-zero and the push is refused. No
+# bypass flag exists on purpose — fix the docs, then push.
+#
+# Gates (all must pass):
+#   1. scripts/check_docs.py --strict      (structure: headers, types, paths)
+#   2. scripts/check_doc_coverage.py --strict (coverage: modules, routes, env)
+#   3. tests/unit/test_doc_coverage.py     (gate pinned by tests)
+#
+# Then the original behaviour: auto-tag a SemVer release on the default branch.
 #
 # Installed via:  python scripts/bump_version.py install-hooks
+set -uo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+PY="$REPO_ROOT/.venv/bin/python"
+[ -x "$PY" ] || PY="$(command -v python3 || true)"
+
+echo "🔒 JARVIS pre-push: documentation gates (push blocked on failure)…"
+GATE_FAIL=0
+"$PY" "$REPO_ROOT/scripts/check_docs.py" --strict || GATE_FAIL=1
+"$PY" "$REPO_ROOT/scripts/check_doc_coverage.py" --strict || GATE_FAIL=1
+"$PY" -m pytest "$REPO_ROOT/tests/unit/test_doc_coverage.py" -q || GATE_FAIL=1
+
+if [ "$GATE_FAIL" -ne 0 ]; then
+  echo ""
+  echo "❌ push refused: documentation gates failed. Fix the docs above, then push again."
+  exit 1
+fi
+echo "✅ doc gates passed."
 #
 # Safety / rationale:
 #   * The tag is created from an already-committed bump (the hook does NOT commit

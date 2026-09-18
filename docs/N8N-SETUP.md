@@ -109,20 +109,23 @@ You will see three workflows:
 |---|---|---|
 | **JARVIS-CI-Local** | Schedules the local CI gate (replaces GitHub Actions) | ✅ **Yes** |
 | **JARVIS-Cleanup** | Housekeeping via GitHub API | ⚠️ GitHub cred wired; review before use |
-| **JARVIS-HITL** | Human-in-the-loop approvals (Telegram/Slack) | ❌ Not yet runnable — see §7.1 |
+| **JARVIS-HITL** | Human-in-the-loop approvals (Telegram/Slack) | ✅ **Runnable** — callback endpoints now exist (`GET /api/v1/hitl/pending`, `POST /api/v1/hitl/approve`, `POST /api/v1/hitl/notified` in `app/adapters/http/router.py`); needs `jarvis-api-auth` + a Telegram chat ID — see §7.1 |
 
 ---
 
 ## 6. Running a workflow (the beginner way)
 
 1. Click **JARVIS-CI-Local**.
-2. You will see 5 boxes: `Manual Trigger` / `Schedule every 6h` → `Config` →
-   `Run Local CI (bridge)` → `Summarize Result`.
+2. You will see 7 nodes: `Schedule every 30 min` / `Manual Trigger` →
+   `Config` → `Run Local CI (bridge)` → `Summarize Result` →
+   `Notify Slack` + `Fail If Not OK`.
 3. Click the **Execute Workflow** button (bottom-centre, the ▶ play icon).
 4. Watch the boxes light up green one by one. The whole thing takes ~1–2 minutes
-   (it is running a real test gate on a real pull request).
+   per PR (it is running a real test gate on a real pull request; the bridge
+   skips PRs whose head SHA was already gated, so repeat runs converge).
 5. Click any box to inspect its input/output. Click **Summarize Result** to see the
-   final verdict.
+   final verdict. (`Fail If Not OK` exists because the bridge answers HTTP 200
+   even when the gate failed — without it a red run would record green.)
 
 **The `Config` box is your control panel.** Double-click it and edit:
 
@@ -143,7 +146,7 @@ The workflow ships **inactive** on purpose. When you are happy with it:
 
 1. Open the workflow.
 2. Flip the **Active** toggle (top-right).
-3. It now fires every 6 hours. (Edit the `Schedule every 6h` box to change the timing.)
+3. It now fires every 30 minutes. (Edit the `Schedule every 30 min` box to change the timing.)
 
 ---
 
@@ -151,40 +154,43 @@ The workflow ships **inactive** on purpose. When you are happy with it:
 
 Manage them at **http://localhost:5678 → Credentials**.
 
-| Credential | Type | Status |
-|---|---|---|
-| `github-api-auth` | Header Auth (`Authorization: Bearer …`) | ✅ created from your n8n PAT |
-| `ci-bridge-auth` | Header Auth (`X-Bridge-Token: …`) | ✅ created (bridge secret) |
-| `telegram-credentials` | Telegram | ✅ created from your bot token (`naya_jarvis_bot`) |
-| `slack-credentials` | Slack | ✅ created from your bot token (team `STEM`, bot `learninghub`) |
-| `jarvis-api-auth` | Header Auth | ❌ missing — add `JARVIS_API_KEY` for HITL callbacks |
+| Credential | Type | Used by | Status |
+|---|---|---|---|
+| `github-api-auth` | Header Auth (`Authorization: Bearer …`) | JARVIS-Cleanup (all GitHub nodes) | ✅ created from your n8n PAT |
+| `ci-bridge-auth` | Header Auth (`X-Bridge-Token: …`) | JARVIS-CI-Local → Run Local CI | ✅ created (bridge secret) |
+| `jarvis-api-auth` | Header Auth | JARVIS-HITL (all JARVIS nodes) | ⚠️ add it — paste `JARVIS_API_KEY` from `.env` |
+| `slack-bot-auth` | Header Auth | JARVIS-CI-Local → Notify Slack, JARVIS-HITL → Notify Slack | ✅ created from your bot token |
+| `slack-credentials` | Slack API | JARVIS-Cleanup → Slack Summary | ✅ created from your bot token |
+| `telegram-credentials` | Telegram API | JARVIS-HITL → Send to Telegram | ✅ created from your bot token |
 
 To add a missing one: **Credentials → Add credential → pick the type → paste the
 token → Save.** The workflow will pick it up automatically (the names must match
 exactly).
 
-### 7.1 Why JARVIS-HITL does not run yet (honest gap list)
+### 7.1 JARVIS-HITL status (updated: endpoints now exist)
 
-`JARVIS-HITL` was a Sprint-4 **contract artifact**: it describes the intended
-approval flow but was never executable. The tokens are now wired, but four concrete
-blockers remain — all outside n8n:
+`JARVIS-HITL` was a Sprint-4 **contract artifact**: it described the intended
+approval flow before it could execute. Two of the four original blockers are
+now resolved in code; two remain operator work — both outside n8n:
 
-1. **No callback endpoint.** The two `… Callback to JARVIS` nodes POST to
-   `/api/v1/hitl/approve`, which **does not exist**. `app/adapters/http/router.py`
-   only exposes `/api/v1/health` and `/api/v1/chat/completions`. Something must
-   implement that route before the loop can close.
-2. **No `JARVIS_API_KEY`.** `validate_api_key()` returns `"development"` and skips
-   auth when the var is unset, so there is no key to put in `jarvis-api-auth` yet.
-3. ~~**Slack channel ID unknown.**~~ **RESOLVED (2026-09-10).** Channel ID is
-   `C0C0UPLGY12`, set on the `Send to Slack` node's `channelId` resource locator
+1. ~~**No callback endpoint.**~~ **RESOLVED.** `app/adapters/http/router.py`
+   now exposes `GET /api/v1/hitl/pending`, `POST /api/v1/hitl/approve` and
+   `POST /api/v1/hitl/notified`, which is exactly what the workflow's
+   `Fetch Pending`, `Callback to JARVIS` and `Mark Notified` nodes call.
+2. ~~**No `JARVIS_API_KEY`.**~~ **RESOLVED.** The key lives in `.env`
+   (`grep '^JARVIS_API_KEY=' .env`); paste it into the `jarvis-api-auth`
+   credential and the workflow's JARVIS nodes authenticate.
+3. ~~**Slack channel ID unknown.**~~ **RESOLVED (2026-09-10).** The channel ID
+   is set on the `Send to Slack` node's `channelId` resource locator
    (the legacy v1 `channel` string field was removed — it is not read by the Slack
-   node at typeVersion 2.1). The `learninghub` bot's membership was verified with a
+   node at typeVersion 2.1). The bot's membership was verified with a
    self-deleting probe: `chat.postMessage` → ok, `chat.delete` → ok. Nothing was left
    in the channel.
-4. **Telegram chat ID unknown.** The `Send to Telegram` node needs a chat ID
-   (`REPLACE_WITH_TELEGRAM_CHAT_ID`). `getUpdates` currently returns HTTP 409
-   (another consumer / webhook is polling this bot), so the ID cannot be discovered
-   from the terminal.
+4. **Telegram chat ID unknown.** The `Send to Telegram` node needs a chat ID.
+   `getUpdates` returned HTTP 409 while another consumer held the connection,
+   so the ID could not be discovered from the terminal. Send the bot a message
+   from the operator chat, read the chat ID from `getUpdates` once the other
+   poller is stopped, and put it on the node — then enable the node.
 
 We also fixed an inherited bug: the notification nodes referenced
 `{{ $credentials.slackChannelId }}` / `{{ $credentials.telegramChatId }}` /
@@ -192,7 +198,18 @@ We also fixed an inherited bug: the notification nodes referenced
 credential types, so they resolved to empty strings and failed silently. They now
 read from explicit node fields / a literal URL.
 
-**Bottom line:** the CI path is real and verified; HITL is a labelled scaffold.
+**Bottom line:** the CI path is real and verified; HITL is runnable once
+`jarvis-api-auth` is created and the Telegram chat ID is filled in.
+
+### 7.2 Enabling Telegram + WhatsApp on the JARVIS side
+
+n8n credentials only cover the n8n half. The JARVIS integration half is env
+vars (full reference: `docs/COMMS.md`):
+
+| Channel | Variables | Notes |
+|---|---|---|
+| Telegram | `TELEGRAM_ENABLED=true`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS` | two-way + voice notes; the allowlist must contain the operator chat or the poller ignores it |
+| WhatsApp | `WHATSAPP_ENABLED=true`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TO`, `WHATSAPP_TEMPLATE` | send-only via `POST /api/v1/notify/` with `channels: ["whatsapp"]`; first contact must use the approved template (Meta rule — no open 24h window yet) |
 
 ---
 

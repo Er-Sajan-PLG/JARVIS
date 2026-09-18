@@ -2,8 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: roadmap
-**Last Updated**: 2026-09-14
-**Reviewed**: 2026-09-14
+**Last Updated**: 2026-09-18
+**Reviewed**: 2026-09-18
 
 **Workflow Orchestration**: n8n (CI/CD, automation, approval) + local CI plane (`scripts/ci_gate.py`)
 
@@ -60,7 +60,7 @@
 | Observability (health/ready/metrics) | ✅ VERIFIED |
 | Release automation | ✅ VERIFIED |
 | SBOM (CycloneDX) | ✅ VERIFIED |
-| Test coverage (94%) | ✅ VERIFIED |
+| Test coverage (98% measured 2026-09-13; unmeasured at HEAD — see §11) | ✅ VERIFIED (dated) |
 | Integration tests | ✅ VERIFIED |
 
 ---
@@ -96,7 +96,43 @@
 
 ---
 
-## 7. Technical Debt Register
+## 7. Sprint 5 — COMMS, VOICE, EMAIL/BRIEF/PUSH ✅
+
+**Status**: Complete (landed 2026-09-17 – 2026-09-18, `v3.23.0` line)
+
+| Work | Evidence |
+|------|----------|
+| Email IMAP/SMTP integration (read/search/send/reply) | ✅ `687dc20` |
+| Email STARTTLS handshake, app-password spaces, `/search` route order | ✅ `833e28e` |
+| Voice STT/TTS + wake word detection | ✅ `b0122d4` |
+| Voice REST/WS endpoints, chat email context, runner comms tools, brief push channel | ✅ `ac6544f` |
+| Morning brief service (Slack/email delivery) | ✅ `7000de1` |
+| PWA manifest, service worker, push notifications | ✅ `07eaf87` |
+| Telegram two-way bot, notify dispatcher, push VAPID key endpoint | ✅ `f92b2c3` |
+| WhatsApp Cloud API send-only channel | ✅ `74fff54` |
+| Telegram voice notes + voice input, chat brief intent, spoken delivery | ✅ `a551882`, `fe3417f` |
+
+---
+
+## 8. Sprint 6 — MOBILE, TGCALL, CLEANUP MERGES ✅
+
+**Status**: Complete (landed 2026-09-17 – 2026-09-18, `v3.23.0`)
+
+| Work | Evidence |
+|------|----------|
+| Console shell served so JARVIS runs on a phone | ✅ `35cc133` |
+| PWA icons tracked by manifest + service worker | ✅ `5dd3991` |
+| Capacitor wrapper, Android platform, voice UI, PWA fixes | ✅ `06ef3fe` |
+| Pinned wrapper dependencies | ✅ `834a470` |
+| Self-healing server resolution, offline banner, status-bar clearance | ✅ `bdb8b9c` |
+| Wake lock during generations, retry on background interrupt | ✅ `2b5dea5` |
+| Preserved in-progress PWA packaging + service unit | ✅ `316fd75` |
+| P2P call sidecar scaffold (`tgcall/`) | ✅ `a551882` |
+| Cleanup merges: ci-cd gap closure, audit-governance, doc-hardening, mobile-phone-access | ✅ `9ed894f`, `aa63906`, `7d921b0`, `6f8cf2b` |
+
+---
+
+## 9. Technical Debt Register
 
 | ID | Item | Status |
 |----|------|--------|
@@ -115,7 +151,7 @@
 
 ---
 
-## 8. Milestone Timeline
+## 10. Milestone Timeline
 
 <!--fact:begin sprint-progress-->
 <!--fact:end sprint-progress-->
@@ -126,26 +162,28 @@ Week 1-2:   ██████████████████████�
 Week 3-4:   ████████████████████████████████████  Sprint 2: HARDENING ✅
 Week 5-8:   ████████████████████████████████████  Sprint 3: CAPABILITY ✅
 Week 9-12:  ████████████████████████████████████  Sprint 4: ECOSYSTEM ✅
+Week 13:    ████████████████████████████████████  Sprint 5: COMMS/VOICE ✅
+Week 13-14: ████████████████████████████████████  Sprint 6: MOBILE/TGCALL ✅
 ```
 
-**All sprints complete.**
+**Sprints 0–6 complete at `v3.23.0`.**
 
 ---
 
-## 9. Success Metrics
+## 11. Success Metrics
 
 | Metric | Target | Current | Status |
 |--------|--------|---------|--------|
 | Time to working dev env | < 5 min | ~2 min | ✅ |
 | CI pass rate | 100% | 100% | ✅ |
-| Test coverage | ≥ 80% | 94% | ✅ |
+| Test coverage | ≥ 80% | unmeasured at HEAD (2026-09-18); last measured 98% on 2026-09-13 — see `docs/CHANGELOG.md` v3.1.2 | ⚠️ |
 | Capability Contract | 100% | ~92% | ✅ |
 | Deploy frequency | On every tag | Configured | ✅ |
 | Security scan pass | 100% | 100% | ✅ |
 
 ---
 
-## 10. Risk Register
+## 12. Risk Register
 
 | Risk | Status |
 |------|--------|
@@ -156,4 +194,4 @@ Week 9-12:  ██████████████████████�
 
 ---
 
-**Next**: Quarterly review on 2026-12-14. See `CAPABILITY_TRACKER.md` for compliance details.
+**Next**: Sprint 7 candidates — re-measure coverage at HEAD (closes the §11 gap), ADR-016+ for the Sprint 5/6 comms/voice/mobile boundaries (see `docs/ACCEPTED_RISKS.md` RISK-018–RISK-023). See `CAPABILITY_TRACKER.md` for compliance details.

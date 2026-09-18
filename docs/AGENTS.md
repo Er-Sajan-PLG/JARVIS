@@ -2,8 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: reference
-**Last Updated**: 2026-09-13
-**Reviewed**: 2026-09-14
+**Last Updated**: 2026-09-18
+**Reviewed**: 2026-09-18
 **Source**: `AGENTS.md` at the repo root
 
 > **Not to be confused with the repo-root [`AGENTS.md`](../AGENTS.md).** That
@@ -167,9 +167,10 @@ The agent registers two lists into its `ToolRegistry`:
 
 - `GIT_TOOLS` (`app/tools/git_tools.py`): **git_log, git_diff_stat,
   git_diff_full, git_show, git_tags**.
-- `FILE_TOOLS` (`app/tools/file_tools.py`): **read_file, write_file**.
+- `FILE_TOOLS` (`app/tools/file_tools.py`): **read_file, write_file,
+  append_file, create_directory**.
 
-That is **7 tools total**. Derived risk levels and confirmation requirements
+That is **9 tools total**. Derived risk levels and confirmation requirements
 (from the `ToolDefinition`s):
 
 | Tool | risk_level | requires_confirmation |
@@ -181,6 +182,8 @@ That is **7 tools total**. Derived risk levels and confirmation requirements
 | git_tags | none | no |
 | read_file | low | no |
 | write_file | medium | **yes** |
+| append_file | medium | **yes** |
+| create_directory | medium | **yes** |
 
 - Tool output is capped at `MAX_OUTPUT_CHARS = 4096` chars before being
   injected back into the model context (truncation message appended).
@@ -209,22 +212,18 @@ That is **7 tools total**. Derived risk levels and confirmation requirements
 These are real mismatches between the agent's instructions and what is actually
 registered:
 
-1. **`append_file` is NOT a usable tool.** The agent's system prompt repeatedly
-   tells the model to "Use `append_file` to add entries. Never use `write_file`
-   on existing docs," and task 3 says "Use append_file for both files." However,
-   in `app/tools/file_tools.py` the `append_file` `ToolDefinition` is written
-   **after the `return` statement inside the `append_file()` function body** —
-   i.e. it is dead code and is **not** present in `FILE_TOOLS`. Consequently:
-   - A model that emits `<tool_call>{"name": "append_file", ...}</tool_call>`
-     receives `ToolResult(success=False, "Unknown tool: 'append_file'")` and
-     nothing is written.
-   - The **only** write tool actually available is `write_file`, which
-     **overwrites the entire file** — directly contradicting the system prompt's
-     "Never use write_file on existing docs" rule.
-   - Tasks 1 and 2 themselves tell the model to "Write the complete updated file
-     with the new entry prepended," which matches `write_file` semantics
-     (overwrite) but conflicts with the system-prompt prohibition. This is an
-     internal contradiction regardless of the `append_file` bug.
+1. ~~**`append_file` is NOT a usable tool.**~~ **RESOLVED at HEAD
+   (2026-09-18).** The dead-code bug described here — the `append_file`
+   `ToolDefinition` placed after the `return` — has been fixed:
+   `append_file` is now a registered `ToolDefinition` in `FILE_TOOLS`
+   (medium risk, requires confirmation), and a `create_directory` tool was
+   added alongside it. The system prompt's "use `append_file`, never
+   `write_file` on existing docs" instruction is now satisfiable. Original
+   finding retained for history: before the fix, a model emitting
+   `<tool_call>{"name": "append_file", ...}</tool_call>` received
+   `ToolResult(success=False, "Unknown tool: 'append_file'")` and nothing
+   was written, while the only write tool (`write_file`) overwrote entire
+   files.
 
 2. **`git_diff` is referenced but does not exist.** Task 1's instruction says
    "Use `git_log` and `git_diff` to understand what changed." There is **no**
@@ -320,11 +319,13 @@ task:
   and `FILE_TOOLS`, and constructs
   `ToolExecutor(registry=self._registry, require_confirmation=True)`.
 - Registered tools are exactly: `git_log`, `git_diff_stat`, `git_diff_full`,
-  `git_show`, `git_tags` (from `GIT_TOOLS`) and `read_file`, `write_file` (from
-  `FILE_TOOLS`) — 7 total.
-- `append_file` is **not** registered: its `ToolDefinition` is placed after the
-  `return` inside the `append_file()` function in `file_tools.py` and is absent
-  from `FILE_TOOLS` (dead code).
+  `git_show`, `git_tags` (from `GIT_TOOLS`) and `read_file`, `write_file`,
+  `append_file`, `create_directory` (from `FILE_TOOLS`) — 9 total.
+  (Corrected 2026-09-18: `append_file`/`create_directory` registered since;
+  previously 7.)
+- `append_file` **is** registered at HEAD (medium risk, requires
+  confirmation): the dead-code placement described below is fixed
+  (`app/tools/file_tools.py`).
 - `git_branch` and `git_status` exist as functions in `git_tools.py` but are not
   in `GIT_TOOLS`, so the agent cannot call them.
 - `MAX_ITERATIONS = 12` is defined in `doc_agent.py`.
@@ -359,12 +360,18 @@ task:
   (changelog/devlog/both), `4` to a custom task, `q` to cancel, then calls
   `agent.run(task, verbose=True)`.
 - The system prompt instructs using `append_file` and forbids `write_file` on
-  existing docs, while `append_file` is not a registered tool (contradiction).
+  existing docs; at HEAD `append_file` is registered so the instruction is
+  satisfiable (was a contradiction before the fix noted above).
 - Task 1 references `git_diff`, which is not a registered tool (contradiction).
 - `docs/CHANGELOG_recovered.md` and `docs/DEVLOG_recovered.md` exist in `docs/`
   (referenced by the agent workflow). (Directory listing of `docs/`.)
- - `app/config/version.py` defines `VERSION = "v.2.4.0"` (note the extra dot);
-  the `doc_agent.py` module docstring references a working-tree banner. Prefer Git tags (latest: `v2.5.0`) for canonical release identity when reconciling agent behavior vs. released builds.
+ - `app/config/version.py` derives the version from git tags at import time
+  (no hardcoded `VERSION` constant; `_FALLBACK_VERSION` is `v3.0.1` for
+  git-less builds); the `doc_agent.py` module docstring references a
+  working-tree banner. Prefer git tags (latest at review: `v3.23.0`) for
+  canonical release identity when reconciling agent behavior vs. released
+  builds. (Corrected 2026-09-18: this bullet previously claimed
+  `VERSION = "v.2.4.0"` and latest tag `v2.5.0`, both stale.)
 
 ### AI Partially Verified
 
@@ -432,3 +439,27 @@ I compared the repository commit history for the files referenced above to verif
   - f9fa068 | Er Sajan PLG | 2026-07-18 18:05:40 +0545 | feat: add web UI, FastAPI server, and fix batch of issues
 
 Conclusion: the git history shows the DocumentationAgent and the tool infrastructure were introduced together and received follow-up changes across the commits listed above. These findings align with the claims in this document (tool registration, `append_file` dead-code observation, missing `git_diff` helper, and `write_file` requiring confirmation). If you'd like, I can update specific assertions in the prose to cite the exact commit hashes shown above or open a PR that references these commits inline.
+
+### Addendum 2026-09-18 (HEAD `v3.23.0`)
+
+The per-file tables above stop at 2026-07-18. Commits since then touching the
+same files (`git log`, newest-first, max 3 per file):
+
+- `app/agents/doc_agent.py`
+  - 2037f42 | 2026-09-17 | fix: resolve audit findings and governance violations
+- `app/tools/file_tools.py`
+  - 2d8d7ea | 2026-09-12 | fix(tools): enforce the file-tool allowlist (Phase 0: F1+F2) (#56)
+  - 4d6ac8f | 2026-09-10 | feat(brain): register tools and route destructive intents into the HITL gate
+- `app/tools/executor.py`, `app/tools/git_tools.py`, `app/tools/base.py`,
+  `app/models/client.py`
+  - 2037f42 | 2026-09-17 | fix: resolve audit findings and governance violations
+- `app/main.py`
+  - ac6544f | 2026-09-18 | feat(comms): chat email context, runner comms tools, brief push channel, voice endpoints
+  - 35cc133 | 2026-09-17 | feat(mobile): serve console shell so JARVIS runs on a phone
+  - 7000de1 | 2026-09-17 | feat(brief): add morning brief service with Slack/email delivery
+
+Behavioral re-verification of the full claims above against HEAD is owed in the
+next review pass; verified HEAD deltas are already folded into the tool table
+and discrepancy #1 above (`append_file` registered, `create_directory` added).
+`git_branch`/`git_status` remain unregistered and `git_diff` remains absent
+(verified 2026-09-18), so discrepancies #2–#4 stand.

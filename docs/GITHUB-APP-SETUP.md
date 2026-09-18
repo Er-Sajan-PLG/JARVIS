@@ -7,8 +7,8 @@
 **Reviewed**: 2026-09-14
 
 The CI gate currently publishes with a fine-grained PAT (`JARVIS_CI_TOKEN`). That
-works — verified: `published=8/8`, and GitHub read-back returns
-`state=success, total_count=8`. This document is the next step: moving each
+works — verified: `published=9/9`, and GitHub read-back returns
+`state=success, total_count=9`. This document is the next step: moving each
 function onto its own **GitHub App**, so the credential is short-lived, not tied
 to a person, and attributed to the App in the audit log.
 
@@ -51,9 +51,9 @@ Fill in:
 
 | permission | level | why |
 |---|---|---|
-| **Contents** | Read | `git fetch` of the PR head and base branch |
+| **Contents** | Read and write | `git fetch` of the PR head and base branch (read) + merging a green PR via `PUT /pulls/{n}/merge` (write) |
 | **Pull requests** | Read | `GET /pulls` to discover what to gate |
-| **Commit statuses** | Read and write | publish the 8 gate contexts |
+| **Commit statuses** | Read and write | publish the 9 gate contexts |
 | Metadata | Read | mandatory, granted automatically |
 
 Leave every other permission at **No access**. That is the point of the exercise.
@@ -137,7 +137,7 @@ print([l for l in d['stdout'].splitlines() if 'published=' in l][-1])
 "
 ```
 
-Look for `published=8/8`. A green gate that published nothing is not a pass.
+Look for `published=9/9`. A green gate that published nothing is not a pass.
 
 ---
 
@@ -146,6 +146,13 @@ Look for `published=8/8`. A green gate that published nothing is not a pass.
 - The token expires every hour and is re-minted automatically; a cache in
   `~/.jarvis/app-token-cache.json` (mode 0600) keeps it to roughly one mint per
   hour so a 30-minute schedule does not mint twice per run.
+- Verify the cache (proves reuse, not just minting):
+
+  ```
+  ls -l ~/.jarvis/app-token-cache.json   # -rw------- (0600, owner-only)
+  cd ~/Projects/JARVIS && .venv/bin/python scripts/github_app_token.py --check
+  # a second run within the hour reports source github-app:<id> (cached)
+  ```
 - `JARVIS_CI_TOKEN` in `.ci-bridge.env` becomes a **fallback**. Once the App is
   proven, it can be removed — which is the whole point: one fewer long-lived
   secret on disk.
@@ -169,4 +176,3 @@ separate change; noted, not done.
 | `tests/unit/test_github_app_token.py` | 17 tests: JWT shape, signature verification, key-type guard, cache expiry, migration safety |
 | `docs/adr/ADR-012-github-auth-identity-per-function.md` | the decision and the function-to-identity map |
 | `docs/CI-TOKEN-PERMISSIONS.md` | current PAT permission matrix |
-</｜｜DSML｜｜ parameter>

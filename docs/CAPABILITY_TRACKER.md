@@ -2,8 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: register
-**Last Updated**: 2026-09-14
-**Reviewed**: 2026-09-14
+**Last Updated**: 2026-09-18
+**Reviewed**: 2026-09-18
 
 **Contract Version**: 1.0.0
 **Contract Source**: `docs/CAPABILITY-CONTRACT.md`
@@ -25,8 +25,18 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 | **Eval Suite** | Regression suite | ✅ 10 evals + CI integration | ✅ **100%** |
 | **Web App** | Chat UI + WebSocket | ✅ FastAPI + frontend + WS streaming | ✅ **100%** |
 | **MCP Server** | Capability provider to PROFESSOR-J | ✅ 11 tools exposed | ✅ **100%** |
+| **Voice I/O** | STT + TTS | ✅ faster-whisper STT + Edge TTS (`app/adapters/web/voice_routes.py`) | ✅ **100%** |
+| **Comms (email)** | Read + send + reply | ✅ 4 email runner tools (`app/tools/comms_tools.py`) | ✅ **100%** |
+| **Morning Brief** | Generate + deliver | ✅ `app/integrations/brief/` + `get_brief` tool | ✅ **100%** |
+| **Push Notifications** | Web Push to PWA | ✅ `app/integrations/push/` + `app/adapters/web/push_routes.py` | ✅ **100%** |
+| **WhatsApp** | Send-only (receive out of scope) | ⚠️ send-only (`app/integrations/whatsapp/`; see §5 deviation) | ⚠️ **deviation** |
 
-**Overall Compliance**: **~97%** (9/9 capabilities at ≥90%, 100% for 7/9)
+**Overall Compliance**: **100%** (13/13 in-contract capabilities at 100% per the
+tables below, plus 1 recorded send-only deviation). This is a manual roll-up
+from this document's tables — not a gated measurement; no automated check
+derives a compliance percentage. A claim of any other number (a previous
+revision said ~97% against these same 100% rows) is inconsistent with the
+tables and must not be reintroduced.
 
 ---
 
@@ -78,7 +88,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 
 | Contract Requirement | JARVIS Current | Gap | Action |
 |---------------------|----------------|-----|--------|
-| Tiered (READ/WRITE/DESTRUCTIVE) | ✅ SAFE/SENSITIVE/DESTRUCTIVE | — | Done |
+| Tiered (SAFE/SENSITIVE/DESTRUCTIVE) | ✅ `SafetyTier` in `app/domain/plan.py` | — | Done |
 | DESTRUCTIVE blocks without HITL | ✅ @safety_gate | — | Done |
 | HITL is blocking | ✅ Pauses execution | — | Done |
 | Audit log | ✅ InMemoryAsyncBus events | — | Done |
@@ -107,6 +117,21 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 | Workspace awareness | ✅ `get_git_state()` + `get_file_tree()` | — | Done |
 
 **Compliance: 100%** — PostgresCheckpointer added (psycopg/asyncpg)
+
+### 2.7 Voice & Comms (Contract §7/§9 additions)
+
+| Contract Requirement | JARVIS Current | Gap | Action |
+|---------------------|----------------|-----|--------|
+| Voice STT | ✅ faster-whisper `/stt` (`app/adapters/web/voice_routes.py`) | — | Done |
+| Voice TTS | ✅ Edge TTS `/tts` + `/status` (`app/adapters/web/voice_routes.py`) | — | Done |
+| Email read/search | ✅ `read_emails`, `search_emails` (SAFE) in `app/tools/comms_tools.py` | — | Done |
+| Email send/reply | ✅ `send_email`, `reply_email` (SENSITIVE) via `app/integrations/email/` | — | Done |
+| Morning brief | ✅ `BriefService` (`app/integrations/brief/`) + `get_brief` (SAFE) | — | Done |
+| Push notifications | ✅ `PushService` (`app/integrations/push/`) + VAPID routes (`app/adapters/web/push_routes.py`) | — | Done |
+| WhatsApp send | ✅ `send_message` via Cloud API (`app/integrations/whatsapp/`) | Receive path missing | Deviation (§5) |
+| Telegram two-way | ✅ send + poller (`app/integrations/telegram/`, started from `app/main.py` lifespan) | — | Done |
+
+**Compliance: 100%** (WhatsApp receive tracked as an approved deviation, not a gap)
 
 ---
 
@@ -158,7 +183,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 
 | Capability | Deviation | Justification | Approved By | Expiry |
 |------------|-----------|---------------|-------------|--------|
-| Voice I/O | Not implemented | Explicitly out of contract | Architecture Review | Permanent |
+| WhatsApp receive (webhooks) | Not implemented — send-only | Meta requires a public HTTPS callback URL; Tailscale-only deployment has none (`app/integrations/whatsapp/` module docstring) | Architecture Review | Permanent |
 | STEMMA Grounding | Not implemented | Explicitly out of contract | Architecture Review | Permanent |
 | Ecosystem Dev Context | Not implemented | Unique to PROFESSOR-J | Architecture Review | Permanent |
 | OTLP HTTP exporter | Implemented | Was optional, now done | Architecture Review | — |
@@ -184,7 +209,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 
 | Metric | Current | Target | Source |
 |--------|---------|--------|--------|
-| Overall Compliance | 100% | 100% | Tracker calculation |
+| Overall Compliance | 100% (manual roll-up, unmeasured by gate) | 100% | Tracker calculation (manual — no automated compliance gate exists) |
 | Cognitive Engine | 100% | 100% | Sprint 3 + OTLP |
 | Memory Subsystem | 100% | 100% | Sprint 3 + embedding dedup |
 | Provider Routing | 100% | 100% | Done |

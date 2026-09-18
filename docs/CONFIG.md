@@ -2,9 +2,9 @@
 
 **Status**: ACTIVE
 **Type**: reference
-**Source**: `app/config/` at HEAD
-**Last Updated**: 2026-09-13
-**Reviewed**: 2026-09-14
+**Source**: `app/config/`, `.env.example` at HEAD
+**Last Updated**: 2026-09-18
+**Reviewed**: 2026-09-18
 
 The configuration of JARVIS v2.1 is managed through a centralized system designed for clarity, modularity, and easy overrides.
 
@@ -55,6 +55,93 @@ described here. Instead the split is:
 
 So: environment variables do affect the running system, but they are read where
 the credentials and endpoints are used, not inside `app/config/settings.py`.
+
+### Environment variable reference
+
+Enumerated from `.env.example` at HEAD plus every `os.getenv` / `os.environ.get`
+read under `app/` at HEAD. One row per variable: name, read by, default as the
+code states it. Rows marked "`.env.example` only" are declared in the example
+file but have no reader in `app/` at HEAD — setting them has no effect.
+
+| Variable | Read by | Default |
+|---|---|---|
+| JARVIS_API_KEY | `app/adapters/security.py`, `app/main.py` (required when binding beyond localhost) | unset (empty) |
+| OPENROUTER_API_KEY | `app/provider_registry.py`, `app/adapters/web/router.py`, `app/adapters/web/settings.py`, `config.yaml` | unset |
+| XAI_API_KEY | `config.yaml`, `app/models/groq_client.py`, `app/utils/model_selector.py` | unset |
+| GOOGLE_API_KEY | `app/provider_registry.py`, `app/models/google_client.py`, `app/adapters/web/router.py`, `app/adapters/web/settings.py`, `config.yaml` | unset |
+| GROQ_API_KEY | `app/provider_registry.py`, `app/models/groq_client.py`, `app/adapters/web/router.py`, `app/adapters/web/settings.py` | unset |
+| CEREBRAS_API_KEY | `app/provider_registry.py`, `app/models/cerebras_client.py`, `app/adapters/web/router.py`, `app/adapters/web/settings.py` | unset |
+| CLOUDFLARE_API_KEY | `app/utils/cloudflare_ai_catalog.py` | unset |
+| ZHIPU_API_KEY | `app/utils/provider_catalog.py`, `app/adapters/web/settings.py` | unset |
+| ZHIPUAI_API_KEY | `app/utils/provider_catalog.py` (alias) | unset |
+| COHERE_API_KEY | `app/models/cohere_client.py` | unset |
+| GEMINI_API_KEY | `app/models/google_client.py` | unset |
+| GITHUB_API_KEY | `app/models/github_models_client.py` | unset |
+| GITHUB_TOKEN | `scripts/ci_bridge.py`, tooling | unset |
+| HUGGINGFACE_API_KEY | `app/models/hf_client.py` | unset |
+| JARVIS_DATABASE_URL | `app/db/`, Postgres checkpointer | unset |
+| JARVIS_ELEVENLABS_API_KEY | `app/integrations/voice/` (server TTS alt) | unset |
+| JARVIS_LOG_LEVEL | logging, server | unset |
+| JARVIS_OTEL_ENABLED | `app/telemetry/` | unset |
+| JARVIS_OTEL_ENDPOINT | `app/telemetry/` | unset |
+| JARVIS_OTEL_HEADERS | `app/telemetry/` | unset |
+| JARVIS_OTEL_SERVICE_NAME | `app/telemetry/` | unset |
+| JARVIS_SAMPLE_RATE | `app/integrations/voice/` | unset |
+| JARVIS_TTS_PROVIDER | `app/integrations/voice/` (default `pyttsx3`) | unset |
+| JARVIS_VERSION | `app/config/version.py` (version override) | unset |
+| JARVIS_WAKE_WORD | `app/integrations/voice/` (default `jarvis`) | unset |
+| LLAMA_SERVER_PATH | `app/models/llamacpp_client.py` | unset |
+| MISTRAL_API_KEY | `app/models/mistral_client.py` | unset |
+| SAMBANOVA_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| NVIDIA_API_KEY | `app/utils/provider_catalog.py`, `app/adapters/web/router.py`, `app/adapters/web/settings.py` | unset |
+| NVIDIA_NIM_API_KEY | `app/provider_registry.py`, `app/models/nvidia_nim_client.py`, `app/utils/provider_catalog.py` | unset |
+| SINGULARITY_API_KEY | `app/adapters/web/router.py`, `app/adapters/web/settings.py` | unset |
+| QWEN_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| OPENCODE_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| UNOROUTER_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| TOKENROUTER_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| TOKENHARBOUR_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| EXA_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| XKIRO_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| CHUTES_AI_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| CHUTES_AI_FINGLERPRINT | `.env.example` only — no reader in `app/` at HEAD | unset |
+| REQUESTY_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| CF_API_KEY | `.env.example` only — no reader in `app/` at HEAD (Cloudflare inference reads CLOUDFLARE_API_TOKEN below) | unset |
+| CLOUDFLARE_API_TOKEN | `app/models/cloudflare_ai_client.py`, `app/utils/cloudflare_ai_catalog.py`, `app/utils/provider_catalog.py`, `app/provider_registry.py` | unset |
+| CLOUDFLARE_ACCOUNT_ID | `app/models/cloudflare_ai_client.py` | unset |
+| HF_API_URL | `app/utils/hf_catalog.py` | `https://huggingface.co/api/models` |
+| HF_TOKEN | `app/utils/hf_catalog.py`, `app/utils/provider_catalog.py`, `app/adapters/web/router.py`, `app/adapters/web/settings.py` | unset |
+| LEARNING_COMMONS_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| TELEGRAM_BOT_TOKEN | `app/integrations/telegram/__init__.py` (falls back to TELEGRAM_API_KEYS) | unset |
+| TELEGRAM_ALLOWED_CHAT_IDS | `app/integrations/telegram/__init__.py` | unset (empty — no chat is answered) |
+| TELEGRAM_ENABLED | `app/integrations/telegram/__init__.py`, `app/main.py` (poller starts only when `true` with a token) | `false` |
+| WHATSAPP_TOKEN | `app/integrations/whatsapp/__init__.py` | unset |
+| WHATSAPP_PHONE_ID | `app/integrations/whatsapp/__init__.py` | unset |
+| WHATSAPP_TO | `app/integrations/whatsapp/__init__.py` | unset |
+| WHATSAPP_TEMPLATE | `app/integrations/whatsapp/__init__.py` | `hello_world` |
+| WHATSAPP_ENABLED | `app/integrations/whatsapp/__init__.py` | `false` |
+| JARVIS_EMAIL_ADDRESS | `app/integrations/email/client.py` | unset |
+| JARVIS_EMAIL_PASSWORD | `app/integrations/email/client.py` | unset |
+| JARVIS_EMAIL_IMAP_HOST | `app/integrations/email/client.py` | `imap.gmail.com` |
+| JARVIS_EMAIL_IMAP_PORT | `app/integrations/email/client.py` (not listed in `.env.example`) | `993` |
+| JARVIS_EMAIL_SMTP_HOST | `app/integrations/email/client.py` | `smtp.gmail.com` |
+| JARVIS_EMAIL_SMTP_PORT | `app/integrations/email/client.py` (not listed in `.env.example`) | `587` |
+| JARVIS_BRIEF_ENABLED | `app/integrations/brief/__init__.py` | `false` |
+| JARVIS_BRIEF_TIME | `app/integrations/brief/__init__.py` | `08:00` |
+| JARVIS_BRIEF_DELIVERY | `app/integrations/brief/__init__.py` | `slack` (`.env.example` comments `push`) |
+| JARVIS_BRIEF_EMAIL | `app/integrations/brief/__init__.py` | unset |
+| JARVIS_BRIEF_SLACK_WEBHOOK | `app/integrations/brief/__init__.py` (actual name — there is no JARVIS_SLACK_WEBHOOK) | unset |
+| VAPID_PRIVATE_KEY | `app/integrations/push/__init__.py` | unset |
+| VAPID_PUBLIC_KEY | `app/adapters/web/push_routes.py` | unset |
+| VAPID_CLAIMS_EMAIL | `app/integrations/push/__init__.py` | `mailto:jarvis@localhost` |
+| CORS_ALLOWED_ORIGINS | `app/main.py` | `http://localhost:8000,http://localhost:3000,http://127.0.0.1:8000,http://127.0.0.1:3000,capacitor://localhost,http://localhost,https://localhost` |
+| JARVIS_PUBLIC_ORIGIN | `app/main.py` (appended to the CORS allowlist when set) | unset |
+| JARVIS_HOST | `app/main.py` | `0.0.0.0` |
+| JARVIS_PORT | `app/main.py` | `8000` |
+| JARVIS_STT_MODEL | `app/adapters/web/voice_routes.py` (default `tiny`), `app/integrations/voice/__init__.py` (default `base`) | `tiny` on the web route, `base` in the integration |
+| JARVIS_TTS_VOICE | `app/adapters/web/voice_routes.py` | `en-US-ChristopherNeural` |
+| JARVIS_WORKSPACE_ROOT | `app/tools/workspace_tools.py` | repo root |
+| JARVIS_EXTRA_ALLOWED_ROOTS | `app/tools/workspace_tools.py` (actual name; system temp dir is always allowed) | unset (empty) |
 
 ## Default Values
 

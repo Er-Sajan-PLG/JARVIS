@@ -191,6 +191,11 @@ What did we decide?
 | ADR-008 | Tiered Tool Safety Policy | ✅ Accepted |
 | ADR-009 | Multi-Provider Circuit Breaker | ✅ Accepted |
 | ADR-010 | Adapters & Integrations Isolation | ✅ Accepted |
+| ADR-011 | Tool Wiring, the Destructive-Action Gate, and the HITL Trigger | ✅ Accepted |
+| ADR-012 | One GitHub identity per function, short-lived tokens | ✅ Accepted |
+| ADR-013 | JARVIS orchestrates its own work; n8n is a workflow executor it drives | ✅ Accepted |
+| ADR-014 | Documentation facts are machine-synced and machine-checked | ✅ Accepted |
+| ADR-015 | Memory facts are bi-temporal, invalidated not deleted | ✅ Accepted |
 
 ---
 
