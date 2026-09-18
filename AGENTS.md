@@ -196,6 +196,8 @@ What did we decide?
 | ADR-013 | JARVIS orchestrates its own work; n8n is a workflow executor it drives | ✅ Accepted |
 | ADR-014 | Documentation facts are machine-synced and machine-checked | ✅ Accepted |
 | ADR-015 | Memory facts are bi-temporal, invalidated not deleted | ✅ Accepted |
+| ADR-016 | Documentation coverage blocks the push | ✅ Accepted |
+| ADR-017 | JARVIS orchestrates subagents; OpenCode first | ✅ Accepted |
 
 ---
 

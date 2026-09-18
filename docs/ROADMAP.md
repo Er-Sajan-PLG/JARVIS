@@ -115,7 +115,6 @@
 ---
 
 ## 8. Sprint 6 — MOBILE, TGCALL, CLEANUP MERGES ✅
-
 **Status**: Complete (landed 2026-09-17 – 2026-09-18, `v3.23.0`)
 
 | Work | Evidence |
@@ -132,7 +131,39 @@
 
 ---
 
-## 9. Technical Debt Register
+## 9. Sprint 7 — DOCS LOCKDOWN ✅
+
+**Status**: Complete (landed 2026-09-18, `v3.24.0`)
+
+| Work | Evidence |
+|------|----------|
+| Coverage gate: module/route/env censuses from the live tree | ✅ `scripts/check_doc_coverage.py` |
+| Push refusal on gate failure + CI `gate_doc_coverage` | ✅ `githooks/pre-push`, `scripts/ci_gate.py` |
+| Doc-coverage tests (tree must satisfy its own gate) | ✅ `tests/unit/test_doc_coverage.py` |
+| API_CONTRACT endpoint coverage + shape corrections | ✅ docs |
+| CONFIG env table, TOOLS runner/comms rewrite | ✅ docs |
+| ARCHITECTURE/VERSIONING/AGENTS/RISKS/ADR-index refresh | ✅ docs |
+| 8 runbooks corrected, COMMS.md + VOICE.md created | ✅ docs |
+| ADR-016 (coverage blocks push) | ✅ `docs/adr/ADR-016-doc-coverage-blocks-push.md` |
+
+---
+
+## 10. Sprint 8 — ORCHESTRATOR (subagents, OpenCode first) 📋 PLANNED
+
+**Status**: Planned (ADR-017). Phases run in order; each ships with tests +
+coverage and its own docs update (the push gate enforces the last part).
+
+| Phase | Work | Tests / coverage |
+|-------|------|------------------|
+| 8.1 | Sub-agent runner v1: `spawn(agent, goal, dir)` over `opencode run --format json`, JSON event parsing, worker receipts, `ses_*` threading | Runner unit tests (mocked CLI), receipt-schema tests, contract test for worker lifecycle |
+| 8.2 | Delegation policy: depth ≤ 2, per-worker timeout, allowlisted agents, cost caps | Policy unit tests (cap violations fail closed) |
+| 8.3 | AGY adapter completion: `--conversation` threading, `--effort/--agent/--mode` passthrough, history, fresh defaults, fix `docs/modules/integrations/agy.md` | `tests/unit/test_agy.py` extended (mocked subprocess), coverage gate on new params |
+| 8.4 | Worker HITL routing: DESTRUCTIVE worker steps pause to phone (notify + Telegram approve/deny via existing registry) | HITL approval tests with worker context |
+| 8.5 (deferred) | Hermes bridge, DeepSeek harness, JARVIS-as-MCP-server | Scoped when 8.1–8.4 land |
+
+---
+
+## 12. Technical Debt Register
 
 | ID | Item | Status |
 |----|------|--------|
@@ -151,7 +182,7 @@
 
 ---
 
-## 10. Milestone Timeline
+## 13. Milestone Timeline
 
 <!--fact:begin sprint-progress-->
 <!--fact:end sprint-progress-->
@@ -170,7 +201,7 @@ Week 13-14: ██████████████████████�
 
 ---
 
-## 11. Success Metrics
+## 14. Success Metrics
 
 | Metric | Target | Current | Status |
 |--------|--------|---------|--------|
@@ -183,7 +214,7 @@ Week 13-14: ██████████████████████�
 
 ---
 
-## 12. Risk Register
+## 15. Risk Register
 
 | Risk | Status |
 |------|--------|

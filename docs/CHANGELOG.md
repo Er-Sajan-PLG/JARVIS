@@ -9,6 +9,16 @@ current release are recorded here. Entries are newest-first. Versions below `v3.
 are retained history and are **not** rewritten; see also
 [`archive/`](archive/) for the frozen v3.0.0 release-cycle documents.
 
+## [v3.24.0] — 2026-09-18
+### Added (docs lockdown)
+- Documentation coverage gate (`scripts/check_doc_coverage.py`): module,
+  route and env censuses computed from the live tree (`0902b27`).
+- Push refusal (`githooks/pre-push`) and CI enforcement
+  (`gate_doc_coverage`); doc-coverage tests (`tests/unit/test_doc_coverage.py`).
+- Full refresh: API_CONTRACT endpoint coverage, CONFIG env table, TOOLS
+  runner/comms rewrite, ARCHITECTURE/VERSIONING/ROADMAP/AGENTS/RISKS factual
+  updates, 8 runbooks corrected, new COMMS.md + VOICE.md.
+
 ## [v3.23.0] — 2026-09-18
 ### Added (comms)
 - Telegram two-way bot + notify dispatcher + push VAPID key endpoint (`f92b2c3`),

@@ -362,6 +362,8 @@ authoritative.
 | ADR-013 | JARVIS orchestrates its own work; n8n is a workflow executor it drives | ✅ Accepted |
 | ADR-014 | Documentation facts are machine-synced and machine-checked | ✅ Accepted |
 | ADR-015 | Memory facts are bi-temporal, invalidated not deleted | ✅ Accepted |
+| ADR-016 | Documentation coverage blocks the push | ✅ Accepted |
+| ADR-017 | JARVIS orchestrates subagents; OpenCode first | ✅ Accepted |
 
 > **Corrected 2026-09-13.** This table previously listed **ADR-010 as "n8n External
 > Orchestration — PROPOSED"**. That was wrong on both counts: ADR-010 is *Adapters
