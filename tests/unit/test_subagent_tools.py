@@ -9,6 +9,7 @@ from app.tools.subagent_tools import (
     _parse_events,
     _resolve_workdir,
     spawn_subagent,
+    spawn_worker,
 )
 
 
@@ -121,3 +122,55 @@ class TestSpawn:
 
     def test_registered(self):
         assert DEFAULT_TOOLSET["spawn_subagent"] is spawn_subagent
+
+
+class TestSpawnWorkerBridge:
+    def _proc(self, text, returncode=0):
+        proc = AsyncMock()
+        proc.communicate = AsyncMock(return_value=(text.encode(), b""))
+        proc.returncode = returncode
+        proc.wait = AsyncMock()
+        proc.kill = MagicMock()
+        return proc
+
+    @pytest.mark.asyncio
+    async def test_hermes_backend(self):
+        proc = self._proc("HERMES-OK")
+        with patch(
+            "app.tools.subagent_tools.HERMES_BIN", "/usr/bin/hermes", create=True
+        ), patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
+            out = json.loads(await spawn_worker("hi", backend="hermes", workdir="/tmp"))
+        assert out["status"] == "ok"
+        assert out["summary"] == "HERMES-OK"
+
+    @pytest.mark.asyncio
+    async def test_unknown_backend(self):
+        with pytest.raises(ValueError):
+            await spawn_worker("hi", backend="claude")
+
+    @pytest.mark.asyncio
+    async def test_deepseek_missing_binary(self):
+        with patch("app.tools.subagent_tools.DSH_BIN", "", create=True), pytest.raises(
+            RuntimeError, match="dsh binary not found"
+        ):
+            await spawn_worker("hi", backend="deepseek", workdir="/tmp")
+
+    @pytest.mark.asyncio
+    async def test_hermes_timeout(self):
+        proc = AsyncMock()
+        proc.communicate = AsyncMock(side_effect=TimeoutError())
+        proc.wait = AsyncMock()
+        proc.kill = MagicMock()
+        with patch(
+            "app.tools.subagent_tools.HERMES_BIN", "/usr/bin/hermes", create=True
+        ), patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
+            out = json.loads(
+                await spawn_worker("hang", backend="hermes", workdir="/tmp", timeout_s=1)
+            )
+        assert out["status"] == "timeout"
+        proc.kill.assert_called_once()
+
+    def test_registered(self):
+        from app.tools.subagent_tools import spawn_worker
+
+        assert DEFAULT_TOOLSET["spawn_worker"] is spawn_worker

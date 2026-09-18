@@ -23,26 +23,22 @@ surfaces make that real:
 
 ## 1. Sub-agent workers (`app/tools/subagent_tools.py`)
 
-Tool: `spawn_subagent(goal, agent, model, workdir, session_id, timeout_s)`.
+Two tools, one receipt shape (`status`, `session_id`, `summary`, `tokens`,
+`cost`, `error`):
 
-- Shells `opencode run --format json` and folds the event stream into a
-  worker receipt: `status` (`ok|error|timeout`), `session_id`, `summary`,
-  `tokens`, `cost`, `error`.
-- Tier SENSITIVE (not DESTRUCTIVE): spawning stays usable without a phone
-  approval per worker; the worker's own destructive acts stay inside its
-  subprocess permissions.
-- Policy caps, enforced from day one:
+- `spawn_subagent(...)` — OpenCode only.
+- `spawn_worker(goal, backend="opencode"|"hermes"|"deepseek", ...)` — the
+  **bridge**: dispatches to any backend uniformly.
 
-| Cap | Value | Env |
+| Backend | Invocation | Notes |
 |---|---|---|
-| Allowlisted agents | `build,plan,general` | `JARVIS_SUBAGENTS` |
-| Per-spawn timeout | 600 s, kill on expiry | via `timeout_s` arg |
-| Workdir jail | workspace root or system temp only | `_resolve_workdir` |
-| Output cap | 20 000 chars | `MAX_OUTPUT_CHARS` |
+| `opencode` | `opencode run --format json` | JSON event stream; default |
+| `hermes` | `hermes -z <goal>` | oneshot, stdout = final text (live-verified) |
+| `deepseek` | `dsh --profile headless <goal>` | requires the harness built (`DSH_BIN`); clear error otherwise |
 
-Default model: **Muse Spark 1.3 Free** (`opencode/muse-spark-1.3-contributor-free`,
-OpenCode Zen — not OpenRouter). Override per call with `model=`. `OPENCODE_BIN`
-overrides binary discovery.
+Both are tier SENSITIVE (not DESTRUCTIVE) with the same policy caps
+(allowlisted agents, per-spawn timeout, workdir jail, output cap) and the
+same default model (Muse Spark 1.3 Free via Zen, `opencode/` provider).
 
 ## 2. AGY (`app/adapters/integrations/agy.py`)
 
@@ -75,6 +71,7 @@ the mesh tools below.
 | `jarvis_read_emails` | Read email as a compact unread digest |
 | `jarvis_send_email` | Send an email |
 | `jarvis_spawn_subagent` | Delegate a goal to an OpenCode worker |
+| `jarvis_spawn_worker` | Delegate to any bridged backend (opencode/hermes/deepseek) |
 
 Every tool call routes through the same `ToolSafetyPolicy` as the local loop.
 **Auth:** stdio has no HTTP headers, so a client presents the shared key via

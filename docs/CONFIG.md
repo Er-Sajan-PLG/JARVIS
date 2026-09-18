@@ -144,6 +144,8 @@ file but have no reader in `app/` at HEAD — setting them has no effect.
 | JARVIS_EXTRA_ALLOWED_ROOTS | `app/tools/workspace_tools.py` (actual name; system temp dir is always allowed) | unset (empty) |
 | JARVIS_SUBAGENTS | `app/tools/subagent_tools.py` (allowlisted worker agents) | `build,plan,general` |
 | OPENCODE_BIN | `app/tools/subagent_tools.py` (worker binary override) | auto-detected |
+| HERMES_BIN | `app/tools/subagent_tools.py` (hermes worker override) | auto-detected |
+| DSH_BIN | `app/tools/subagent_tools.py` (deepseek harness worker override) | auto-detected |
 | JARVIS_MCP_KEY | `app/integrations/mcp/server.py` (shared key for MCP clients) | unset (no check) |
 
 ## Default Values

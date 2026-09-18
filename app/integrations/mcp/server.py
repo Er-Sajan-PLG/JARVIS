@@ -190,6 +190,17 @@ _TOOLS = [
             timeout_s={"type": "integer"},
         ),
     },
+    {
+        "name": "jarvis_spawn_worker",
+        "description": "Spawn a worker on a bridged backend (opencode|hermes|deepseek).",
+        "inputSchema": _schema(
+            goal={"type": "string", "required": True},
+            backend={"type": "string"},
+            agent={"type": "string"},
+            workdir={"type": "string"},
+            timeout_s={"type": "integer"},
+        ),
+    },
 ]
 
 
@@ -263,6 +274,7 @@ async def _dispatch(name: str, args: dict[str, Any]) -> str:
         "jarvis_read_emails": lambda: _jarvis_read_emails(args),
         "jarvis_send_email": lambda: _jarvis_send_email(args),
         "jarvis_spawn_subagent": lambda: _jarvis_spawn_subagent(args),
+        "jarvis_spawn_worker": lambda: _jarvis_spawn_worker(args),
     }
 
     if name not in dispatch_map:
@@ -339,6 +351,19 @@ async def _jarvis_spawn_subagent(args: dict[str, Any]) -> str:
 
     return await spawn_subagent(
         goal=args["goal"],
+        agent=args.get("agent", "build"),
+        workdir=args.get("workdir", "."),
+        timeout_s=int(args.get("timeout_s", 600)),
+    )
+
+
+async def _jarvis_spawn_worker(args: dict[str, Any]) -> str:
+    """Spawn a worker on any bridged backend and return the receipt."""
+    from app.tools.subagent_tools import spawn_worker
+
+    return await spawn_worker(
+        goal=args["goal"],
+        backend=args.get("backend", "opencode"),
         agent=args.get("agent", "build"),
         workdir=args.get("workdir", "."),
         timeout_s=int(args.get("timeout_s", 600)),

@@ -95,3 +95,22 @@ def asyncio_run(coro):
     import asyncio
 
     return asyncio.new_event_loop().run_until_complete(coro)
+
+
+class TestMeshWorkerBridge:
+    def test_spawn_worker_tool_listed(self):
+        names = [t["name"] for t in _TOOLS]
+        assert "jarvis_spawn_worker" in names
+
+    @pytest.mark.asyncio
+    async def test_spawn_worker_dispatch(self):
+        from app.integrations.mcp.server import _dispatch
+
+        with patch(
+            "app.tools.subagent_tools.spawn_worker",
+            new=AsyncMock(return_value=json.dumps({"status": "ok"})),
+        ):
+            out = await _dispatch(
+                "jarvis_spawn_worker", {"goal": "do", "backend": "hermes", "timeout_s": 30}
+            )
+        assert "ok" in out
