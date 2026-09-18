@@ -34,7 +34,7 @@ Two tools, one receipt shape (`status`, `session_id`, `summary`, `tokens`,
 |---|---|---|
 | `opencode` | `opencode run --format json` | JSON event stream; default |
 | `hermes` | `hermes -z <goal>` | oneshot, stdout = final text (live-verified) |
-| `deepseek` | `dsh --profile headless <goal>` | requires the harness built (`DSH_BIN`); clear error otherwise |
+| `deepseek` | `dsh --profile headless <goal>` | `node .../apps/cli/lib/bin.js` from `DSH_DIR` (live-verified) |
 
 Both are tier SENSITIVE (not DESTRUCTIVE) with the same policy caps
 (allowlisted agents, per-spawn timeout, workdir jail, output cap) and the

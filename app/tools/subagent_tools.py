@@ -28,6 +28,7 @@ import contextlib
 import json
 import logging
 import os
+import shlex
 import shutil
 import tempfile
 from pathlib import Path
@@ -39,7 +40,11 @@ logger = logging.getLogger(__name__)
 
 OPENCODE_BIN = os.environ.get("OPENCODE_BIN") or shutil.which("opencode") or ""
 HERMES_BIN = os.environ.get("HERMES_BIN") or shutil.which("hermes") or ""
-DSH_BIN = os.environ.get("DSH_BIN") or shutil.which("dsh") or ""
+# dsh runs as `node apps/cli/lib/bin.js` from the harness root. DSH_CMD is the
+# full, shell-quotable command; DSH_DIR is the harness cwd it must run in.
+_DSH_HARNESS = "/home/sajan/Projects/deepseek-harness"
+DSH_CMD = os.environ.get("DSH_CMD", f"node {_DSH_HARNESS}/apps/cli/lib/bin.js")
+DSH_DIR = os.environ.get("DSH_DIR", _DSH_HARNESS)
 DEFAULT_AGENT = "build"
 # Muse Spark 1.3 Free, served by OpenCode Zen (the `opencode/` provider), not
 # OpenRouter. Free tier; falls back to any model via the `-m` override.
@@ -262,13 +267,19 @@ async def spawn_worker(
         receipt["agent"] = agent
         return json.dumps(receipt)
 
-    # deepseek harness
-    if not DSH_BIN:
+    # deepseek harness — runs as `node apps/cli/lib/bin.js` from DSH_DIR.
+    cmd = shlex.split(DSH_CMD) if DSH_CMD.strip() else []
+    if not cmd:
         raise RuntimeError(
-            "dsh binary not found (DSH_BIN). Build the DeepSeek harness first "
-            "or run `pnpm build` in deepseek-harness/"
+            "dsh command not configured (DSH_CMD). Point it at the built "
+            "harness CLI, e.g. `node /path/to/deepseek-harness/apps/cli/lib/bin.js`."
         )
-    receipt = await _run_plain(DSH_BIN, ["--profile", "headless", goal], str(directory), timeout_s)
+    harness_dir = Path(DSH_DIR)
+    if not harness_dir.is_dir():
+        raise RuntimeError(f"dsh harness dir not found (DSH_DIR): {DSH_DIR}")
+    receipt = await _run_plain(
+        cmd[0], cmd[1:] + ["--profile", "headless", goal], str(harness_dir), timeout_s
+    )
     receipt["agent"] = agent
     return json.dumps(receipt)
 

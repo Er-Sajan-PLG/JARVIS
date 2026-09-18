@@ -149,11 +149,31 @@ class TestSpawnWorkerBridge:
             await spawn_worker("hi", backend="claude")
 
     @pytest.mark.asyncio
-    async def test_deepseek_missing_binary(self):
-        with patch("app.tools.subagent_tools.DSH_BIN", "", create=True), pytest.raises(
-            RuntimeError, match="dsh binary not found"
+    async def test_deepseek_missing_command(self):
+        with patch("app.tools.subagent_tools.DSH_CMD", "", create=True), pytest.raises(
+            RuntimeError, match="dsh command not configured"
         ):
             await spawn_worker("hi", backend="deepseek", workdir="/tmp")
+
+    @pytest.mark.asyncio
+    async def test_deepseek_backend(self):
+        proc = AsyncMock()
+        proc.communicate = AsyncMock(return_value=(b"DSH-OK", b""))
+        proc.returncode = 0
+        proc.wait = AsyncMock()
+        proc.kill = MagicMock()
+        with (
+            patch("app.tools.subagent_tools.DSH_CMD", "node /x/bin.js", create=True),
+            patch("app.tools.subagent_tools.DSH_DIR", "/tmp", create=True),
+            patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)) as exec_,
+        ):
+            out = json.loads(await spawn_worker("hi", backend="deepseek", workdir="/tmp"))
+        assert out["status"] == "ok"
+        assert out["summary"] == "DSH-OK"
+        # runs from harness dir, node first, headless profile injected
+        args, _ = exec_.call_args
+        assert args[0] == "node" and args[1] == "/x/bin.js"
+        assert "--profile" in args and "headless" in args
 
     @pytest.mark.asyncio
     async def test_hermes_timeout(self):
