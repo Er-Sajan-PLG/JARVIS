@@ -7,6 +7,7 @@ import {
 import { initChat, renderConversations, renderMessages, renderModelTrigger, applyDefaultToChat, newConversation } from './chat.js';
 import { initSettings, openSettings } from './settings.js';
 import { initPicker } from './picker.js';
+import { initVoice } from './voice.js';
 
 // Re-exported so the module's public surface is unchanged; the definitions
 // live in core.js to keep it importable without pulling in the entry point.
@@ -62,6 +63,7 @@ async function boot() {
   initChat();
   initSettings();
   initPicker();
+  initVoice();
 
   renderConversations();
   renderMessages();

@@ -1,0 +1,20 @@
+{
+  "name": "jarvis-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Capacitor wrapper that bundles the JARVIS web console as an Android debug APK",
+  "scripts": {
+    "sync-www": "node scripts/sync-www.js",
+    "cap": "cap",
+    "build-apk": "node scripts/sync-www.js && npx cap sync android && ./android/gradlew -p android assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "typescript": "^7.0.2"
+  }
+}

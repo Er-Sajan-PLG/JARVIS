@@ -3,7 +3,7 @@
 
 import {
   $, $$, el, api, state, toast, loadModels, loadCustomState,
-  findModel, providerByKey, formatBytes, escapeHtml, statusInfo, getApiKey,
+  findModel, providerByKey, formatBytes, escapeHtml, statusInfo, getApiKey, apiUrl,
 } from './core.js';
 import { openPicker } from './picker.js';
 
@@ -273,7 +273,7 @@ async function handleFiles(fileList) {
       // Multipart upload, so it cannot use the shared JSON helper; replay the
       // stored credential by hand or the console API answers 401.
       const uploadKey = getApiKey();
-      const res = await fetch('/api/upload', {
+      const res = await fetch(apiUrl('/api/upload'), {
         method: 'POST',
         body: fd,
         ...(uploadKey ? { headers: { Authorization: `Bearer ${uploadKey}` } } : {}),
@@ -413,11 +413,15 @@ export async function sendMessage() {
     if (res.error) {
       state.messages.push({ role: 'assistant', content: '', error: res.error, model: state.selectedModel.name });
     } else {
+      const content = res.response || '(empty response)';
       state.messages.push({
         role: 'assistant',
-        content: res.response || '(empty response)',
+        content,
         model: state.selectedModel.name || state.selectedModel.id,
       });
+      // Voice mode: speak the reply without creating an import cycle
+      // (voice.js imports sendMessage from here, so this stays dynamic).
+      import('./voice.js').then((m) => m.speakReply(content)).catch(() => {});
     }
   } catch (err) {
     pending.remove();
@@ -442,6 +446,12 @@ export function initChat() {
   $('#settingsBtn')?.addEventListener('click', () => openSettings());
   $('#topbarSettings')?.addEventListener('click', () => openSettings());
   $('#sidebarToggle')?.addEventListener('click', () => {
+    // On narrow screens the sidebar is off-canvas: slide it in/out instead
+    // of the desktop collapse behaviour.
+    if (window.matchMedia('(max-width: 900px)').matches) {
+      document.querySelector('.sidebar')?.classList.toggle('open');
+      return;
+    }
     const app = $('#app');
     app.classList.toggle('sidebar-collapsed');
     localStorage.setItem('jarvis.sidebar', app.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');

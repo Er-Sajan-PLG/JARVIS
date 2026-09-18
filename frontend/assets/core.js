@@ -240,6 +240,32 @@ export function hasApiKey() {
   return Boolean(getApiKey());
 }
 
+// ── Server base (APK mode) ─────────────────────────────────────────────
+// The web console and the PWA call the same origin they were served from, so
+// relative `/api/...` paths just work. Inside the Capacitor APK the WebView
+// origin is `capacitor://localhost`, which has no backend — the operator sets
+// the JARVIS server URL once (Settings → Access) and every API path is
+// resolved against it. Empty means same-origin (web/PWA behaviour).
+const SERVER_URL_STORAGE = 'jarvis.serverUrl';
+
+export function getServerUrl() {
+  try { return (localStorage.getItem(SERVER_URL_STORAGE) || '').replace(/\/+$/, ''); } catch { return ''; }
+}
+
+export function setServerUrl(url) {
+  try {
+    const clean = (url || '').trim().replace(/\/+$/, '');
+    if (clean) localStorage.setItem(SERVER_URL_STORAGE, clean);
+    else localStorage.removeItem(SERVER_URL_STORAGE);
+  } catch { /* private mode: same-origin requests still work while the tab lives */ }
+}
+
+export function apiUrl(path) {
+  const base = getServerUrl();
+  if (!base || !path.startsWith('/api')) return path;
+  return base + path;
+}
+
 async function request(path, options = {}) {
   const { timeoutMs = 30000, onProgress, ...init } = options;
   const controller = new AbortController();
@@ -254,7 +280,7 @@ async function request(path, options = {}) {
   if (key) headers.Authorization = `Bearer ${key}`;
 
   try {
-    const res = await fetch(path, {
+    const res = await fetch(apiUrl(path), {
       ...init,
       headers,
       signal: controller.signal,

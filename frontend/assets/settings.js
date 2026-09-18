@@ -9,7 +9,7 @@ import {
   $, $$, el, api, state, toast, loadModels, loadCustomState,
   isFree, contextLabel, formatBytes, formatDate, statusInfo, escapeHtml,
   providerByKey, allModels, capabilitiesOf, matchesCapabilities, ALL_CAPABILITIES,
-  applyTheme, applySidebar, getApiKey, setApiKey,
+  applyTheme, applySidebar, getApiKey, setApiKey, getServerUrl, setServerUrl, apiUrl,
 } from './core.js';
 import { openPicker, renderPicker } from './picker.js';
 import { applyDefaultToChat } from './chat.js';
@@ -1269,7 +1269,7 @@ async function renderAccessSection(host) {
     // Ask the server directly rather than trusting the stored value: a wrong
     // key is the single most likely reason the console looks broken.
     try {
-      const res = await fetch('/api/models', {
+      const res = await fetch(apiUrl('/api/models'), {
         headers: key ? { Authorization: `Bearer ${key}` } : {},
       });
       return res.status !== 401;
@@ -1304,6 +1304,50 @@ async function renderAccessSection(host) {
     el('div', { style: 'margin-top:12px' }, [input]),
     status,
     el('div', { style: 'margin-top:12px' }, [save, clear]),
+  ]));
+
+  // Server URL — only needed inside the Android APK, where the WebView origin
+  // (capacitor://localhost) has no backend. The web console and the PWA leave
+  // this empty and keep calling the origin they were served from.
+  const serverInput = el('input', {
+    type: 'url',
+    id: 'consoleServerUrl',
+    placeholder: 'e.g. http://rebel.tail4ed6b0.ts.net:8000 (APK only)',
+    value: getServerUrl(),
+    autocomplete: 'off',
+    spellcheck: 'false',
+    style: 'width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-family:ui-monospace,monospace;font-size:13px',
+  });
+  const serverStatus = el('div', {
+    text: getServerUrl() ? `API calls go to ${getServerUrl()}.` : 'Empty: API calls go to this origin (web / PWA).',
+    style: 'margin-top:8px;font-size:13px;color:var(--text-muted)',
+  });
+  const serverSave = el('button', { class: 'btn btn-primary', text: 'Save server URL' });
+  serverSave.addEventListener('click', async () => {
+    const url = serverInput.value.trim();
+    if (url && !/^https?:\/\//i.test(url)) {
+      serverStatus.textContent = 'URL must start with http:// or https://';
+      serverStatus.style.color = 'var(--err, #f87171)';
+      return;
+    }
+    setServerUrl(url);
+    const base = getServerUrl();
+    serverStatus.textContent = base ? `API calls go to ${base}.` : 'Empty: API calls go to this origin (web / PWA).';
+    serverStatus.style.color = 'var(--text-muted)';
+    toast(base ? 'Server URL saved' : 'Server URL cleared');
+    // Re-verify the key against the (possibly new) target so a wrong URL
+    // surfaces here instead of as empty panels later.
+    status.textContent = 'Checking…';
+    const ok = await verify(getApiKey());
+    status.textContent = ok ? 'Key accepted. This device can reach JARVIS.' : 'Cannot reach JARVIS with the stored key at this URL.';
+    status.style.color = ok ? 'var(--ok, #4ade80)' : 'var(--err, #f87171)';
+  });
+  panel.appendChild(el('div', { class: 'default-card' }, [
+    el('div', { class: 'default-card-label', text: 'Server URL' }),
+    el('div', { class: 'default-card-provider', text: 'Android APK only. The Tailscale URL of the host. Leave empty on web / PWA.' }),
+    el('div', { style: 'margin-top:12px' }, [serverInput]),
+    serverStatus,
+    el('div', { style: 'margin-top:12px' }, [serverSave]),
   ]));
 
   host.appendChild(panel);
