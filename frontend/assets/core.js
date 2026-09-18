@@ -266,6 +266,78 @@ export function apiUrl(path) {
   return base + path;
 }
 
+/* ── Self-healing server resolution ─────────────────────────────────────
+   A hardcoded server URL dies the moment DHCP reassigns the host or the
+   phone switches networks. Instead the app probes candidates and latches
+   onto the first one answering /api/v1/health:
+     1. the stored URL (explicit operator choice wins),
+     2. baked candidates from server-candidates.json (tailnet name, LAN IP
+        snapshot at build time — same-origin fetch, never blocked),
+     3. same-origin (web/PWA: the page IS the server).
+   The winner is persisted, so the next boot tries it first. Total silence
+   on failure is what made every outage look like "nothing happens", so the
+   probe result is always reported back to the caller. */
+async function probeHealth(base, timeoutMs = 2500) {
+  const url = base ? base + '/api/v1/health' : '/api/v1/health';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) return false;
+    const data = await res.json().catch(() => null);
+    return !!(data && data.status === 'healthy');
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function bakedCandidates() {
+  // Relative path: <origin>/static/... on web, capacitor://localhost/static
+  // in the APK (the file is bundled). Same file both places.
+  try {
+    const res = await fetch('static/server-candidates.json', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => null);
+    return Array.isArray(data) ? data.filter((u) => typeof u === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function ensureServer() {
+  const tried = [];
+  const stored = getServerUrl();
+  // Same-origin first: instant on web/PWA, fails fast in the APK (nothing
+  // listens on the WebView origin). Then the stored URL, then baked
+  // fallbacks (tailnet name, LAN snapshot).
+  const candidates = [''];
+  if (stored) candidates.push(stored);
+  for (const c of await bakedCandidates()) {
+    if (!candidates.includes(c)) candidates.push(c);
+  }
+
+  for (const base of candidates) {
+    tried.push(base || '(this origin)');
+    if (await probeHealth(base)) {
+      if (base) {
+        setServerUrl(base);
+      } else {
+        // Same-origin wins: drop any stale stored URL so a dead tunnel
+        // address can never shadow the working origin.
+        try {
+          localStorage.removeItem(SERVER_URL_STORAGE);
+        } catch {
+          /* ignore */
+        }
+      }
+      return { ok: true, base, tried };
+    }
+  }
+  return { ok: false, base: stored, tried };
+}
+
 async function request(path, options = {}) {
   const { timeoutMs = 30000, onProgress, ...init } = options;
   const controller = new AbortController();

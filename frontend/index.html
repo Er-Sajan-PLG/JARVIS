@@ -60,6 +60,26 @@
     height: 18px;
     accent-color: #00bfff;
   }
+  /* Connection banner: loud offline state with retry. */
+  .conn-banner {
+    background: rgba(248, 113, 113, 0.12);
+    border-bottom: 1px solid rgba(248, 113, 113, 0.4);
+    color: #fca5a5;
+    font-size: 13px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .conn-banner[hidden] { display: none; }
+  /* APK system bars: the WebView draws under the status bar and gesture bar
+     (e.g. Samsung A36). Only body.apk ever matches, so web/PWA are untouched. */
+  body.apk .topbar {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 30px);
+  }
+  body.apk .composer-wrap {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  }
   /* Mobile optimizations (matches the ≤900px breakpoint in app.css, where the
      sidebar leaves the grid). */
   @media (max-width: 900px) {
@@ -105,6 +125,7 @@
 
   <!-- ── Main chat ────────────────────────────────────────────────────── -->
   <main class="main">
+    <div class="conn-banner" id="connBanner" hidden></div>
     <header class="topbar">
       <button class="icon-btn" id="sidebarToggle" aria-label="Toggle sidebar" title="Toggle sidebar">☰</button>
       <div class="topbar-title" id="topbarTitle">New chat</div>

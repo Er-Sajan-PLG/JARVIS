@@ -8,6 +8,7 @@ import { initChat, renderConversations, renderMessages, renderModelTrigger, appl
 import { initSettings, openSettings } from './settings.js';
 import { initPicker } from './picker.js';
 import { initVoice } from './voice.js';
+import { ensureServer, getServerUrl } from './core.js';
 
 // Re-exported so the module's public surface is unchanged; the definitions
 // live in core.js to keep it importable without pulling in the entry point.
@@ -50,6 +51,16 @@ function trapFocus(container, e) {
 /* ── Boot ───────────────────────────────────────────────────────────────── */
 
 async function boot() {
+  // APK detection (Capacitor WebView has no http(s) page origin... except
+  // ours is https://localhost): mark the body so CSS can clear the system
+  // status bar and gesture bar, which the WebView draws under.
+  if (
+    location.protocol === 'capacitor:' ||
+    (location.protocol === 'https:' && location.hostname === 'localhost')
+  ) {
+    document.body.classList.add('apk');
+  }
+
   applyTheme(localStorage.getItem('jarvis.theme') || 'dark');
   document.documentElement.dataset.density = localStorage.getItem('jarvis.density') || 'comfortable';
   applySidebar(localStorage.getItem('jarvis.sidebar') !== 'collapsed');
@@ -64,6 +75,16 @@ async function boot() {
   initSettings();
   initPicker();
   initVoice();
+
+  // Resolve the server before anything needs it: probe the stored URL then
+  // baked fallbacks, latch onto whatever answers. A loud banner beats the
+  // silent "nothing happens" failure that hid every past outage.
+  try {
+    const found = await ensureServer();
+    renderConnBanner(found);
+  } catch {
+    renderConnBanner({ ok: false, base: getServerUrl(), tried: [] });
+  }
 
   renderConversations();
   renderMessages();
@@ -116,6 +137,38 @@ async function boot() {
       renderModelTrigger();
     }
   });
+
+  // Retry from the banner (and re-check silently when coming back online).
+  document.addEventListener('click', async (e) => {
+    if (e.target?.id === 'connRetry') {
+      const banner = $('#connBanner');
+      if (banner) banner.textContent = 'Retrying…';
+      renderConnBanner(await ensureServer().catch(() => ({ ok: false, tried: [] })));
+      try { await loadModels(true); renderModelTrigger(); } catch { /* banner says it */ }
+    }
+  });
+  window.addEventListener('online', async () => {
+    renderConnBanner(await ensureServer().catch(() => ({ ok: false, tried: [] })));
+  });
+}
+
+function renderConnBanner(found) {
+  const banner = $('#connBanner');
+  if (!banner) return;
+  if (found.ok) {
+    banner.hidden = true;
+    return;
+  }
+  const tried = (found.tried || []).join(', ') || 'nothing reachable';
+  banner.hidden = false;
+  banner.innerHTML = '';
+  const msg = document.createElement('span');
+  msg.textContent = `Offline — tried ${tried}. Check Wi-Fi/Tailscale or set the server in Settings → Access. `;
+  const btn = document.createElement('button');
+  btn.id = 'connRetry';
+  btn.className = 'btn btn-sm';
+  btn.textContent = 'Retry';
+  banner.append(msg, btn);
 }
 
 boot();
