@@ -1,8 +1,9 @@
-"""MCP Server for JARVIS — exposes the capability surface to PROFESSOR-J.
+"""MCP Server for JARVIS — exposes the capability surface to the mesh.
 
-PROFESSOR-J connects as an MCP client (stdio or Streamable HTTP) and gets
-access to the same JARVIS tools the cognitive loop uses: workspace ops,
-git, session, memory. Every tool call is routed through the same
+External agents (PROFESSOR-J, OpenCode, Hermes, and any MCP client) connect
+and get access to the same JARVIS tools the cognitive loop uses: workspace
+ops, git, session, memory, plus (Sprint 8.5 mesh) chat, brief, notify, email
+and sub-agent spawning. Every tool call is routed through the same
 ToolSafetyPolicy the local loop enforces.
 
 MCP 2.2 lowlevel API: on_list_tools / on_call_tool are constructor callbacks.
@@ -12,14 +13,30 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import warnings
 from typing import Any
 
-from app.domain import SafetyTier
-from app.guardrails import ToolSafetyPolicy
+# MCP stdio is JSON-only on stdout: any stray stderr/warning text corrupts the
+# protocol. The `fitz` (pymupdf) deprecation warning fires on lazy import
+# inside tool handlers; silence it here so a chat/brief/email call cannot
+# corrupt the stdio stream.
+warnings.filterwarnings("ignore", message=r".*fitz.*deprecated.*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=r".*`fitz`.*", category=DeprecationWarning)
+
+from app.domain import SafetyTier  # noqa: E402
+from app.guardrails import ToolSafetyPolicy  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-# Tool definitions exposed to PROFESSOR-J
+
+def _schema(**props) -> dict:
+    """Build an object JSON schema from {name: {type, ...}} props."""
+    required = [k for k, v in props.items() if v.pop("required", False)]
+    return {"type": "object", "properties": props, "required": required}
+
+
+# Tool definitions exposed to external agents.
 _TOOLS = [
     {
         "name": "read_file",
@@ -123,6 +140,56 @@ _TOOLS = [
         "description": "Get current git state (HEAD, branch, dirty files).",
         "inputSchema": {"type": "object", "properties": {}},
     },
+    # ── Sprint 8.5 mesh tools: external agents subcontract to JARVIS ──────────
+    {
+        "name": "jarvis_chat",
+        "description": "Ask JARVIS a question through its chat pipeline (memory + comms context).",
+        "inputSchema": _schema(
+            message={"type": "string", "required": True},
+            session_id={"type": "string"},
+        ),
+    },
+    {
+        "name": "jarvis_brief",
+        "description": "Generate JARVIS's morning brief (memory, approvals, activity).",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "jarvis_notify",
+        "description": "Send a notification via push and/or telegram (comma-separated channels).",
+        "inputSchema": _schema(
+            title={"type": "string", "required": True},
+            body={"type": "string", "required": True},
+            channels={"type": "string"},
+        ),
+    },
+    {
+        "name": "jarvis_read_emails",
+        "description": "Read JARVIS's email inbox (unread or a folder).",
+        "inputSchema": _schema(
+            limit={"type": "integer"},
+            unread_only={"type": "boolean"},
+        ),
+    },
+    {
+        "name": "jarvis_send_email",
+        "description": "Send an email from JARVIS.",
+        "inputSchema": _schema(
+            to={"type": "string", "required": True},
+            subject={"type": "string", "required": True},
+            body={"type": "string", "required": True},
+        ),
+    },
+    {
+        "name": "jarvis_spawn_subagent",
+        "description": "Spawn an OpenCode sub-agent worker (delegation). Returns a worker receipt.",
+        "inputSchema": _schema(
+            goal={"type": "string", "required": True},
+            agent={"type": "string"},
+            workdir={"type": "string"},
+            timeout_s={"type": "integer"},
+        ),
+    },
 ]
 
 
@@ -138,6 +205,19 @@ async def _on_call_tool(ctx: Any, request: Any) -> Any:
 
     name = request.name
     args = request.arguments or {}
+
+    # Auth: stdio has no HTTP headers, so the client must present the shared
+    # key via the server environment (JARVIS_MCP_KEY). Fail closed when set
+    # but missing/mismatched. Unset disables the check (local dev).
+    expected = os.environ.get("JARVIS_MCP_KEY", "").strip()
+    if expected:
+        presented = (os.environ.get("JARVIS_API_KEY", "") or "").strip()
+        if presented != expected:
+            logger.error("MCP call without matching JARVIS_MCP_KEY")
+            return CallToolResult(
+                content=[TextContent(type="text", text="Error: unauthorized")],
+                is_error=True,
+            )
 
     try:
         policy = get_global_policy()
@@ -176,6 +256,13 @@ async def _dispatch(name: str, args: dict[str, Any]) -> str:
         "session_fork": lambda: _session_fork(args),
         "memory_retrieve": lambda: _memory_retrieve(args),
         "workspace_git_state": lambda: _workspace_git_state(args),
+        # ── Sprint 8.5 mesh ────────────────────────────────────────────────
+        "jarvis_chat": lambda: _jarvis_chat(args),
+        "jarvis_brief": lambda: _jarvis_brief(),
+        "jarvis_notify": lambda: _jarvis_notify(args),
+        "jarvis_read_emails": lambda: _jarvis_read_emails(args),
+        "jarvis_send_email": lambda: _jarvis_send_email(args),
+        "jarvis_spawn_subagent": lambda: _jarvis_spawn_subagent(args),
     }
 
     if name not in dispatch_map:
@@ -185,6 +272,77 @@ async def _dispatch(name: str, args: dict[str, Any]) -> str:
     if asyncio.iscoroutine(result):
         return await result
     return result
+
+
+# ── Sprint 8.5 mesh handlers ───────────────────────────────────────────────────
+
+
+async def _jarvis_chat(args: dict[str, Any]) -> str:
+    """Route a question through JARVIS's chat pipeline."""
+    from app.adapters.web.router import chat as web_chat
+
+    result = await web_chat(
+        {
+            "message": args["message"],
+            "session_id": args.get("session_id") or "mcp",
+            "memory_enabled": True,
+        }
+    )
+    if isinstance(result, dict):
+        return result.get("response") or result.get("error") or "…"
+    return str(result)
+
+
+async def _jarvis_brief() -> str:
+    """Generate the morning brief."""
+    from app.integrations.brief import BriefConfig, BriefService
+
+    service = BriefService(BriefConfig.from_env())
+    brief = await service.generate_brief()
+    return service._format_brief_text(brief)
+
+
+async def _jarvis_notify(args: dict[str, Any]) -> str:
+    """Send a notification via the configured channels."""
+    from app.integrations.push import PushMessage, PushService
+
+    wanted = [c.strip() for c in (args.get("channels") or "push").split(",") if c.strip()]
+    results: dict[str, Any] = {}
+    if "push" in wanted:
+        results["push"] = await PushService().send(
+            PushMessage(title=args["title"], body=args["body"])
+        )
+    if "telegram" in wanted:
+        from app.integrations.telegram import send_message
+
+        results["telegram"] = {"success": await send_message(f"{args['title']}\n{args['body']}")}
+    return str(results)
+
+
+async def _jarvis_read_emails(args: dict[str, Any]) -> str:
+    """Read email, returning a compact digest."""
+    from app.integrations.email.tools import summarize_unread
+
+    return await summarize_unread(limit=args.get("limit", 10))
+
+
+async def _jarvis_send_email(args: dict[str, Any]) -> str:
+    """Send an email."""
+    from app.integrations.email.tools import send_email
+
+    return str(await send_email(to=args["to"], subject=args["subject"], body=args["body"]))
+
+
+async def _jarvis_spawn_subagent(args: dict[str, Any]) -> str:
+    """Spawn an OpenCode worker and return the receipt."""
+    from app.tools.subagent_tools import spawn_subagent
+
+    return await spawn_subagent(
+        goal=args["goal"],
+        agent=args.get("agent", "build"),
+        workdir=args.get("workdir", "."),
+        timeout_s=int(args.get("timeout_s", 600)),
+    )
 
 
 def _session_get(args: dict[str, Any]) -> str:

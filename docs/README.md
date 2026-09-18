@@ -56,6 +56,7 @@ the code wins — and the document is a bug.
 | **[MEMORY.md](MEMORY.md)** | Memory subsystem architecture and lifecycle |
 | **[COMMS.md](COMMS.md)** | Notify/email/brief/push/Telegram/WhatsApp channels |
 | **[VOICE.md](VOICE.md)** | Speech input and spoken replies (console + Telegram) |
+| **[MESH.md](MESH.md)** | Sub-agents, AGY and the MCP mesh (orchestration surface) |
 | **[DATABASE.md](DATABASE.md)** | Persistence: JSON stores and ChromaDB collections |
 | **[CONFIG.md](CONFIG.md)** | Configuration system and defaults |
 | **[DEBUGGING.md](DEBUGGING.md)** | Diagnostic matrix for `v0.1.0` → `v3.0.0` — **historical**, not current behaviour |
@@ -67,7 +68,7 @@ the code wins — and the document is a bug.
 
 | Document | Purpose |
 |---|---|
-| **[adr/](adr/)** | Architectural Decision Records — **ADR-001 through ADR-013** |
+| **[adr/](adr/)** | Architectural Decision Records — **ADR-001 through ADR-017** |
 | **[DECISIONS-AUTONOMOUS-2026-09-10.md](DECISIONS-AUTONOMOUS-2026-09-10.md)** | Autonomous decisions: what, why, rejected alternatives |
 | **[CAPABILITY-CONTRACT.md](CAPABILITY-CONTRACT.md)** | The JARVIS ↔ PROFESSOR-J contract itself |
 | **[CAPABILITY_TRACKER.md](CAPABILITY_TRACKER.md)** | Compliance tracking against that contract |
@@ -84,7 +85,7 @@ the code wins — and the document is a bug.
 |---|---|
 | [`architecture/`](architecture/) | Mermaid diagrams: components, cognitive brain, model routing, memory, data flow, startup |
 | [`modules/`](modules/) | Per-subsystem guides: domain, brain, models, memory, guardrails, adapters, integrations |
-| [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-015) |
+| [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-017) |
 | [`migrations/`](migrations/) | v2→v3 migration notes and symbol tombstones |
 | [`timelines/`](timelines/) | Evolution and symbol timelines |
 | [`archive/`](archive/) | Superseded snapshots and frozen release-cycle docs |

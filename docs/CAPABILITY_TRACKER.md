@@ -24,7 +24,7 @@ workflow exists; see `docs/GOVERNANCE.md` §3)
 | **Session/Checkpoint** | LangGraph MemorySaver | ✅ MemorySaverAdapter + PostgresCheckpointer + fork/archive | ✅ **100%** |
 | **Eval Suite** | Regression suite | ✅ 10 evals + CI integration | ✅ **100%** |
 | **Web App** | Chat UI + WebSocket | ✅ FastAPI + frontend + WS streaming | ✅ **100%** |
-| **MCP Server** | Capability provider to PROFESSOR-J | ✅ 11 tools exposed | ✅ **100%** |
+| **MCP Server** | Capability provider to PROFESSOR-J + mesh (chat/brief/notify/email/subagent) | ✅ 17 tools exposed | ✅ **100%** |
 | **Voice I/O** | STT + TTS | ✅ faster-whisper STT + Edge TTS (`app/adapters/web/voice_routes.py`) | ✅ **100%** |
 | **Comms (email)** | Read + send + reply | ✅ 4 email runner tools (`app/tools/comms_tools.py`) | ✅ **100%** |
 | **Morning Brief** | Generate + deliver | ✅ `app/integrations/brief/` + `get_brief` tool | ✅ **100%** |
@@ -158,7 +158,7 @@ tables and must not be reintroduced.
 **Target Compliance**: 90% → **Achieved: 100%**
 
 ### Sprint 4 (Weeks 9-12): Ecosystem Integration
-- [x] PROFESSOR-J MCP server — 11 tools exposed
+- [x] PROFESSOR-J MCP server + mesh — 17 tools exposed
 - [x] Cloudflare Pages deploy — auto-deploy on tag
 - [x] Workspace awareness — git state + file tree
 - [x] Memory pipeline façade — extract→manage→store→retrieve

@@ -150,9 +150,9 @@
 
 ## 10. Sprint 8 — ORCHESTRATOR (subagents, OpenCode first) 🔄 IN PROGRESS
 
-**Status**: In progress (ADR-017). Phases 8.1–8.4 landed; 8.5 deferred.
-Each phase ships with tests + coverage and its own docs update (the push
-gate enforces the last part).
+**Status**: In progress (ADR-017). Phases 8.1–8.5 landed; Hermes bridge and
+DeepSeek harness remain deferred. Each phase ships with tests + coverage and
+its own docs update (the push gate enforces the last part).
 
 | Phase | Work | Tests / coverage |
 |-------|------|------------------|
@@ -160,7 +160,7 @@ gate enforces the last part).
 | 8.2 | Delegation policy: allowlisted agents, per-worker timeout, workdir jail, output cap | ✅ folded into 8.1 (`JARVIS_SUBAGENTS`, 600s, `_resolve_workdir`) |
 | 8.3 | AGY adapter completion: `--conversation` threading, `--effort/--agent/--mode` passthrough, history, fresh defaults, fix `docs/modules/integrations/agy.md` | ✅ `353fc83`, 35 tests |
 | 8.4 | Worker HITL routing: DESTRUCTIVE worker steps pause to phone (notify + Telegram approve/deny via existing registry) | HITL approval tests with worker context — ✅ landed (`353fc83`, Telegram `/approve` `/deny` + `_approve_pending_via_registry`) |
-| 8.5 (deferred) | Hermes bridge, DeepSeek harness, JARVIS-as-MCP-server | Scoped next |
+| 8.5 | JARVIS-as-MCP-server (mesh) — chat/brief/notify/email/subagent over MCP, auth, stdio hygiene | ✅ `8 tests`, live client smoke |
 
 ---
 
