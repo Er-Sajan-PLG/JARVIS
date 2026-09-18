@@ -39,7 +39,9 @@ logger = logging.getLogger(__name__)
 
 OPENCODE_BIN = os.environ.get("OPENCODE_BIN") or shutil.which("opencode") or ""
 DEFAULT_AGENT = "build"
-DEFAULT_MODEL = "opencode/big-pickle"  # proven working; override per call
+# Muse Spark 1.3 Free, served by OpenCode Zen (the `opencode/` provider), not
+# OpenRouter. Free tier; falls back to any model via the `-m` override.
+DEFAULT_MODEL = "opencode/muse-spark-1.3-contributor-free"
 DEFAULT_TIMEOUT_S = 600
 MAX_OUTPUT_CHARS = 20000
 

@@ -126,8 +126,9 @@ receipt (`status`, `session_id`, `summary`, `tokens`, `cost`, `error`).
 SENSITIVE, policy-capped from day one: allowlisted agents only
 (`JARVIS_SUBAGENTS`, default `build,plan,general`), per-spawn timeout
 (default 600 s, kill on expiry), workdir jailed to the workspace or temp,
-output bounded at 20 k chars. Model defaults to `opencode/big-pickle`
-(override per call). `OPENCODE_BIN` overrides binary discovery.
+output bounded at 20 k chars. Model defaults to Muse Spark 1.3 Free
+(`opencode/muse-spark-1.3-contributor-free`, OpenCode Zen — not OpenRouter);
+override per call with `model=`.
 
 ### Doc-agent-only toolset (`file_tools.py` + `GIT_TOOLS`, 9 tools)
 
