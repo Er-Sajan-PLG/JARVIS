@@ -1,4 +1,5 @@
 """Unit tests for email client."""
+
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -26,6 +27,7 @@ def mock_aiosmtplib():
 @pytest.fixture
 def config():
     from app.integrations.email.client import EmailConfig
+
     return EmailConfig(
         imap_host="imap.test.com",
         imap_port=993,
@@ -39,6 +41,7 @@ def config():
 @pytest.fixture
 def client(config):
     from app.integrations.email.client import EmailClient
+
     return EmailClient(config)
 
 
@@ -160,3 +163,57 @@ async def test_mark_as_read(client, mock_aioimaplib):
 
     assert result is True
     mock_instance.store.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_smtp_587_uses_starttls_not_implicit_tls(client, mock_aiosmtplib):
+    """Port 587 is STARTTLS: implicit TLS breaks with WRONG_VERSION_NUMBER."""
+    mock_module, mock_instance = mock_aiosmtplib
+    mock_instance.connect = AsyncMock()
+    mock_instance.login = AsyncMock()
+
+    with patch.dict(sys.modules, {"aiosmtplib": mock_module}):
+        result = await client._connect_smtp()
+
+    assert result is True
+    _, kwargs = mock_module.SMTP.call_args
+    assert kwargs["port"] == 587
+    assert kwargs["use_tls"] is False
+    assert kwargs["start_tls"] is True
+    # The library negotiates STARTTLS on connect; no explicit call.
+    mock_instance.starttls.assert_not_called()
+    mock_instance.login.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_smtp_465_uses_implicit_tls(mock_aiosmtplib):
+    """Port 465 is implicit TLS: no STARTTLS negotiation."""
+    from app.integrations.email.client import EmailClient, EmailConfig
+
+    mock_module, mock_instance = mock_aiosmtplib
+    mock_instance.connect = AsyncMock()
+    mock_instance.login = AsyncMock()
+
+    client = EmailClient(
+        EmailConfig(
+            smtp_host="smtp.test.com",
+            smtp_port=465,
+            address="test@example.com",
+            password="testpass",
+        )
+    )
+    with patch.dict(sys.modules, {"aiosmtplib": mock_module}):
+        result = await client._connect_smtp()
+
+    assert result is True
+    _, kwargs = mock_module.SMTP.call_args
+    assert kwargs["use_tls"] is True
+    assert kwargs["start_tls"] is False
+
+
+def test_app_password_spaces_stripped():
+    """Gmail displays app passwords grouped; the wire format has no spaces."""
+    from app.integrations.email.client import EmailConfig
+
+    cfg = EmailConfig(address="a@b.c", password="abcd efgh ijkl mnop")
+    assert cfg.password == "abcdefghijklmnop"

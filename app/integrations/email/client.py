@@ -1,10 +1,11 @@
 """IMAP/SMTP email client wrapper."""
-import asyncio
+
+import contextlib
 import logging
 from dataclasses import dataclass
 from email import message_from_bytes
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,12 @@ class EmailConfig:
     address: str = ""
     password: str = ""
     use_ssl: bool = True
+
+    def __post_init__(self) -> None:
+        # Gmail shows app passwords as "abcd efgh ijkl mnop" — the spaces are
+        # display grouping and must not go on the wire (SMTP AUTH rejects them
+        # even where IMAP tolerates them).
+        self.password = self.password.replace(" ", "")
 
     @classmethod
     def from_env(cls) -> "EmailConfig":
@@ -63,14 +70,23 @@ class EmailClient:
             return False
 
     async def _connect_smtp(self) -> bool:
-        """Establish SMTP connection."""
+        """Establish SMTP connection.
+
+        Port 587 expects STARTTLS (plain connect, then upgrade); port 465
+        expects implicit TLS. Mixing them up yields
+        ``SSL: WRONG_VERSION_NUMBER`` against Gmail.
+        """
         try:
             from aiosmtplib import SMTP
 
+            implicit_tls = self.config.use_ssl and self.config.smtp_port == 465
             self._smtp = SMTP(
                 hostname=self.config.smtp_host,
                 port=self.config.smtp_port,
-                use_tls=self.config.use_ssl,
+                use_tls=implicit_tls,
+                # aiosmtplib negotiates STARTTLS itself on connect; calling
+                # starttls() explicitly afterwards raises "already using TLS".
+                start_tls=not implicit_tls,
             )
             await self._smtp.connect()
             await self._smtp.login(self.config.address, self.config.password)
@@ -80,7 +96,11 @@ class EmailClient:
             return False
 
     async def search_emails(
-        self, folder: str = "INBOX", criteria: str = "ALL", limit: int = 50, unread_only: bool = False
+        self,
+        folder: str = "INBOX",
+        criteria: str = "ALL",
+        limit: int = 50,
+        unread_only: bool = False,
     ) -> list[bytes]:
         """Search emails and return message IDs."""
         if not self._imap:
@@ -187,12 +207,8 @@ class EmailClient:
     async def close(self):
         """Close all connections."""
         if self._imap:
-            try:
+            with contextlib.suppress(Exception):
                 await self._imap.logout()
-            except Exception:
-                pass
         if self._smtp:
-            try:
+            with contextlib.suppress(Exception):
                 await self._smtp.quit()
-            except Exception:
-                pass

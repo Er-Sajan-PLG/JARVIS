@@ -1,4 +1,5 @@
 """Email tools for agent."""
+
 import logging
 from typing import Any
 
@@ -86,3 +87,35 @@ async def search_emails(query: str, limit: int = 20) -> dict[str, Any]:
         return {"success": False, "error": str(e)}
     finally:
         await reader.close()
+
+
+async def summarize_unread(limit: int = 30, max_chars: int = 2000) -> str:
+    """Compact unread digest for chat context injection.
+
+    Returns sender frequencies plus recent subjects, bounded so it cannot
+    blow up the prompt. Empty string when there is nothing to report —
+    the caller then injects no context at all.
+    """
+    from collections import Counter
+
+    reader = EmailReader()
+    try:
+        emails = await reader.get_unread(limit=limit)
+    except Exception as e:
+        logger.error("summarize_unread error: %s", e)
+        return ""
+    finally:
+        await reader.close()
+
+    if not emails:
+        return "No unread emails."
+
+    senders = Counter((e.get("from") or "?") for e in emails)
+    top = ", ".join(f"{s} ({c})" for s, c in senders.most_common(5))
+    lines = [f"UNREAD: {len(emails)} (showing up to {limit}).", f"Top senders: {top}."]
+    for e in emails[:10]:
+        subj = (e.get("subject") or "(no subject)")[:80]
+        frm = (e.get("from") or "?")[:50]
+        lines.append(f"- {frm}: {subj}")
+    digest = "\n".join(lines)
+    return digest[:max_chars]
