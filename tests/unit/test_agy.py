@@ -21,7 +21,6 @@ from app.adapters.integrations.agy import (
     is_available,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -368,3 +367,65 @@ class TestAnalyzeFile:
                 mime_type="text/csv",
             )
             assert result == "CSV analysis"
+
+class TestSprint83:
+    """Threading, passthrough, usage parsing, fresh defaults."""
+
+    def _run(self, stdout, **kwargs):
+        from app.adapters.integrations.agy import chat
+
+        proc = _make_proc(returncode=0, stdout=stdout)
+        with (
+            patch("app.adapters.integrations.agy._agy_which", return_value="/usr/bin/agy"),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = proc
+            result = chat(messages=[{"role": "user", "content": "hi"}], **kwargs)
+        return mock_run.call_args[0][0], result
+
+    def test_default_model_is_current(self):
+        from app.adapters.integrations.agy import DEFAULT_MODEL
+
+        assert DEFAULT_MODEL == "gemini-3.8-flash-medium"
+
+    def test_timeout_rounds_up_not_down(self):
+        cmd, _ = self._run('{"response": "x"}', timeout=90)
+        assert "2m" in cmd  # truncation made this "1m" and starved the CLI
+
+    def test_threading_and_passthrough_flags(self):
+        cmd, _ = self._run(
+            '{"response": "x"}',
+            conversation_id="conv-1",
+            agent="plan",
+            mode="plan",
+            add_dirs=["./scope"],
+            project="proj",
+        )
+        for flag in ("--conversation", "conv-1", "--agent", "plan", "--mode"):
+            assert flag in cmd
+        assert "./scope" in cmd and "proj" in cmd
+
+    def test_usage_and_conversation_parsed(self):
+        payload = {
+            "response": "hi",
+            "conversation_id": "conv-9",
+            "usage": {"total_tokens": 123},
+        }
+        _, result = self._run(json.dumps(payload))
+        assert result["conversation_id"] == "conv-9"
+        assert result["tokens_used"] == 123
+
+    def test_analyze_file_caps_and_mime_hint(self, tmp_path: Path):
+        from app.adapters.integrations.agy import analyze_file
+
+        big = tmp_path / "big.txt"
+        big.write_text("z" * 70000)
+        proc = _make_proc(returncode=0, stdout=json.dumps({"response": "ok"}))
+        with (
+            patch("app.adapters.integrations.agy._agy_which", return_value="/usr/bin/agy"),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = proc
+            analyze_file(str(big), "sum", mime_type="text/plain")
+            prompt = mock_run.call_args[0][0][1]
+            assert "truncated" in prompt and "MIME: text/plain" in prompt

@@ -700,7 +700,18 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
 
             if not is_available():
                 raise HTTPException(status_code=503, detail="AGY CLI not found on PATH")
-            result = agy_chat(messages=[{"role": "user", "content": full_message}], model=model_id)
+            # Sprint 8.3: thread CLI conversations per chat session and honor
+            # caller-supplied effort; history still travels inline in the
+            # prompt (single-message CLI shape).
+            agy_options = payload.get("agy", {}) or {}
+            result = agy_chat(
+                messages=[{"role": "user", "content": full_message}],
+                model=model_id,
+                effort=agy_options.get("effort") or payload.get("effort"),
+                agent=agy_options.get("agent"),
+                mode=agy_options.get("mode"),
+                conversation_id=agy_options.get("conversation_id") or f"jarvis-{session_id}",
+            )
             response_content = result.get("content", "")
             response_tokens = result.get("tokens_used")
 
