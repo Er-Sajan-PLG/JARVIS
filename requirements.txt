@@ -137,7 +137,7 @@ tokenizers==0.23.2
 tomli==2.4.1
 tomli_w==1.2.0
 torch==2.14.0
-tqdm==4.70.0
+tqdm==4.70.1
 transformers==5.17.0
 triton==3.8.0
 truststore==0.10.4
