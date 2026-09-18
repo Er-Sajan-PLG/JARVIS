@@ -1,5 +1,6 @@
 """JARVIS FastAPI Application Entrypoint & Server Mount."""
 
+import asyncio
 import logging
 import os
 import time
@@ -20,8 +21,10 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 from app.adapters import http_router, ws_router  # noqa: E402
 from app.adapters.web.brief_routes import brief_router  # noqa: E402
 from app.adapters.web.email_routes import email_router  # noqa: E402
-from app.adapters.web.push_routes import push_router  # noqa: E402
+from app.adapters.web.notify_routes import notify_router  # noqa: E402
+from app.adapters.web.push_routes import push_public_router, push_router  # noqa: E402
 from app.adapters.web.router import web_router  # noqa: E402
+from app.adapters.web.voice_routes import voice_router  # noqa: E402
 from app.api.ocr.routes import ocr_router  # noqa: E402
 from app.bootstrap import bootstrap_system  # noqa: E402
 from app.config.version import VERSION as __version__  # noqa: E402
@@ -40,7 +43,24 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting JARVIS v3.0")
     bootstrap_system()
+    # Telegram two-way bot: background poller, only when explicitly enabled
+    # with a token. Polling (not webhooks) keeps the tailnet-only deployment.
+    telegram_task = None
+    try:
+        from app.integrations.telegram import TelegramConfig, TelegramPoller
+
+        tg_config = TelegramConfig.from_env()
+        if tg_config.ready:
+            poller = TelegramPoller(tg_config)
+            telegram_task = asyncio.create_task(poller.run_forever())
+            logger.info("Telegram poller task started")
+        else:
+            logger.info("Telegram poller disabled (no token or TELEGRAM_ENABLED!=true)")
+    except Exception as exc:  # noqa: BLE001 - comms must not block boot
+        logger.warning("Telegram poller failed to start: %s", exc)
     yield
+    if telegram_task:
+        telegram_task.cancel()
     logger.info("Shutting down JARVIS")
 
 
@@ -57,7 +77,8 @@ def _resolve_cors_origins() -> list[str]:
         for origin in os.environ.get(
             "CORS_ALLOWED_ORIGINS",
             "http://localhost:8000,http://localhost:3000,"
-            "http://127.0.0.1:8000,http://127.0.0.1:3000",
+            "http://127.0.0.1:8000,http://127.0.0.1:3000,"
+            "capacitor://localhost,http://localhost,https://localhost",
         ).split(",")
         if origin.strip()
     ]
@@ -127,7 +148,10 @@ app.include_router(ws_router)
 app.include_router(web_router)
 app.include_router(ocr_router)
 app.include_router(email_router)
+app.include_router(notify_router)
+app.include_router(voice_router)
 app.include_router(push_router)
+app.include_router(push_public_router)
 app.include_router(brief_router)
 
 

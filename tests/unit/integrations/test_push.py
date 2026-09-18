@@ -7,8 +7,13 @@ from app.integrations.push import PushMessage, PushService, PushSubscription
 
 
 @pytest.fixture
-def push_service():
-    return PushService(vapid_private_key="test_vapid_key")
+def push_service(tmp_path):
+    # Isolated storage: the service persists to data/ by default, which would
+    # leak test subscriptions into the real server state.
+    return PushService(
+        vapid_private_key="test_vapid_key",
+        storage_path=tmp_path / "subs.json",
+    )
 
 
 @pytest.fixture
@@ -38,7 +43,7 @@ class TestPushMessage:
         msg = PushMessage(title="Test", body="Hello")
         assert msg.title == "Test"
         assert msg.body == "Hello"
-        assert msg.icon == "/static/icon.png"
+        assert msg.icon == "/icon-192.png"
 
     def test_message_with_data(self):
         msg = PushMessage(title="Test", body="Hello", data={"key": "value"})
@@ -61,8 +66,11 @@ class TestPushService:
         assert push_service.get_subscription_count() == 0
 
     @pytest.mark.asyncio
-    async def test_send_without_vapid_key(self):
-        service = PushService()  # No VAPID key
+    async def test_send_without_vapid_key(self, tmp_path, monkeypatch):
+        # The service falls back to VAPID_PRIVATE_KEY from the environment,
+        # which the suite's conftest may populate via the repo .env.
+        monkeypatch.delenv("VAPID_PRIVATE_KEY", raising=False)
+        service = PushService(storage_path=tmp_path / "subs.json")
         result = await service.send(PushMessage(title="Test", body="Hello"))
         assert result["success"] is False
 

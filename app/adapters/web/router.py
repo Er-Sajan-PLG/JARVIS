@@ -37,6 +37,29 @@ load_dotenv(_PROJECT_ROOT / ".env")
 logger = logging.getLogger(__name__)
 
 
+# Asking about mail ("any important email?", "what did I miss?", "who emailed
+# me?") injects an unread digest. Word boundaries keep "blackmail" and
+# "remailed" from triggering it.
+_EMAIL_HINTS = (
+    "email",
+    "e-mail",
+    "emailed",
+    "inbox",
+    "unread",
+    "missed",
+    "sender",
+    "mail",
+)
+
+
+def _wants_email_context(message: str) -> bool:
+    """True when the operator is asking about their mail."""
+    import re
+
+    text = message.lower()
+    return any(re.search(rf"\b{re.escape(h)}s?\b", text) for h in _EMAIL_HINTS)
+
+
 def _validate_api_key(request: Request) -> bool:
     """Reject a console request that presents no valid credential.
 
@@ -545,7 +568,21 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Memory search failed: %s", exc)
 
-    full_message = f"{message}{memory_context}{file_context}"
+    # Email context: when the operator asks about mail, inject an unread
+    # digest the same way memory is injected. Never blocks chat — any
+    # failure degrades to no context, exactly like the memory path above.
+    email_context = ""
+    if _wants_email_context(message):
+        try:
+            from app.integrations.email.tools import summarize_unread
+
+            digest = await summarize_unread()
+            if digest:
+                email_context = f"\n\n[Email Context]\n{digest}"
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Email context failed: %s", exc)
+
+    full_message = f"{message}{memory_context}{file_context}{email_context}"
 
     # ``model`` arrives in two shapes, both legitimate:
     #   {"provider": "nvidia", "id": "nvidia/nemotron-3-super-120b-a12b"}  (dict)
@@ -960,7 +997,7 @@ async def list_conversations() -> dict[str, Any]:
 @web_router.post("/conversations")
 async def create_conversation(body: dict[str, Any]) -> dict[str, Any]:
     """Create a new conversation."""
-    container = bootstrap_system()
+    _ = bootstrap_system()  # ensure the system is initialised (return unused)
     session_id = body.get("session_id") or str(uuid.uuid4())
     return {"session_id": session_id, "created": True}
 
