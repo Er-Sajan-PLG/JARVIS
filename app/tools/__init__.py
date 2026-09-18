@@ -21,9 +21,11 @@ directly and is unaffected.
 """
 
 from collections.abc import Callable
+from typing import Any
 
 from app.tools.comms_tools import COMMS_TOOLS
 from app.tools.git_tools import git_diff_full, git_diff_stat, git_log
+from app.tools.subagent_tools import SUBAGENT_TOOLS
 from app.tools.workspace_tools import (
     WORKSPACE_TOOLS,
     workspace_append_file,
@@ -33,8 +35,9 @@ from app.tools.workspace_tools import (
     workspace_write_file,
 )
 
-# Runner-facing surface: generic sandboxed primitives, keyed by tool name.
-DEFAULT_TOOLSET: dict[str, Callable[..., str]] = {
+# Runner-facing surface: generic sandboxed primitives + comms + sub-agents.
+# Values may be sync or async callables; the runner awaits coroutine results.
+DEFAULT_TOOLSET: dict[str, Callable[..., Any]] = {
     "read_file": workspace_read_file,
     "write_file": workspace_write_file,
     "append_file": workspace_append_file,
@@ -45,6 +48,8 @@ DEFAULT_TOOLSET: dict[str, Callable[..., str]] = {
     "git_diff_full": git_diff_full,
     # Comms: email, notifications, brief (reads SAFE, sends SENSITIVE).
     **COMMS_TOOLS,
+    # Orchestration: sub-agent workers (SENSITIVE, policy-capped).
+    **SUBAGENT_TOOLS,
 }
 
 __all__ = [

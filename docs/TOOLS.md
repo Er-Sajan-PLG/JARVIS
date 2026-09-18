@@ -60,7 +60,7 @@ and runs them. It is composed of six source files plus the package init:
   Tools whose `risk_level` is not `"none"`/`"low"` get a ` [<risk> risk]` suffix (so
   `write_file` shows `[medium risk]`; git tools and `read_file` do not).
 
-### The runner toolset — `DEFAULT_TOOLSET` (14 entries, verified)
+### The runner toolset — `DEFAULT_TOOLSET` (15 entries, verified)
 
 `app/tools/__init__.py` defines `DEFAULT_TOOLSET`, the composition-root wiring
 table the ExecutionRunner executes tools *by name* from (`app/bootstrap.py`
@@ -83,6 +83,7 @@ registers this mapping at boot). It holds **14 entries**: 5 workspace + 3 git
 | `reply_email` | `comms_tools.py` (`comms_reply_email`) | SENSITIVE | no |
 | `send_notification` | `comms_tools.py` (`comms_notify`, push and/or Telegram) | SENSITIVE | no |
 | `get_brief` | `comms_tools.py` (`comms_brief`, generates the morning brief) | SAFE | no |
+| `spawn_subagent` | `subagent_tools.py` (OpenCode worker: goal, agent, model, workdir, session_id, timeout_s) | SENSITIVE | no |
 
 Safety tiers are `SafetyTier` (`app/domain/plan.py`: SAFE / SENSITIVE /
 DESTRUCTIVE), enforced at runtime by `@safety_gate` (`app/guardrails/`), not
@@ -116,6 +117,17 @@ policy-checked like other network writes, but not HITL-gated per message
 (that would make every alert wait on a human). Handlers are async and return
 compact JSON strings. WhatsApp is intentionally absent here: it is send-only
 via `app/integrations/whatsapp/`, not a runner tool.
+
+### Sub-agent workers (`subagent_tools.py`, ADR-017)
+
+1 tool. `spawn_subagent(goal, agent, model, workdir, session_id, timeout_s)`
+shells `opencode run --format json` and folds the event stream into a worker
+receipt (`status`, `session_id`, `summary`, `tokens`, `cost`, `error`).
+SENSITIVE, policy-capped from day one: allowlisted agents only
+(`JARVIS_SUBAGENTS`, default `build,plan,general`), per-spawn timeout
+(default 600 s, kill on expiry), workdir jailed to the workspace or temp,
+output bounded at 20 k chars. Model defaults to `opencode/big-pickle`
+(override per call). `OPENCODE_BIN` overrides binary discovery.
 
 ### Doc-agent-only toolset (`file_tools.py` + `GIT_TOOLS`, 9 tools)
 

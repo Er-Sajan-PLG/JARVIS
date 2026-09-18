@@ -142,6 +142,8 @@ file but have no reader in `app/` at HEAD — setting them has no effect.
 | JARVIS_TTS_VOICE | `app/adapters/web/voice_routes.py` | `en-US-ChristopherNeural` |
 | JARVIS_WORKSPACE_ROOT | `app/tools/workspace_tools.py` | repo root |
 | JARVIS_EXTRA_ALLOWED_ROOTS | `app/tools/workspace_tools.py` (actual name; system temp dir is always allowed) | unset (empty) |
+| JARVIS_SUBAGENTS | `app/tools/subagent_tools.py` (allowlisted worker agents) | `build,plan,general` |
+| OPENCODE_BIN | `app/tools/subagent_tools.py` (worker binary override) | auto-detected |
 
 ## Default Values
 
