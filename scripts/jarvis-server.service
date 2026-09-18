@@ -1,0 +1,25 @@
+[Unit]
+Description=JARVIS Personal AI Platform
+After=network-online.target jarvis-n8n.service
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/home/sajan/Projects/JARVIS/.venv/bin/python -m app.main
+WorkingDirectory=/home/sajan/Projects/JARVIS
+EnvironmentFile=/home/sajan/Projects/JARVIS/.env
+Environment="PATH=/home/sajan/Projects/JARVIS/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+Restart=always
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+
+</content>
