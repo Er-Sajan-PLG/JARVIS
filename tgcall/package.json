@@ -1,0 +1,19 @@
+{
+  "name": "tgcall",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "dependencies": {
+    "gram-tgcalls": "^2.1.9",
+    "telegram": "^2.26.22",
+    "tgcalls": "^1.0.1"
+  },
+  "allowScripts": {
+    "wrtc@0.4.7": true
+  }
+}

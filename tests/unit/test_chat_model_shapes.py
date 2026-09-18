@@ -14,6 +14,7 @@ falls through to the default and silently ignores the requested model.
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -23,11 +24,33 @@ import pytest
 API = "http://localhost:8000/api/chat"
 
 
+def _api_key() -> str:
+    """The credential this console API expects, if one is configured.
+
+    These tests drive a live server rather than a TestClient, so the suite's
+    environment fixture does not apply: read the key the server itself will
+    check, from the environment or the repository .env. With no key configured
+    the header is absent and the request is allowed, preserving the old
+    behaviour for an unsecured local server.
+    """
+    key = os.environ.get("JARVIS_API_KEY", "").strip()
+    if key:
+        return key
+    env_file = Path(__file__).resolve().parents[2] / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            if line.startswith("JARVIS_API_KEY="):
+                return line.split("=", 1)[1].strip()
+    return ""
+
+
 def _post(payload: dict) -> tuple[int, dict]:
     body = json.dumps(payload).encode()
-    req = urllib.request.Request(
-        API, data=body, headers={"Content-Type": "application/json"}
-    )
+    headers = {"Content-Type": "application/json"}
+    key = _api_key()
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    req = urllib.request.Request(API, data=body, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=180) as r:  # noqa: S310
             return r.status, json.loads(r.read())

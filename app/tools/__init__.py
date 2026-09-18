@@ -22,6 +22,7 @@ directly and is unaffected.
 
 from collections.abc import Callable
 
+from app.tools.comms_tools import COMMS_TOOLS
 from app.tools.git_tools import git_diff_full, git_diff_stat, git_log
 from app.tools.workspace_tools import (
     WORKSPACE_TOOLS,
@@ -42,6 +43,8 @@ DEFAULT_TOOLSET: dict[str, Callable[..., str]] = {
     "git_log": git_log,
     "git_diff_stat": git_diff_stat,
     "git_diff_full": git_diff_full,
+    # Comms: email, notifications, brief (reads SAFE, sends SENSITIVE).
+    **COMMS_TOOLS,
 }
 
 __all__ = [

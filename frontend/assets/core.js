@@ -219,6 +219,125 @@ export function toast(message, kind = 'ok') {
 // arrives. `onProgress` lets a caller show elapsed time for long waits.
 export const CHAT_TIMEOUT_MS = 180000;
 
+// The console API enforces JARVIS_API_KEY. A browser cannot read the server's
+// environment, so the operator's key is captured once (see the Settings entry)
+// and replayed on every request. localStorage is per-origin and the origin is
+// the tailnet host, so the key never leaves a device the operator unlocked.
+const API_KEY_STORAGE = 'jarvis.apiKey';
+
+export function getApiKey() {
+  try { return localStorage.getItem(API_KEY_STORAGE) || ''; } catch { return ''; }
+}
+
+export function setApiKey(key) {
+  try {
+    if (key) localStorage.setItem(API_KEY_STORAGE, key);
+    else localStorage.removeItem(API_KEY_STORAGE);
+  } catch { /* private mode: the session still works while the tab lives */ }
+}
+
+export function hasApiKey() {
+  return Boolean(getApiKey());
+}
+
+// ── Server base (APK mode) ─────────────────────────────────────────────
+// The web console and the PWA call the same origin they were served from, so
+// relative `/api/...` paths just work. Inside the Capacitor APK the WebView
+// origin is `capacitor://localhost`, which has no backend — the operator sets
+// the JARVIS server URL once (Settings → Access) and every API path is
+// resolved against it. Empty means same-origin (web/PWA behaviour).
+const SERVER_URL_STORAGE = 'jarvis.serverUrl';
+
+export function getServerUrl() {
+  try { return (localStorage.getItem(SERVER_URL_STORAGE) || '').replace(/\/+$/, ''); } catch { return ''; }
+}
+
+export function setServerUrl(url) {
+  try {
+    const clean = (url || '').trim().replace(/\/+$/, '');
+    if (clean) localStorage.setItem(SERVER_URL_STORAGE, clean);
+    else localStorage.removeItem(SERVER_URL_STORAGE);
+  } catch { /* private mode: same-origin requests still work while the tab lives */ }
+}
+
+export function apiUrl(path) {
+  const base = getServerUrl();
+  if (!base || !path.startsWith('/api')) return path;
+  return base + path;
+}
+
+/* ── Self-healing server resolution ─────────────────────────────────────
+   A hardcoded server URL dies the moment DHCP reassigns the host or the
+   phone switches networks. Instead the app probes candidates and latches
+   onto the first one answering /api/v1/health:
+     1. the stored URL (explicit operator choice wins),
+     2. baked candidates from server-candidates.json (tailnet name, LAN IP
+        snapshot at build time — same-origin fetch, never blocked),
+     3. same-origin (web/PWA: the page IS the server).
+   The winner is persisted, so the next boot tries it first. Total silence
+   on failure is what made every outage look like "nothing happens", so the
+   probe result is always reported back to the caller. */
+async function probeHealth(base, timeoutMs = 2500) {
+  const url = base ? base + '/api/v1/health' : '/api/v1/health';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) return false;
+    const data = await res.json().catch(() => null);
+    return !!(data && data.status === 'healthy');
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function bakedCandidates() {
+  // Relative path: <origin>/static/... on web, capacitor://localhost/static
+  // in the APK (the file is bundled). Same file both places.
+  try {
+    const res = await fetch('static/server-candidates.json', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => null);
+    return Array.isArray(data) ? data.filter((u) => typeof u === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function ensureServer() {
+  const tried = [];
+  const stored = getServerUrl();
+  // Same-origin first: instant on web/PWA, fails fast in the APK (nothing
+  // listens on the WebView origin). Then the stored URL, then baked
+  // fallbacks (tailnet name, LAN snapshot).
+  const candidates = [''];
+  if (stored) candidates.push(stored);
+  for (const c of await bakedCandidates()) {
+    if (!candidates.includes(c)) candidates.push(c);
+  }
+
+  for (const base of candidates) {
+    tried.push(base || '(this origin)');
+    if (await probeHealth(base)) {
+      if (base) {
+        setServerUrl(base);
+      } else {
+        // Same-origin wins: drop any stale stored URL so a dead tunnel
+        // address can never shadow the working origin.
+        try {
+          localStorage.removeItem(SERVER_URL_STORAGE);
+        } catch {
+          /* ignore */
+        }
+      }
+      return { ok: true, base, tried };
+    }
+  }
+  return { ok: false, base: stored, tried };
+}
+
 async function request(path, options = {}) {
   const { timeoutMs = 30000, onProgress, ...init } = options;
   const controller = new AbortController();
@@ -228,16 +347,30 @@ async function request(path, options = {}) {
     ? setInterval(() => onProgress(Date.now() - started), 1000)
     : null;
 
+  const key = getApiKey();
+  const headers = { 'Content-Type': 'application/json', ...(init.headers || {}) };
+  if (key) headers.Authorization = `Bearer ${key}`;
+
   try {
-    const res = await fetch(path, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
+    const res = await fetch(apiUrl(path), {
       ...init,
+      headers,
+      signal: controller.signal,
     });
     const text = await res.text();
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
     if (!res.ok) {
+      // A 401 with no stored key is a setup problem, not a failure -- say so,
+      // instead of showing the raw "Unauthorized" to someone who has not yet
+      // been told a key is needed.
+      if (res.status === 401) {
+        throw new Error(
+          key
+            ? 'JARVIS rejected that API key. Re-enter it in Settings → Access.'
+            : 'JARVIS requires an API key. Add it in Settings → Access.'
+        );
+      }
       const detail = data?.detail || data?.error || `HTTP ${res.status}`;
       throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
     }

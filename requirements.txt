@@ -114,6 +114,9 @@ pytest-cov==7.1.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.3
 PyYAML==6.0.3
+pywebpush==2.5.0
+faster-whisper==1.2.1
+edge-tts==7.2.8
 referencing==0.37.0
 regex==2026.9.10
 requests==2.34.2
@@ -165,3 +168,5 @@ opentelemetry-sdk==1.44.0
 opentelemetry-exporter-otlp-proto-grpc==1.44.0
 opentelemetry-semantic-conventions==0.65b0
 opentelemetry==1.44.0
+aiosmtplib>=3.0.0
+aioimaplib>=1.1.0

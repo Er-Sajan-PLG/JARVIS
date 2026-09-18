@@ -3,11 +3,35 @@
 
 import {
   $, $$, el, api, state, toast, loadModels, loadCustomState,
-  findModel, providerByKey, formatBytes, escapeHtml, statusInfo,
+  findModel, providerByKey, formatBytes, escapeHtml, statusInfo, getApiKey, apiUrl,
 } from './core.js';
 import { openPicker } from './picker.js';
 
 const CONV_KEY = 'jarvis.conversations';
+
+/* ── Wake lock ──────────────────────────────────────────────────────────
+   Long generations (agentic models can take a minute+) die when the app is
+   minimized: the OS suspends the WebView's network and the in-flight fetch
+   fails. Holding a screen wake lock while a reply is pending keeps the
+   request alive. No-op where unsupported (insecure contexts, old WebViews). */
+let wakeLock = null;
+async function holdWakeLock() {
+  try {
+    if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch {
+    wakeLock = null;
+  }
+}
+function releaseWakeLock() {
+  try {
+    wakeLock?.release();
+  } catch {
+    /* ignore */
+  }
+  wakeLock = null;
+}
 
 /* `settings.js` imports `applyDefaultToChat` from this module, so importing
    openSettings statically here would create a cycle. Load it on demand. */
@@ -270,7 +294,14 @@ async function handleFiles(fileList) {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      // Multipart upload, so it cannot use the shared JSON helper; replay the
+      // stored credential by hand or the console API answers 401.
+      const uploadKey = getApiKey();
+      const res = await fetch(apiUrl('/api/upload'), {
+        method: 'POST',
+        body: fd,
+        ...(uploadKey ? { headers: { Authorization: `Bearer ${uploadKey}` } } : {}),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       state.attachments.push({
@@ -332,7 +363,6 @@ export async function sendMessage() {
   const input = $('#composerInput');
   const text = input.value.trim();
   if (!text && !state.attachments.length) return;
-
   if (!state.selectedModel.provider || !state.selectedModel.id) {
     toast('Pick a model first', 'err');
     openPicker({
@@ -365,6 +395,7 @@ export async function sendMessage() {
 
   state.sending = true;
   $('#sendBtn').disabled = true;
+  holdWakeLock();
 
   const pending = el('div', { class: 'msg msg-assistant' }, [
     el('div', { class: 'msg-avatar', text: 'J' }),
@@ -406,19 +437,37 @@ export async function sendMessage() {
     if (res.error) {
       state.messages.push({ role: 'assistant', content: '', error: res.error, model: state.selectedModel.name });
     } else {
+      const content = res.response || '(empty response)';
       state.messages.push({
         role: 'assistant',
-        content: res.response || '(empty response)',
+        content,
         model: state.selectedModel.name || state.selectedModel.id,
       });
+      // Voice mode: speak the reply without creating an import cycle
+      // (voice.js imports sendMessage from here, so this stays dynamic).
+      import('./voice.js').then((m) => m.speakReply(content)).catch(() => {});
     }
   } catch (err) {
     pending.remove();
+    // Backgrounding kills the socket with a bare TypeError: say so and put
+    // the text back so one tap retries, instead of eating the message.
+    const interrupted =
+      err instanceof TypeError || /failed to fetch|aborted|network/i.test(err.message || '');
+    if (interrupted && text && !input.value) {
+      input.value = text;
+      input.style.height = 'auto';
+    }
     state.messages.push({
-      role: 'assistant', content: '', error: err.message, model: state.selectedModel.name,
+      role: 'assistant',
+      content: '',
+      error: interrupted
+        ? 'Connection interrupted — the app may have been minimized. Tap ↑ to retry.'
+        : err.message,
+      model: state.selectedModel.name,
     });
   } finally {
     state.sending = false;
+    releaseWakeLock();
     $('#sendBtn').disabled = false;
     if (c) { c.messages = state.messages; c.updated = Date.now(); saveConversations(); }
     renderMessages();
@@ -431,10 +480,22 @@ export async function sendMessage() {
 export function initChat() {
   loadConversations();
 
+  // Re-acquire the wake lock when returning with a reply still pending.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.sending) holdWakeLock();
+    else if (document.visibilityState !== 'visible') releaseWakeLock();
+  });
+
   $('#newChatBtn')?.addEventListener('click', newConversation);
   $('#settingsBtn')?.addEventListener('click', () => openSettings());
   $('#topbarSettings')?.addEventListener('click', () => openSettings());
   $('#sidebarToggle')?.addEventListener('click', () => {
+    // On narrow screens the sidebar is off-canvas: slide it in/out instead
+    // of the desktop collapse behaviour.
+    if (window.matchMedia('(max-width: 900px)').matches) {
+      document.querySelector('.sidebar')?.classList.toggle('open');
+      return;
+    }
     const app = $('#app');
     app.classList.toggle('sidebar-collapsed');
     localStorage.setItem('jarvis.sidebar', app.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');

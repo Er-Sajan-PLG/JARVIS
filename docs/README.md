@@ -27,6 +27,7 @@ the code wins — and the document is a bug.
 | **[API_CONTRACT.md](API_CONTRACT.md)** | REST/WS endpoints, auth, data models, error codes |
 | **[ROADMAP.md](ROADMAP.md)** | Sprint plan and technical debt register |
 | **[ACCEPTED_RISKS.md](ACCEPTED_RISKS.md)** | Risk register — owners and review dates for every CRITICAL/HIGH finding |
+| **[FINAL_STATE.md](FINAL_STATE.md)** | Snapshot of repository state at v3.15.4 |
 | **[VERSIONING.md](VERSIONING.md)** | How versions are derived from git tags and what cuts a release |
 | **[DOC-GOVERNANCE.md](DOC-GOVERNANCE.md)** | How these documents are versioned, classified, and kept honest |
 
@@ -41,6 +42,7 @@ the code wins — and the document is a bug.
 | **[GITHUB-APP-SETUP.md](GITHUB-APP-SETUP.md)** | Migrating CI auth from long-lived PATs to GitHub Apps |
 | **[N8N-SETUP.md](N8N-SETUP.md)** | Standing up the n8n automation plane |
 | **[N8N-HANDOVER.md](N8N-HANDOVER.md)** | Editing workflows in the UI and reading changes back |
+| **[MOBILE_ACCESS.md](MOBILE_ACCESS.md)** | Running JARVIS as an installable app on a phone over LAN or a private tunnel |
 
 ---
 
@@ -80,7 +82,7 @@ the code wins — and the document is a bug.
 |---|---|
 | [`architecture/`](architecture/) | Mermaid diagrams: components, cognitive brain, model routing, memory, data flow, startup |
 | [`modules/`](modules/) | Per-subsystem guides: domain, brain, models, memory, guardrails, adapters, integrations |
-| [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-014) |
+| [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-015) |
 | [`migrations/`](migrations/) | v2→v3 migration notes and symbol tombstones |
 | [`timelines/`](timelines/) | Evolution and symbol timelines |
 | [`archive/`](archive/) | Superseded snapshots and frozen release-cycle docs |

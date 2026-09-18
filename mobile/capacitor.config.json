@@ -1,0 +1,9 @@
+{
+  "appId": "dev.jarvis.app",
+  "appName": "JARVIS",
+  "webDir": "www",
+  "backgroundColor": "#0a0a0a",
+  "android": {
+    "allowMixedContent": true
+  }
+}

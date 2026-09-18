@@ -36,7 +36,92 @@ load_dotenv(_PROJECT_ROOT / ".env")
 
 logger = logging.getLogger(__name__)
 
-web_router = APIRouter(prefix="/api", tags=["JARVIS Web API"])
+
+# Asking for the brief ("send me today's brief", "morning briefing").
+_BRIEF_HINTS = ("brief", "briefing")
+
+
+def _wants_brief(message: str) -> bool:
+    """True when the operator is asking for the (morning) brief."""
+    import re
+
+    text = message.lower()
+    return any(re.search(rf"\b{re.escape(h)}s?\b", text) for h in _BRIEF_HINTS)
+
+
+_VOICE_DELIVERY_HINTS = (
+    "voice note",
+    "voice message",
+    "as audio",
+    "speak it",
+    "read it to me",
+    "send.*voice",
+    "voice.*brief",
+)
+
+
+def _wants_voice_delivery(message: str) -> bool:
+    """True when the operator wants the reply spoken/sent as voice."""
+    import re
+
+    text = message.lower()
+    return any(re.search(h, text) for h in _VOICE_DELIVERY_HINTS)
+
+
+# Asking about mail ("any important email?", "what did I miss?", "who emailed
+# me?") injects an unread digest. Word boundaries keep "blackmail" and
+# "remailed" from triggering it.
+_EMAIL_HINTS = (
+    "email",
+    "e-mail",
+    "emailed",
+    "inbox",
+    "unread",
+    "missed",
+    "sender",
+    "mail",
+)
+
+
+def _wants_email_context(message: str) -> bool:
+    """True when the operator is asking about their mail."""
+    import re
+
+    text = message.lower()
+    return any(re.search(rf"\b{re.escape(h)}s?\b", text) for h in _EMAIL_HINTS)
+
+
+def _validate_api_key(request: Request) -> bool:
+    """Reject a console request that presents no valid credential.
+
+    Applied as a router-level dependency so every console endpoint inherits it.
+    Per-route decoration is what let this surface sit open: only ``/upload``
+    carried the dependency, leaving chat, settings, conversations and the
+    provider catalogue anonymous.
+
+    The credential is accepted as ``Authorization: Bearer <key>`` or
+    ``X-API-Key: <key>``. When ``JARVIS_API_KEY`` is unset, ``is_authorized``
+    allows everything, preserving local development. Query-parameter
+    credentials stay disabled: a console URL can land in logs and history.
+
+    This router is mounted at ``/api`` and serves only JSON. The installable-app
+    surface (``/``, ``/manifest.json``, ``/service-worker.js``, the icons and
+    ``/static``) is served from ``app.main`` and is deliberately not gated -- a
+    browser fetches those before any credential exists, so requiring a key would
+    make the app uninstallable and the service worker unable to register.
+    """
+    authorization = request.headers.get("authorization")
+    x_api_key = request.headers.get("x-api-key")
+    if is_authorized(authorization=authorization, x_api_key=x_api_key):
+        return True
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+
+web_router = APIRouter(
+    prefix="/api",
+    tags=["JARVIS Web API"],
+    dependencies=[Depends(_validate_api_key)],
+)
 
 UPLOAD_DIR = _PROJECT_ROOT / "data" / "uploads"
 
@@ -68,14 +153,6 @@ TEXT_SUFFIXES = (
     ".xml",
     ".rst",
 )
-
-
-def _validate_api_key(request: Request) -> bool:
-    authorization = request.headers.get("authorization")
-    x_api_key = request.headers.get("x-api-key")
-    if is_authorized(authorization=authorization, x_api_key=x_api_key):
-        return True
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 # ── Model catalogue ──────────────────────────────────────────────────────────
@@ -371,6 +448,7 @@ async def hide_model(body: dict[str, Any]) -> dict[str, Any]:
 async def get_models() -> dict[str, Any]:
     """List all models in a flat list for the frontend model picker."""
     from app.adapters.web.settings import get_custom_models
+
     container = bootstrap_system()
 
     result = []
@@ -378,20 +456,24 @@ async def get_models() -> dict[str, Any]:
     for provider_dict in registry.get_all_providers():
         provider_key = provider_dict.get("key", "")
         for m in provider_dict.get("models", []):
-            result.append({
-                "id": f"{provider_key}/{m}",
-                "provider": provider_key,
-                "name": m,
-                "display_name": f"{provider_dict.get('display_name', provider_key)} — {m}",
-            })
+            result.append(
+                {
+                    "id": f"{provider_key}/{m}",
+                    "provider": provider_key,
+                    "name": m,
+                    "display_name": f"{provider_dict.get('display_name', provider_key)} — {m}",
+                }
+            )
 
     for cm in get_custom_models():
-        result.append({
-            "id": f"custom/{cm.get('id', cm.get('name', ''))}",
-            "provider": "custom",
-            "name": cm.get("name", ""),
-            "display_name": cm.get("name", ""),
-        })
+        result.append(
+            {
+                "id": f"custom/{cm.get('id', cm.get('name', ''))}",
+                "provider": "custom",
+                "name": cm.get("name", ""),
+                "display_name": cm.get("name", ""),
+            }
+        )
 
     return {"models": result}
 
@@ -517,7 +599,34 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Memory search failed: %s", exc)
 
-    full_message = f"{message}{memory_context}{file_context}"
+    # Email context: when the operator asks about mail, inject an unread
+    # digest the same way memory is injected. Never blocks chat — any
+    # failure degrades to no context, exactly like the memory path above.
+    email_context = ""
+    if _wants_email_context(message):
+        try:
+            from app.integrations.email.tools import summarize_unread
+
+            digest = await summarize_unread()
+            if digest:
+                email_context = f"\n\n[Email Context]\n{digest}"
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Email context failed: %s", exc)
+
+    # Brief context: "send me today's brief" / "morning briefing" generates
+    # the brief and injects it so the model narrates live data.
+    brief_context = ""
+    if _wants_brief(message):
+        try:
+            from app.integrations.brief import BriefConfig, BriefService
+
+            service = BriefService(BriefConfig.from_env())
+            brief = await service.generate_brief()
+            brief_context = f"\n\n[Brief Context]\n{service._format_brief_text(brief)}"
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Brief context failed: %s", exc)
+
+    full_message = f"{message}{memory_context}{file_context}{email_context}{brief_context}"
 
     # ``model`` arrives in two shapes, both legitimate:
     #   {"provider": "nvidia", "id": "nvidia/nemotron-3-super-120b-a12b"}  (dict)
@@ -663,11 +772,24 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Memory store failed: %s", exc)
 
+    # Spoken delivery: on Telegram sessions, "send me today's brief as a voice
+    # note" speaks the reply into the chat. Web sessions have no voice target
+    # and skip silently. Never blocks the text reply.
+    voice_sent = False
+    if _wants_voice_delivery(message) and session_id.startswith("telegram:"):
+        try:
+            from app.integrations.telegram import send_voice
+
+            voice_sent = await send_voice(response_content, chat_id=session_id.split(":", 1)[1])
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Voice delivery failed: %s", exc)
+
     return {
         "response": response_content,
         "model": model_info,
         "session_id": session_id,
         "tokens_used": response_tokens,
+        "voice_sent": voice_sent,
     }
 
 
@@ -932,7 +1054,7 @@ async def list_conversations() -> dict[str, Any]:
 @web_router.post("/conversations")
 async def create_conversation(body: dict[str, Any]) -> dict[str, Any]:
     """Create a new conversation."""
-    container = bootstrap_system()
+    _ = bootstrap_system()  # ensure the system is initialised (return unused)
     session_id = body.get("session_id") or str(uuid.uuid4())
     return {"session_id": session_id, "created": True}
 
