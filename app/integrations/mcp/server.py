@@ -233,7 +233,9 @@ async def _on_call_tool(ctx: Any, request: Any) -> Any:
     try:
         policy = get_global_policy()
         policy.evaluate_tool_call(name, SafetyTier.SENSITIVE, args, f"MCP tool: {name}")
-        result = await _dispatch(name, args)
+        from app.telemetry.trace_new import traced_call
+
+        result = await traced_call(f"mcp.{name}", lambda: _dispatch(name, args))
         return CallToolResult(content=[TextContent(type="text", text=str(result))])
     except Exception as e:
         logger.error("MCP tool %s failed: %s", name, e)
@@ -459,7 +461,19 @@ async def run_stdio_server() -> None:
 
 
 def main() -> None:
-    """Entry point for scripts/run_mcp_server.py."""
+    """Entry point for scripts/run_mcp_server.py.
+
+    Loads the JARVIS .env so tools (email, brief, telegram) see full config
+    even when the server is spawned by an MCP client that only passes the
+    auth keys. Auth keys are NOT overridden here — they stay fail-closed.
+    """
+    from pathlib import Path
+
+    from dotenv import load_dotenv
+
+    env_path = Path(__file__).resolve().parents[3] / ".env"
+    if env_path.is_file():
+        load_dotenv(env_path, override=False)
     asyncio.run(run_stdio_server())
 
 

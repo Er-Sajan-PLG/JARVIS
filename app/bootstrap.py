@@ -119,6 +119,11 @@ def bootstrap_system(
         otel_endpoint=os.environ.get("JARVIS_OTEL_ENDPOINT"),
         otel_service_name=os.environ.get("JARVIS_OTEL_SERVICE_NAME"),
     )
+    # Register the tracer with the newer-surface tracing helper so comms, mesh
+    # and sub-agent spans share the same OTLP exporter (see trace_new.py).
+    from app.telemetry.trace_new import register_tracer
+
+    register_tracer(tracer)
     metrics = MetricsCollector()
 
     # 2. Prompts & Context

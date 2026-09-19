@@ -243,6 +243,23 @@ async def spawn_worker(
     callers and the MCP mesh treat every backend uniformly. ``model`` only
     applies to opencode; hermes/dsh use their own configured models.
     """
+    from app.telemetry.trace_new import traced_call
+
+    return await traced_call(
+        f"subagent.spawn.{backend}",
+        lambda: _spawn_worker_inner(goal, backend, agent, model, workdir, session_id, timeout_s),
+    )
+
+
+async def _spawn_worker_inner(
+    goal: str,
+    backend: str,
+    agent: str,
+    model: str,
+    workdir: str,
+    session_id: str,
+    timeout_s: int,
+) -> str:
     goal = (goal or "").strip()
     if not goal:
         raise ValueError("goal required")
