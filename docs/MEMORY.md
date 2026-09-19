@@ -272,6 +272,7 @@ Three one-shot scripts repair or populate the store. All operate on
 | `scripts/remediate_memory_store.py` | normalize values, drop pipeline junk + conversation echoes, collapse exact duplicates, quarantine poisoned records | default (prints plan) | `--apply` |
 | `scripts/migrate_memory_temporal.py` | backfill time-bound validity fields on facts | default (prints plan) | `--apply` |
 | `scripts/seed_memory_from_profile.py` | reconcile the store against verified profile data (drops bogus/superseded rows, dedupes, appends seed) | n/a — always writes, but always backs up first (`memories-preseed-<stamp>.json`) | runs on invoke |
+| `scripts/memory_health.py` | read-only diagnostic: count, exact-duplicate ratio, pending quarantine | always read-only | never writes |
 
 ```bash
 cd /home/sajan/Projects/JARVIS

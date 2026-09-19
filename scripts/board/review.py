@@ -523,38 +523,57 @@ def check_doc_drift() -> tuple[bool, list[str]]:
             clean_path = path.split("?")[0].strip("`")
             contract_routes.add((method, clean_path))
 
-        # Extract actual routes from router.py files
+        # Extract actual routes from ALL adapter router files. Older versions
+        # only scanned web/router.py + http/router.py and matched the hardcoded
+        # @web_router/@http_router decorators — that missed every standalone
+        # *_routes.py (email, push, notify, brief, voice), which is precisely
+        # how a documented endpoint could silently have "no handler".
         actual_routes = set()
-        for router_file in ["app/adapters/web/router.py", "app/adapters/http/router.py"]:
-            fp = REPO_ROOT / router_file
-            if not fp.exists():
+        adapter_dir = REPO_ROOT / "app" / "adapters"
+        router_files = list(adapter_dir.rglob("*router*.py")) + list(
+            adapter_dir.rglob("*routes*.py")
+        )
+        for router_file in router_files:
+            if router_file.name == "__init__.py":
                 continue
-            content = fp.read_text()
-            # Determine router prefix from APIRouter(prefix="...")
-            prefix_match = re.search(r'APIRouter\(prefix="([^"]+)"', content)
-            prefix = prefix_match.group(1) if prefix_match else ""
-            # Match @web_router.get("/path"), @http_router.post("/path"), etc.
-            for match in re.finditer(
-                r'@(web_router|http_router)\.(get|post|put|delete|patch)\(["\'](\S+)["\']',
-                content,
+            content = router_file.read_text()
+            # Map each APIRouter variable to its prefix, e.g.
+            # `email_router = APIRouter(prefix="/api/v1/emails", ...)`.
+            var_to_prefix: dict[str, str] = {}
+            for var, prefix in re.findall(
+                r"(\w+)\s*=\s*APIRouter\([^)]*?prefix=[\"']([^\"']+)[\"']", content
             ):
-                method = match.group(2).upper()
-                path = match.group(3)
-                # Include prefix in path for comparison
-                full_path = prefix.rstrip("/") + "/" + path.lstrip("/")
-                actual_routes.add((method, full_path))
+                var_to_prefix[var] = prefix
+            # Also catch the split form: APIRouter(\n  prefix="...", ...).
+            for var, prefix in re.findall(
+                r"(\w+)\s*=\s*APIRouter\([\s\S]*?prefix=[\"']([^\"']+)[\"']", content
+            ):
+                var_to_prefix[var] = prefix
+            for var, method, path in re.findall(
+                r'@(\w+)\.(get|post|put|delete|patch)\(["\'](\S+)["\']', content
+            ):
+                if var not in var_to_prefix:
+                    continue
+                prefix = var_to_prefix[var].rstrip("/")
+                full_path = prefix + "/" + path.lstrip("/")
+                actual_routes.add((method.upper(), full_path))
 
         # Find routes in contract but not in code (only check /api/v1/ routes)
         for method, path in contract_routes:
             if (method, path) not in actual_routes:
-                # Skip planned/future routes (Section 12 of API_CONTRACT)
-                section = (
-                    contract_text.split("## 12. Future Endpoints")[1]
-                    if "## 12. Future Endpoints" in contract_text
-                    else ""
+                # Skip planned/future routes. The contract has used several
+                # headings over time ("## 12. Future Endpoints", now a planned
+                # paths mapping table); match any line that names this path as
+                # planned/future/mapping.
+                planned_line = re.search(
+                    rf"`{re.escape(method)} {re.escape(path)}`.*?(planned|future|mapping)",
+                    contract_text,
+                ) or re.search(
+                    rf"`{re.escape(path)}`.*?(planned|future|mapping)",
+                    contract_text,
                 )
-                if path in section:
-                    continue  # It's a planned route, not drift
+                if planned_line:
+                    continue  # documented as planned / resolved elsewhere
                 # Only flag v1 API routes (not /api/ web routes)
                 if path.startswith("/api/v1/"):
                     issues.append(
@@ -614,7 +633,22 @@ def check_dep_drift() -> tuple[bool, list[str]]:
             tree = ast.parse(content)
         except SyntaxError:
             continue
+        # Collect all function scopes first, then only count imports NOT inside
+        # a function body as hard dependencies. Function-local imports are
+        # lazy/optional (e.g. the legacy voice module's whisper/pyttsx3, only
+        # pulled in if the experimental /ws/voice path is used) — counting
+        # them as required produced false dep_drift failures.
+        func_ranges = [
+            n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)
+        ]
         for node in ast.walk(tree):
+            if isinstance(node, ast.Import | ast.ImportFrom):
+                in_func = any(
+                    f.lineno <= node.lineno <= (getattr(f, "end_lineno", f.lineno) or f.lineno)
+                    for f in func_ranges
+                )
+                if in_func:
+                    continue
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     imported_pkgs.add(alias.name.split(".")[0])

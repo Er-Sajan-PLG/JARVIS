@@ -1231,6 +1231,63 @@ registerSection({ key: 'memory', label: 'Memory', icon: '🧷', render: renderMe
 registerSection({ key: 'ui', label: 'UI', icon: '🎨', render: renderUiSection });
 registerSection({ key: 'files', label: 'Files', icon: '📁', render: renderFilesSection });
 registerSection({ key: 'access', label: 'Access', icon: '🔑', render: renderAccessSection });
+registerSection({ key: 'notifications', label: 'Notifications', icon: '🔔', render: renderNotificationsSection });
+
+/* ── Notifications section (push-to-phone, Sprint 10.2) ─────────────────── */
+
+async function renderNotificationsSection(host) {
+  host.innerHTML = '';
+  host.appendChild(el('div', { class: 'settings-section-head' }, [
+    el('h3', { text: 'Notifications' }),
+    el('p', { text: 'Enable push so JARVIS can reach this phone — alerts, briefs, HITL approvals.' }),
+  ]));
+
+  const panel = el('div', { class: 'tab-panel' });
+  const status = el('div', {
+    text: 'Checking…',
+    style: 'margin-top:8px;font-size:13px;color:var(--text-muted)',
+  });
+  const btn = el('button', { class: 'btn btn-primary', text: 'Enable notifications' });
+
+  async function refresh() {
+    try {
+      const key = getApiKey();
+      const res = await fetch(apiUrl('/api/v1/push/status'), {
+        headers: key ? { Authorization: `Bearer ${key}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        status.textContent = `Server push: ${data.vapid_configured ? 'ready' : 'not configured'} · ${data.subscriptions} subscription(s).`;
+      } else {
+        status.textContent = 'Server push status unavailable.';
+      }
+    } catch {
+      status.textContent = 'Could not reach the push status endpoint.';
+    }
+  }
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = 'Enabling…';
+    try {
+      await window.subscribeToPush();
+      await refresh();
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Enable notifications';
+    }
+  });
+
+  panel.appendChild(el('div', { class: 'default-card' }, [
+    el('div', { class: 'default-card-label', text: 'Push notifications' }),
+    el('div', { class: 'default-card-provider', text: 'Needs a secure context (HTTPS / the APK WebView). Tap to subscribe this device.' }),
+    status,
+    el('div', { style: 'margin-top:12px' }, [btn]),
+  ]));
+
+  host.appendChild(panel);
+  refresh();
+}
 
 /* ── Access section ─────────────────────────────────────────────────────── */
 
