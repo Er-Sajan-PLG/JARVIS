@@ -128,8 +128,9 @@ file but have no reader in `app/` at HEAD — setting them has no effect.
 | JARVIS_EMAIL_SMTP_PORT | `app/integrations/email/client.py` (not listed in `.env.example`) | `587` |
 | JARVIS_BRIEF_ENABLED | `app/integrations/brief/__init__.py` | `false` |
 | JARVIS_BRIEF_TIME | `app/integrations/brief/__init__.py` | `08:00` |
-| JARVIS_BRIEF_DELIVERY | `app/integrations/brief/__init__.py` | `slack` (`.env.example` comments `push`) |
+| JARVIS_BRIEF_DELIVERY | `app/integrations/brief/__init__.py` (push/telegram/email/slack, comma-separated) | `slack` (`.env.example` comments `push`) |
 | JARVIS_BRIEF_EMAIL | `app/integrations/brief/__init__.py` | unset |
+| JARVIS_EMAIL_<N>_ADDRESS | `app/integrations/email/client.py` (numbered mailboxes, e.g. `JARVIS_EMAIL_2_*`; a set address+password registers the account) | unset |
 | JARVIS_BRIEF_SLACK_WEBHOOK | `app/integrations/brief/__init__.py` (actual name — there is no JARVIS_SLACK_WEBHOOK) | unset |
 | VAPID_PRIVATE_KEY | `app/integrations/push/__init__.py` | unset |
 | VAPID_PUBLIC_KEY | `app/adapters/web/push_routes.py` | unset |

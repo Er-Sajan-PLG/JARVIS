@@ -13,9 +13,10 @@ async def read_emails(
     folder: str = "INBOX",
     limit: int = 20,
     unread_only: bool = False,
+    account: str = "",
 ) -> dict[str, Any]:
-    """Read emails from a folder."""
-    reader = EmailReader()
+    """Read emails from a folder. ``account`` selects a configured mailbox."""
+    reader = EmailReader(account=account)
     try:
         if unread_only:
             emails = await reader.get_unread(limit=limit)
@@ -34,9 +35,10 @@ async def send_email(
     subject: str,
     body: str,
     in_reply_to: str | None = None,
+    account: str = "",
 ) -> dict[str, Any]:
-    """Send an email."""
-    sender = EmailSender()
+    """Send an email. ``account`` selects the sending mailbox."""
+    sender = EmailSender(account=account)
     try:
         result = await sender.send(
             to=to,
@@ -52,10 +54,10 @@ async def send_email(
         await sender.close()
 
 
-async def reply_email(email_id: str, body: str) -> dict[str, Any]:
-    """Reply to an email."""
-    reader = EmailReader()
-    sender = EmailSender()
+async def reply_email(email_id: str, body: str, account: str = "") -> dict[str, Any]:
+    """Reply to an email. ``account`` selects the mailbox."""
+    reader = EmailReader(account=account)
+    sender = EmailSender(account=account)
     try:
         email = await reader.get_email(email_id.encode())
         if not email:
@@ -76,9 +78,9 @@ async def reply_email(email_id: str, body: str) -> dict[str, Any]:
         await sender.close()
 
 
-async def search_emails(query: str, limit: int = 20) -> dict[str, Any]:
-    """Search emails by query."""
-    reader = EmailReader()
+async def search_emails(query: str, limit: int = 20, account: str = "") -> dict[str, Any]:
+    """Search emails by query. ``account`` selects the mailbox."""
+    reader = EmailReader(account=account)
     try:
         emails = await reader.search(query, limit=limit)
         return {"success": True, "emails": emails, "count": len(emails)}
@@ -89,7 +91,7 @@ async def search_emails(query: str, limit: int = 20) -> dict[str, Any]:
         await reader.close()
 
 
-async def summarize_unread(limit: int = 30, max_chars: int = 2000) -> str:
+async def summarize_unread(limit: int = 30, max_chars: int = 2000, account: str = "") -> str:
     """Compact unread digest for chat context injection.
 
     Returns sender frequencies plus recent subjects, bounded so it cannot
@@ -98,7 +100,7 @@ async def summarize_unread(limit: int = 30, max_chars: int = 2000) -> str:
     """
     from collections import Counter
 
-    reader = EmailReader()
+    reader = EmailReader(account=account)
     try:
         emails = await reader.get_unread(limit=limit)
     except Exception as e:

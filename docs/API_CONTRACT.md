@@ -513,9 +513,10 @@ accepted — except the public VAPID key.
 ### 6.1 Emails (`app/adapters/web/email_routes.py`)
 
 ```http
-GET /api/v1/emails/?folder=INBOX&limit=50&unread_only=false
-GET /api/v1/emails/search?query=&limit=20
-GET /api/v1/emails/{email_id}
+GET /api/v1/emails/accounts
+GET /api/v1/emails/?folder=INBOX&limit=50&unread_only=false&account=
+GET /api/v1/emails/search?query=&limit=20&account=
+GET /api/v1/emails/{email_id}?account=
 POST /api/v1/emails/
 POST /api/v1/emails/{email_id}/reply
 ```

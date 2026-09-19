@@ -11,6 +11,39 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def configured_accounts() -> list[str]:
+    """Names of configured email accounts, primary first.
+
+    Primary is ``""``. Numbered slots (``JARVIS_EMAIL_2_*``,
+    ``JARVIS_EMAIL_work_*``, ...) are discovered by scanning the environment
+    for ``JARVIS_EMAIL_<NAME>_ADDRESS`` with a set address + password.
+    """
+    import os
+
+    names: list[str] = []
+    # Primary (``""``) first when configured via JARVIS_EMAIL_ADDRESS/PASSWORD.
+    primary = EmailConfig.from_account("")
+    if primary.address and primary.password:
+        names.append("")
+    for key, _ in os.environ.items():
+        if not key.startswith("JARVIS_EMAIL_"):
+            continue
+        rest = key[len("JARVIS_EMAIL_") :]
+        if not rest.endswith("_ADDRESS"):
+            continue
+        name = rest[: -len("_ADDRESS")]
+        is_slot = (name.isupper() or name.isdigit()) and name not in (
+            "IMAP_HOST",
+            "SMTP_HOST",
+        )
+        if is_slot and name not in names:
+            cfg = EmailConfig.from_account(name)
+            if cfg.address and cfg.password:
+                names.append(name)
+    # Stable order, primary ("") first.
+    return sorted(names, key=lambda n: (n != "", n))
+
+
 @dataclass
 class EmailConfig:
     """Email connection configuration."""
@@ -32,15 +65,37 @@ class EmailConfig:
     @classmethod
     def from_env(cls) -> "EmailConfig":
         """Create config from environment variables."""
+        return cls.from_account("")
+
+    @classmethod
+    def from_account(cls, account: str = "") -> "EmailConfig":
+        """Build config for an account slot.
+
+        ``account == ""`` is the primary (``JARVIS_EMAIL_*``). Any other name
+        (``"2"``, ``"work"``) reads ``JARVIS_EMAIL_<ACCOUNT>_*``, falling back
+        to the global hosts/ports when the per-account ones are unset. This is
+        what lets JARVIS hold more than one mailbox.
+        """
         import os
 
+        suffix = "" if not account else f"_{account.upper()}"
+
+        def env(key: str) -> str:
+            return os.getenv(f"JARVIS_EMAIL{suffix}_{key}", "").strip()
+
+        def env_int(key: str, default: int) -> int:
+            try:
+                return int(env(key) or os.getenv(f"JARVIS_EMAIL_{key}", str(default)))
+            except ValueError:
+                return default
+
         return cls(
-            imap_host=os.getenv("JARVIS_EMAIL_IMAP_HOST", "imap.gmail.com"),
-            imap_port=int(os.getenv("JARVIS_EMAIL_IMAP_PORT", "993")),
-            smtp_host=os.getenv("JARVIS_EMAIL_SMTP_HOST", "smtp.gmail.com"),
-            smtp_port=int(os.getenv("JARVIS_EMAIL_SMTP_PORT", "587")),
-            address=os.getenv("JARVIS_EMAIL_ADDRESS", ""),
-            password=os.getenv("JARVIS_EMAIL_PASSWORD", ""),
+            imap_host=env("IMAP_HOST") or os.getenv("JARVIS_EMAIL_IMAP_HOST", "imap.gmail.com"),
+            imap_port=env_int("IMAP_PORT", 993),
+            smtp_host=env("SMTP_HOST") or os.getenv("JARVIS_EMAIL_SMTP_HOST", "smtp.gmail.com"),
+            smtp_port=env_int("SMTP_PORT", 587),
+            address=env("ADDRESS"),
+            password=env("PASSWORD"),
         )
 
 

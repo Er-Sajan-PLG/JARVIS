@@ -26,36 +26,41 @@ def _dump(payload: dict[str, Any], max_chars: int = 4000) -> str:
 
 @safety_gate(tier=SafetyTier.SAFE, description="Read emails from a folder")
 async def comms_read_emails(
-    folder: str = "INBOX", limit: int = 20, unread_only: bool = False
+    folder: str = "INBOX",
+    limit: int = 20,
+    unread_only: bool = False,
+    account: str = "",
 ) -> str:
     """Read emails (subjects + senders + bodies, bounded)."""
     from app.integrations.email.tools import read_emails
 
-    return _dump(await read_emails(folder=folder, limit=limit, unread_only=unread_only))
+    return _dump(
+        await read_emails(folder=folder, limit=limit, unread_only=unread_only, account=account)
+    )
 
 
 @safety_gate(tier=SafetyTier.SAFE, description="Search emails by keyword")
-async def comms_search_emails(query: str, limit: int = 20) -> str:
+async def comms_search_emails(query: str, limit: int = 20, account: str = "") -> str:
     """Search email subjects and bodies for a keyword."""
     from app.integrations.email.tools import search_emails
 
-    return _dump(await search_emails(query=query, limit=limit))
+    return _dump(await search_emails(query=query, limit=limit, account=account))
 
 
 @safety_gate(tier=SafetyTier.SENSITIVE, description="Send an email")
-async def comms_send_email(to: str, subject: str, body: str) -> str:
+async def comms_send_email(to: str, subject: str, body: str, account: str = "") -> str:
     """Send an email to one recipient."""
     from app.integrations.email.tools import send_email
 
-    return _dump(await send_email(to=to, subject=subject, body=body))
+    return _dump(await send_email(to=to, subject=subject, body=body, account=account))
 
 
 @safety_gate(tier=SafetyTier.SENSITIVE, description="Reply to an email")
-async def comms_reply_email(email_id: str, body: str) -> str:
+async def comms_reply_email(email_id: str, body: str, account: str = "") -> str:
     """Reply to an email by its ID."""
     from app.integrations.email.tools import reply_email
 
-    return _dump(await reply_email(email_id=email_id, body=body))
+    return _dump(await reply_email(email_id=email_id, body=body, account=account))
 
 
 @safety_gate(tier=SafetyTier.SENSITIVE, description="Send a phone/chat notification")

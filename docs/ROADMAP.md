@@ -164,6 +164,17 @@ its own docs update (the push gate enforces the last part).
 
 ---
 
+## 11. Sprint 9 — PERSONAL OPERATIONS 🔄
+
+**Status**: In progress. Multi-account email, enriched brief, scheduled delivery, voice verify.
+
+| Work | Status |
+|------|--------|
+| Multi-account email (`JARVIS_EMAIL_<N>_*`, `configured_accounts`, `/api/v1/emails/accounts`, account param on read/search/send/reply) | ✅ `3d9a2b7+` |
+| Enriched brief — Email section (top unread per mailbox) | ✅ |
+| Scheduled brief delivery — `scripts/deliver_brief.py` + systemd timer (08:00 daily) + Telegram voice channel | ✅ |
+| Voice end-to-end verify (TTS→STT roundtrip, APK mic permission, UI served) | ✅ |
+
 ## 12. Technical Debt Register
 
 | ID | Item | Status |

@@ -1,6 +1,6 @@
 """Email sender service."""
+
 import logging
-from typing import Any
 
 from app.integrations.email.client import EmailClient, EmailConfig
 
@@ -10,8 +10,9 @@ logger = logging.getLogger(__name__)
 class EmailSender:
     """Service for sending emails."""
 
-    def __init__(self, client: EmailClient | None = None):
-        self.client = client or EmailClient()
+    def __init__(self, client: EmailClient | None = None, account: str = ""):
+        self.client = client or EmailClient(EmailConfig.from_account(account))
+        self.account = account
 
     async def send(
         self,

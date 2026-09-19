@@ -159,6 +159,17 @@ Connection env (defaults are Gmail-shaped, override for any provider):
 |---|---|---|
 | `JARVIS_BRIEF_ENABLED` | master switch | `false` |
 | `JARVIS_BRIEF_TIME` | local generation time | `08:00` |
+
+The brief has four sections — Memory, Pending Approvals, Recent Activity, and
+**Email** (Sprint 9.2: top unread headlines per configured mailbox via
+`configured_accounts`). Delivery channels: `push`, `telegram` (spoken voice
+note), `email`, `slack` (comma-separated in `JARVIS_BRIEF_DELIVERY`).
+
+**Scheduled delivery (Sprint 9.3):** `scripts/deliver_brief.py` generates and
+delivers, then exits non-zero unless a channel succeeded. The systemd timer
+`scripts/jarvis-brief.timer` fires it daily at 08:00; install with:
+`cp scripts/jarvis-brief.{service,timer} ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now jarvis-brief.timer`.
+Test on demand: `JARVIS_BRIEF_DELIVERY=telegram .venv/bin/python scripts/deliver_brief.py`.
 | `JARVIS_BRIEF_DELIVERY` | comma-separated channels: `slack`, `email`, `push` | `slack` |
 | `JARVIS_BRIEF_SLACK_WEBHOOK` | incoming-webhook URL for `slack` delivery | unset |
 | `JARVIS_BRIEF_EMAIL` | recipient for `email` delivery | unset |

@@ -1,6 +1,7 @@
 """Unit tests for morning brief service."""
 import os
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -59,7 +60,7 @@ class TestBriefService:
         brief = await service.generate_brief()
         assert "greeting" in brief
         assert "sections" in brief
-        assert len(brief["sections"]) == 3
+        assert len(brief["sections"]) == 4
 
     def test_format_brief_text(self, service):
         brief = {
@@ -73,3 +74,56 @@ class TestBriefService:
         assert "Good morning" in text
         assert "Memory" in text
         assert "5 memories stored" in text
+
+
+class TestEnrichedBrief:
+    @pytest.mark.asyncio
+    async def test_brief_has_email_section(self):
+        from app.integrations.brief import BriefConfig, BriefService
+
+        service = BriefService(BriefConfig(enabled=True))
+        with (
+            patch("app.integrations.email.client.configured_accounts", return_value=[""]),
+            patch(
+                "app.integrations.email.tools.summarize_unread",
+                new=AsyncMock(return_value="UNREAD: 3\n- Payoneer: reminder"),
+            ),
+        ):
+            brief = await service.generate_brief()
+        email = [s for s in brief["sections"] if s["title"] == "Email"]
+        assert email
+        assert "[primary]" in email[0]["content"]
+
+    @pytest.mark.asyncio
+    async def test_brief_email_failure_degrades(self):
+        from app.integrations.brief import BriefConfig, BriefService
+
+        service = BriefService(BriefConfig(enabled=True))
+        with (
+            patch("app.integrations.email.client.configured_accounts", return_value=[""]),
+            patch(
+                "app.integrations.email.tools.summarize_unread",
+                new=AsyncMock(side_effect=RuntimeError("boom")),
+            ),
+        ):
+            brief = await service.generate_brief()
+        email = [s for s in brief["sections"] if s["title"] == "Email"]
+        assert "unavailable" in email[0]["content"]
+
+
+class TestTelegramBriefDelivery:
+    @pytest.mark.asyncio
+    async def test_telegram_channel(self):
+        from app.integrations.brief import BriefConfig, BriefService
+
+        service = BriefService(BriefConfig(delivery_channels=["telegram"]))
+        with patch(
+            "app.integrations.telegram.send_voice", new=AsyncMock(return_value=True)
+        ):
+            result = await service.deliver({"greeting": "hi", "sections": []})
+        assert result["telegram"]["success"] is True
+
+
+class TestDeliverScript:
+    def test_script_exists(self):
+        assert (Path(__file__).resolve().parents[3] / "scripts" / "deliver_brief.py").is_file()

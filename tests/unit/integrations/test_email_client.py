@@ -217,3 +217,67 @@ def test_app_password_spaces_stripped():
 
     cfg = EmailConfig(address="a@b.c", password="abcd efgh ijkl mnop")
     assert cfg.password == "abcdefghijklmnop"
+
+
+class TestMultiAccount:
+    def test_configured_accounts_primary_only(self, monkeypatch):
+        from app.integrations.email.client import configured_accounts
+
+        monkeypatch.delenv("JARVIS_EMAIL_ADDRESS", raising=False)
+        monkeypatch.delenv("JARVIS_EMAIL_PASSWORD", raising=False)
+        monkeypatch.setenv("JARVIS_EMAIL_ADDRESS", "a@b.c")
+        monkeypatch.setenv("JARVIS_EMAIL_PASSWORD", "x")
+        assert configured_accounts() == [""]
+
+    def test_configured_accounts_discovers_second(self, monkeypatch):
+        from app.integrations.email.client import configured_accounts
+
+        monkeypatch.delenv("JARVIS_EMAIL_ADDRESS", raising=False)
+        monkeypatch.delenv("JARVIS_EMAIL_PASSWORD", raising=False)
+        monkeypatch.setenv("JARVIS_EMAIL_ADDRESS", "a@b.c")
+        monkeypatch.setenv("JARVIS_EMAIL_PASSWORD", "x")
+        monkeypatch.setenv("JARVIS_EMAIL_2_ADDRESS", "two@b.c")
+        monkeypatch.setenv("JARVIS_EMAIL_2_PASSWORD", "y")
+        assert configured_accounts() == ["", "2"]
+
+    def test_configured_accounts_skips_incomplete(self, monkeypatch):
+        from app.integrations.email.client import configured_accounts
+
+        monkeypatch.delenv("JARVIS_EMAIL_ADDRESS", raising=False)
+        monkeypatch.delenv("JARVIS_EMAIL_PASSWORD", raising=False)
+        monkeypatch.setenv("JARVIS_EMAIL_ADDRESS", "a@b.c")
+        monkeypatch.setenv("JARVIS_EMAIL_PASSWORD", "x")
+        monkeypatch.setenv("JARVIS_EMAIL_2_ADDRESS", "two@b.c")  # no password
+        assert configured_accounts() == [""]
+
+    def test_from_account_reads_numbered(self, monkeypatch):
+        from app.integrations.email.client import EmailConfig
+
+        monkeypatch.setenv("JARVIS_EMAIL_2_ADDRESS", "two@b.c")
+        monkeypatch.setenv("JARVIS_EMAIL_2_PASSWORD", "abcd efgh")
+        cfg = EmailConfig.from_account("2")
+        assert cfg.address == "two@b.c"
+        assert cfg.password == "abcdefgh"  # spaces stripped
+
+    def test_from_account_falls_back_to_global_host(self, monkeypatch):
+        from app.integrations.email.client import EmailConfig
+
+        monkeypatch.setenv("JARVIS_EMAIL_2_ADDRESS", "two@b.c")
+        monkeypatch.setenv("JARVIS_EMAIL_2_PASSWORD", "p")
+        cfg = EmailConfig.from_account("2")
+        assert cfg.imap_host == "imap.gmail.com"  # no per-account override
+
+
+class TestToolsAccountThreading:
+    @pytest.mark.asyncio
+    async def test_read_emails_forwards_account(self):
+        from app.integrations.email.tools import read_emails
+
+        with patch(
+            "app.integrations.email.tools.EmailReader"
+        ) as reader_cls:
+            reader_cls.return_value.get_unread = AsyncMock(return_value=[])
+            reader_cls.return_value.close = AsyncMock()
+            await read_emails(unread_only=True, account="2")
+        kwargs = reader_cls.call_args.kwargs
+        assert kwargs.get("account") == "2"

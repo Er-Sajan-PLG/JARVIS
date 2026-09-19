@@ -1,4 +1,5 @@
 """Email reader service."""
+
 import logging
 from typing import Any
 
@@ -10,8 +11,9 @@ logger = logging.getLogger(__name__)
 class EmailReader:
     """Service for reading and parsing emails."""
 
-    def __init__(self, client: EmailClient | None = None):
-        self.client = client or EmailClient()
+    def __init__(self, client: EmailClient | None = None, account: str = ""):
+        self.client = client or EmailClient(EmailConfig.from_account(account))
+        self.account = account
 
     async def get_unread(self, limit: int = 20) -> list[dict[str, Any]]:
         """Get unread emails."""

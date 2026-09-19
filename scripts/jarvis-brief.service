@@ -1,0 +1,12 @@
+[Unit]
+Description=JARVIS morning brief delivery
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/sajan/Projects/JARVIS
+EnvironmentFile=/home/sajan/Projects/JARVIS/.env
+ExecStart=/home/sajan/Projects/JARVIS/.venv/bin/python /home/sajan/Projects/JARVIS/scripts/deliver_brief.py
+Environment="PATH=/home/sajan/Projects/JARVIS/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONUNBUFFERED=1"

@@ -70,6 +70,16 @@ class BriefService:
             }
         )
 
+        # Email headlines (Sprint 9.2): top unread per configured mailbox.
+        # Added last so the brief leads with the human-level state and ends
+        # with what arrived overnight.
+        brief["sections"].append(
+            {
+                "title": "Email",
+                "content": await self._get_email_headlines(),
+            }
+        )
+
         return brief
 
     def _get_greeting(self) -> str:
@@ -100,6 +110,26 @@ class BriefService:
         """Get recent task activity."""
         return "No recent activity."
 
+    async def _get_email_headlines(self) -> str:
+        """Top unread headlines across configured mailboxes."""
+        from app.integrations.email.client import configured_accounts
+        from app.integrations.email.tools import summarize_unread
+
+        accounts = configured_accounts()
+        if not accounts:
+            return "No email account configured."
+
+        parts = []
+        for account in accounts:
+            try:
+                digest = await summarize_unread(limit=6, max_chars=800, account=account)
+                label = f"[{account}]" if account else "[primary]"
+                parts.append(f"{label} {digest}")
+            except Exception as e:  # noqa: BLE001 - a mailbox must not kill the brief
+                logger.error("Brief email section failed (%s): %s", account, e)
+                parts.append(f"[{account or 'primary'}] email unavailable.")
+        return "\n".join(parts) if parts else "No unread mail."
+
     async def deliver(self, brief: dict[str, Any]) -> dict[str, Any]:
         """Deliver brief via configured channels."""
         results = {}
@@ -111,8 +141,22 @@ class BriefService:
                 results["email"] = await self._deliver_email(brief)
             elif channel == "push":
                 results["push"] = await self._deliver_push(brief)
+            elif channel == "telegram":
+                results["telegram"] = await self._deliver_telegram(brief)
 
         return results
+
+    async def _deliver_telegram(self, brief: dict[str, Any]) -> dict[str, Any]:
+        """Deliver the brief as a Telegram voice note (spoken brief)."""
+        try:
+            from app.integrations.telegram import send_voice
+
+            text = self._format_brief_text(brief)
+            ok = await send_voice(text)
+            return {"success": ok}
+        except Exception as e:
+            logger.error("Telegram brief delivery error: %s", e)
+            return {"success": False, "error": str(e)}
 
     async def _deliver_slack(self, brief: dict[str, Any]) -> bool:
         """Deliver brief to Slack webhook."""
