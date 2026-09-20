@@ -45,6 +45,12 @@ listening. The pre-auth RCE requires a network-reachable Chroma server,
 which does not exist here. Accepted with monitoring: re-check on every
 Dependabot alert; migrate off embedded Chroma before ever exposing it.
 
+`extract-zip` (≤2.0.1, symlink traversal) likewise has **no patched
+version**, which is why Dependabot's own updater errors on it. Exposure:
+transitive dev/build-time dep (mermaid/puppeteer toolchain) — never
+server runtime, never touches user-supplied archives. Accepted; the
+Dependabot updater failure for this package is expected, not a signal.
+
 
 ## Reporting a Vulnerability
 
