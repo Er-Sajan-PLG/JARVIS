@@ -125,10 +125,9 @@ grant Microphone, and tap the mic button again.
 
 ## Live Telegram calls (prototype)
 
-True person-to-person voice calls need userbot signaling, which no
-maintained library currently offers (group-call libraries only). The
-scaffold lives in `tgcall/` (GramJS + tgcalls media stack, `call.js`
-turn loop, `login.js` session creation, `check-api.js` API pin). Status:
-media stack proven to load; p2p signaling unimplemented. Until that
-lands, spoken Telegram delivery means voice notes (`send_voice`), not
-calls — see `docs/COMMS.md`.
+True person-to-person voice calls need userbot signaling + Telegram's
+custom encrypted-call protocol, which no maintained library fully offers
+(group-call libraries only). The scaffold lives in `tgcall/` (GramJS MTProto
+signaling + VoIP DH crypto, `test-crypto.js` verified; the SRTP media bridge
+to STT/TTS is the remaining blocker). Until that lands, spoken Telegram
+delivery means voice notes (`send_voice`), not calls — see `docs/COMMS.md`.

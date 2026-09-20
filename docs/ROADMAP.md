@@ -148,11 +148,11 @@
 
 ---
 
-## 10. Sprint 8 — ORCHESTRATOR (subagents, OpenCode first) 🔄 IN PROGRESS
+## 10. Sprint 8 — ORCHESTRATOR (subagents, OpenCode first) ✅
 
-**Status**: In progress (ADR-017). Phases 8.1–8.5 landed; Hermes bridge and
-DeepSeek harness remain deferred. Each phase ships with tests + coverage and
-its own docs update (the push gate enforces the last part).
+**Status**: Complete (ADR-017). Phases 8.1–8.5 landed, including the Hermes
+and DeepSeek worker bridges. Each phase shipped with tests + coverage and its
+own docs update (the push gate enforces the last part).
 
 | Phase | Work | Tests / coverage |
 |-------|------|------------------|
@@ -164,9 +164,9 @@ its own docs update (the push gate enforces the last part).
 
 ---
 
-## 11. Sprint 9 — PERSONAL OPERATIONS 🔄
+## 11. Sprint 9 — PERSONAL OPERATIONS ✅
 
-**Status**: In progress. Multi-account email, enriched brief, scheduled delivery, voice verify.
+**Status**: Complete (landed `15778ee`). Multi-account email, enriched brief, scheduled delivery, voice verify.
 
 | Work | Status |
 |------|--------|
@@ -175,7 +175,29 @@ its own docs update (the push gate enforces the last part).
 | Scheduled brief delivery — `scripts/deliver_brief.py` + systemd timer (08:00 daily) + Telegram voice channel | ✅ |
 | Voice end-to-end verify (TTS→STT roundtrip, APK mic permission, UI served) | ✅ |
 
-## 12. Technical Debt Register
+## 12. Sprint 10 — RELIABILITY & SECURITY ✅
+
+**Status**: Complete (landed `69f552c`). Secrets, push-to-phone, memory health, evals.
+
+| Work | Status |
+|------|--------|
+| Secret cleanup + hardening (gitleaks 323 commits: no leaks; deleted `.env.bak-mobile*`) | ✅ |
+| Push-to-phone — Notifications UI + APK subscribe | ✅ |
+| Memory health — `scripts/memory_health.py` | ✅ |
+| Golden evals + governance fixes (`gate_count` drift, board route scraper, dep_drift lazy-import) | ✅ |
+
+## 13. Sprint 11 — MESH, TELEMETRY, WHATSAPP, VOICE CALLS 🔄
+
+**Status**: Complete. 11.1–11.4 done (11.3 unblocked via test number).
+
+| Work | Status |
+|------|--------|
+| 11.1 Wire the mesh — OpenCode + Hermes MCP configs → JARVIS (both verified live) | ✅ |
+| 11.2 Telemetry — OTEL spans on MCP dispatch + sub-agent spawn (`trace_new.py`) | ✅ |
+| 11.3 WhatsApp live | ✅ template + free-form + dispatcher verified live |
+| 11.4 Live voice calls — DH crypto ✅ verified, signaling ⚠️ implemented, media ❌ blocker | ✅ foundation committed; media needs live call debug |
+
+## 14. Technical Debt Register
 
 | ID | Item | Status |
 |----|------|--------|
@@ -194,7 +216,7 @@ its own docs update (the push gate enforces the last part).
 
 ---
 
-## 13. Milestone Timeline
+## 15. Milestone Timeline
 
 <!--fact:begin sprint-progress-->
 <!--fact:end sprint-progress-->
@@ -213,7 +235,7 @@ Week 13-14: ██████████████████████�
 
 ---
 
-## 14. Success Metrics
+## 16. Success Metrics
 
 | Metric | Target | Current | Status |
 |--------|--------|---------|--------|
@@ -226,7 +248,7 @@ Week 13-14: ██████████████████████�
 
 ---
 
-## 15. Risk Register
+## 17. Risk Register
 
 | Risk | Status |
 |------|--------|

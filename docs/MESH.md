@@ -80,6 +80,27 @@ the server environment. When `JARVIS_MCP_KEY` is set, the client's
 disables the check (local dev). The `fitz` deprecation warning is suppressed
 on the stdio channel so the JSON stream stays clean.
 
+**Mesh wiring (Sprint 11.1).** JARVIS is registered as an MCP server in both
+harnesses so they can call it back:
+
+- **OpenCode** — `mcp.jarvis` in `~/.config/opencode/opencode.json`: local
+  stdio (`python -m app.integrations.mcp.server`), `JARVIS_MCP_KEY` +
+  `JARVIS_API_KEY` set to the shared key. Verified live: `opencode run` used
+  the jarvis server to return a brief.
+- **Hermes** — `mcp_servers.jarvis` in `~/.hermes/config.yaml`: same stdio
+  command + env. Verified live: `hermes -z` called jarvis and returned the
+  brief with live email headlines.
+
+The server's `main()` loads the JARVIS `.env` (non-overriding) so tools see
+full config (email/brief/telegram) even when the client only passes the auth
+keys.
+
+**Telemetry (Sprint 11.2).** The comms/mesh/sub-agent surfaces are now
+traced via `app/telemetry/trace_new.py`: every MCP tool call runs under a
+`mcp.<tool>` span and every worker spawn under `subagent.spawn.<backend>`,
+using the same bootstrapped `Tracer` as the cognitive brain. Degrades to a
+no-op when no container is present (unit tests, standalone runs).
+
 ---
 
 ## Configuration / Interface
