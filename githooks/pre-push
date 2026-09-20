@@ -25,7 +25,12 @@ fail() { echo "❌ $1"; FAIL=1; }
 
 # Collect pushed branch ranges from stdin (local_ref local_sha remote_ref remote_sha).
 RANGES=""
-while read -r local_ref local_sha remote_ref remote_sha || [ -n "$local_ref" ]; do
+_line=""
+while IFS= read -r _line || [ -n "$_line" ]; do
+  [ -z "$_line" ] && continue
+  # shellcheck disable=SC2086
+  set -- $_line
+  local_ref="${1:-}"; local_sha="${2:-}"; remote_ref="${3:-}"; remote_sha="${4:-}"
   [ -z "$local_ref" ] && continue
   case "$local_ref" in
     refs/heads/*) branch="${local_ref#refs/heads/}" ;;
