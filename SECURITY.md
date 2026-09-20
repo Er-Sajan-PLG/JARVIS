@@ -2,7 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: policy
-**Last Updated**: 2026-09-13
+**Last Updated**: 2026-09-19
+**Source**: `githooks/pre-push`, `scripts/verify-push.sh`, `.pre-commit-config.yaml`, `.github/workflows/ci.yml`, `scripts/board/review.py` at HEAD
 
 ## Supported Versions
 
@@ -11,6 +12,24 @@
 | 3.x     | :white_check_mark: |
 | 2.x     | :x: (archived)     |
 | < 2.0   | :x:                |
+
+## Push shield (no branch protection available)
+
+GitHub returns 403 for branch protection on private-free repos (TD-006),
+so enforcement lives in three local layers. Broken code reaching remote
+means all three failed — treat that as an incident, not a nuisance.
+
+| Layer | Mechanism | Blocks on |
+|---|---|---|
+| Commit | pre-commit: gitleaks, ruff, commitlint | secrets, lint, message format |
+| Push | `githooks/pre-push` (blocking, no bypass) | force-push, branch/tag deletion, unsigned commits, gitleaks range, ruff, doc gates, full unit suite |
+| After | `scripts/verify-push.sh` (bypass detector) | unsigned commits, secrets in range, red remote CI |
+
+Rules with no exceptions: every pushed commit is SSH-signed
+(`commit.gpgsign`, ED25519); force-pushes and ref deletions are refused;
+`--no-verify` is treated as hostile — `verify-push.sh` exists precisely to
+catch it. To re-sign history after a rebase:
+`git rebase --exec "git commit --amend --no-edit -S"`.
 
 ## Reporting a Vulnerability
 
