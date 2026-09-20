@@ -16,6 +16,8 @@ eggs/
 lib/
 lib64/
 parts/
+# tgcall/lib/ holds hand-written source (not build output) — re-include it.
+!tgcall/lib/
 sdist/
 var/
 wheels/

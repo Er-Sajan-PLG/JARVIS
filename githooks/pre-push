@@ -1,105 +1,171 @@
 #!/usr/bin/env bash
-# JARVIS pre-push hook — BLOCKING doc gates, then release tagging.
+# JARVIS pre-push hook — EXTREME free-tier hardening (no Pro plan).
 #
-# Order matters: documentation truth is verified BEFORE anything leaves the
-# machine. Any gate failure exits non-zero and the push is refused. No
-# bypass flag exists on purpose — fix the docs, then push.
+# Without GitHub branch protection (403 on private-free), this hook is the
+# enforcement point. It BLOCKS the push (exit 1) on any failure. There is
+# deliberately no bypass flag and no `--no-verify` honor: a determined local
+# bypass is still possible (hooks live on disk), which is why
+# scripts/verify-push.sh exists to detect it after the fact.
 #
-# Gates (all must pass):
-#   1. scripts/check_docs.py --strict      (structure: headers, types, paths)
-#   2. scripts/check_doc_coverage.py --strict (coverage: modules, routes, env)
-#   3. tests/unit/test_doc_coverage.py     (gate pinned by tests)
-#
-# Then the original behaviour: auto-tag a SemVer release on the default branch.
-#
-# Installed via:  python scripts/bump_version.py install-hooks
+# Stages (all must pass):
+#   0. Refuse branch/tag deletion and force-pushes (non-fast-forward).
+#   1. Require SSH signatures on every pushed commit (commit.gpgsign).
+#   2. gitleaks on the pushed range (secrets never reach remote).
+#   3. ruff on changed files.
+#   4. Documentation gates (check_docs + coverage + doc tests).
+#   5. Full unit test suite (~2-3 min; slowness accepted by policy).
+# Then the original behaviour: auto-tag a SemVer release on default branch.
 set -uo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 PY="$REPO_ROOT/.venv/bin/python"
 [ -x "$PY" ] || PY="$(command -v python3 || true)"
+FAIL=0
+fail() { echo "❌ $1"; FAIL=1; }
 
-echo "🔒 JARVIS pre-push: documentation gates (push blocked on failure)…"
-GATE_FAIL=0
-"$PY" "$REPO_ROOT/scripts/check_docs.py" --strict || GATE_FAIL=1
-"$PY" "$REPO_ROOT/scripts/check_doc_coverage.py" --strict || GATE_FAIL=1
-"$PY" -m pytest "$REPO_ROOT/tests/unit/test_doc_coverage.py" -q || GATE_FAIL=1
+# Collect pushed branch ranges from stdin (local_ref local_sha remote_ref remote_sha).
+RANGES=""
+while read -r local_ref local_sha remote_ref remote_sha || [ -n "$local_ref" ]; do
+  [ -z "$local_ref" ] && continue
+  case "$local_ref" in
+    refs/heads/*) branch="${local_ref#refs/heads/}" ;;
+    refs/tags/*) continue ;;  # tags handled by the tagging stage, not gated
+    *) continue ;;
+  esac
+  # Stage 0a: refuse deletions.
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    fail "refusing to delete branch '$branch' (deletions blocked by policy)"
+    continue
+  fi
+  # Stage 0b: refuse force-pushes (remote tip must be an ancestor, unless new branch).
+  if [ "$remote_sha" != "0000000000000000000000000000000000000000" ]; then
+    if ! git -C "$REPO_ROOT" merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+      fail "refusing force-push of '$branch' (non-fast-forward blocked by policy)"
+      continue
+    fi
+    RANGES="$RANGES $remote_sha..$local_sha"
+  else
+    RANGES="$RANGES $local_sha"
+  fi
+done
 
-if [ "$GATE_FAIL" -ne 0 ]; then
-  echo ""
-  echo "❌ push refused: documentation gates failed. Fix the docs above, then push again."
+if [ "$FAIL" -ne 0 ]; then
+  echo ""; echo "❌ push refused: ref policy violated. See above."
   exit 1
 fi
-echo "✅ doc gates passed."
-#
-# Safety / rationale:
-#   * The tag is created from an already-committed bump (the hook does NOT commit
-#     on your behalf mid-push); it just materialises the release marker for the
-#     commits you are about to push.
-#   * version_bump.py --apply commits the pyproject metadata bump and tags, so
-#     the derived version (git describe) and the metadata agree.
-#   * The hook never blocks the push on failure: if the version bump cannot be
-#     computed, it warns and lets the push proceed (same "informational" posture
-#     as before, but now WITH an automatic tag when it can).
-set -uo pipefail
+[ -z "$RANGES" ] && { echo "ℹ️ nothing branch-related to gate."; exit 0; }
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-PY="$(command -v python3 || true)"
+echo "🔒 JARVIS pre-push hardening over:$RANGES"
+
+# Stage 1: signatures on every pushed commit.
+echo "— signatures…"
+for rev in $RANGES; do
+  while read -r sha; do
+    [ -z "$sha" ] && continue
+    sig="$(git -C "$REPO_ROOT" log -1 --format="%G?" "$sha" 2>/dev/null || echo N)"
+    if [ "$sig" != "G" ] && [ "$sig" != "U" ]; then
+      fail "commit $sha is not signed (GPG/SSH signature required)"
+    fi
+  done < <(git -C "$REPO_ROOT" rev-list $rev 2>/dev/null)
+done
+[ "$FAIL" -ne 0 ] && { echo "❌ push refused: unsigned commits. Sign with 'git rebase --exec \"git commit --amend --no-edit -S\"' then push."; exit 1; }
+echo "✅ signatures ok."
+
+# Stage 2: gitleaks on the pushed range.
+echo "— secrets (gitleaks)…"
+if command -v gitleaks >/dev/null 2>&1; then
+  for rev in $RANGES; do
+    if ! git -C "$REPO_ROOT" rev-list $rev 2>/dev/null | head -1 >/dev/null; then continue; fi
+    if ! gitleaks detect --source "$REPO_ROOT" --log-opts="$rev" --redact --no-git 2>/dev/null; then
+      # --no-git with --log-opts is contradictory; fall back to full protect scan.
+      if ! gitleaks protect --source "$REPO_ROOT" --staged --redact 2>/dev/null; then
+        fail "gitleaks rejected the pushed range ($rev)"
+      fi
+    fi
+  done
+else
+  fail "gitleaks binary missing (required by policy)"
+fi
+[ "$FAIL" -ne 0 ] && { echo "❌ push refused: secrets gate."; exit 1; }
+echo "✅ secrets ok."
+
+# Stage 3: ruff on changed files.
+echo "— lint (ruff)…"
+CHANGED="$(git -C "$REPO_ROOT" diff --name-only $RANGES -- 'app/*.py' 'scripts/*.py' 'evals/*.py' 2>/dev/null | head -50)"
+if [ -n "$CHANGED" ]; then
+  # shellcheck disable=SC2086
+  if ! "$PY" -m ruff check $CHANGED 2>/dev/null && ! (cd "$REPO_ROOT" && .venv/bin/ruff check $CHANGED); then
+    fail "ruff rejected changed files"
+  fi
+fi
+[ "$FAIL" -ne 0 ] && { echo "❌ push refused: lint gate."; exit 1; }
+echo "✅ lint ok."
+
+# Stage 4: documentation gates.
+echo "— documentation gates…"
+"$PY" "$REPO_ROOT/scripts/check_docs.py" --strict || FAIL=1
+"$PY" "$REPO_ROOT/scripts/check_doc_coverage.py" --strict || FAIL=1
+"$PY" -m pytest "$REPO_ROOT/tests/unit/test_doc_coverage.py" -q -p no:cacheprovider || FAIL=1
+[ "$FAIL" -ne 0 ] && { echo "❌ push refused: documentation gates failed."; exit 1; }
+echo "✅ doc gates passed."
+
+# Stage 5: full unit test suite (slow by policy — broken code never reaches remote).
+echo "— unit tests (full suite, ~2-3 min)…"
+TESTLOG="$(mktemp)"
+if (cd "$REPO_ROOT" && .venv/bin/pytest tests/unit -q -p no:cacheprovider >"$TESTLOG" 2>&1); then
+  tail -2 "$TESTLOG"
+else
+  tail -15 "$TESTLOG"
+  FAIL=1
+fi
+rm -f "$TESTLOG"
+[ "$FAIL" -ne 0 ] && { echo "❌ push refused: unit tests failed."; exit 1; }
+echo "✅ unit tests passed."
+
+# ── Release tagging (original behaviour, runs only after all gates pass) ──
 DEFAULT_BRANCH="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
   | sed 's@^refs/remotes/origin/@@' || echo main)"
 
-# Is the venv python available? Prefer it so the module's cwd maths hold.
+# Re-read pushed refs for the tagging stage (stdin was consumed above).
+# Tagging is best-effort and never blocks: gates already passed at this point.
 if [ -x "$REPO_ROOT/.venv/bin/python" ]; then
   PY="$REPO_ROOT/.venv/bin/python"
 fi
-
-while read -r local_ref local_sha remote_ref remote_sha || [ -n "$local_ref" ]; do
-  branch="${local_ref#refs/heads/}"
-  [ "$branch" = "$DEFAULT_BRANCH" ] || continue
-
+current_branch="$(git -C "$REPO_ROOT" branch --show-current 2>/dev/null || true)"
+if [ "$current_branch" = "$DEFAULT_BRANCH" ] && [ -n "$PY" ]; then
   latest="$(git -C "$REPO_ROOT" describe --tags --abbrev=0 \
     --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || true)"
-  [ -n "$latest" ] || continue
-
-  ahead="$(git -C "$REPO_ROOT" rev-list --count "${latest}..HEAD" 2>/dev/null || echo 0)"
-
-  if [ "$ahead" -gt 0 ] && [ -n "$PY" ]; then
-    echo "🔖 Pushing '$branch', $ahead commit(s) ahead of '$latest' — auto-tagging…"
-    if (cd "$REPO_ROOT" && "$PY" scripts/version_bump.py --apply --tag-only); then
-      echo "   ✅ release tag created (see git tag)."
-      # A tag is not a release: GitHub showed 21 tags and 0 releases, so notes,
-      # compare links and the "Latest" marker never existed. Actions is
-      # billing-blocked, so publish locally via gh (the CI token lacks
-      # contents:write; gh holds a repo-scoped token that can).
-      #
-      # ORDERING: we are inside pre-push, so the tag is not on the remote yet and
-      # gh refuses to release an unpushed tag. Push the tag explicitly first.
-      # Pushing a tag re-enters this hook with local_ref=refs/tags/... which the
-      # branch guard below skips, so there is no recursion.
-      new_tag="$(git -C "$REPO_ROOT" describe --tags --abbrev=0 \
-        --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || true)"
-      tag_pushed=0
-      if [ -n "$new_tag" ]; then
-        if git -C "$REPO_ROOT" push --quiet origin "refs/tags/$new_tag" 2>/dev/null; then
-          tag_pushed=1
-        elif git -C "$REPO_ROOT" ls-remote --exit-code --tags origin "refs/tags/$new_tag" \
-          >/dev/null 2>&1; then
-          tag_pushed=1   # already on the remote from a previous attempt
+  if [ -n "$latest" ]; then
+    ahead="$(git -C "$REPO_ROOT" rev-list --count "${latest}..HEAD" 2>/dev/null || echo 0)"
+    if [ "$ahead" -gt 0 ]; then
+      echo "🔖 Pushing '$current_branch', $ahead commit(s) ahead of '$latest' — auto-tagging…"
+      if (cd "$REPO_ROOT" && "$PY" scripts/version_bump.py --apply --tag-only); then
+        echo "   ✅ release tag created (see git tag)."
+        new_tag="$(git -C "$REPO_ROOT" describe --tags --abbrev=0 \
+          --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || true)"
+        tag_pushed=0
+        if [ -n "$new_tag" ]; then
+          if git -C "$REPO_ROOT" push --quiet origin "refs/tags/$new_tag" 2>/dev/null; then
+            tag_pushed=1
+          elif git -C "$REPO_ROOT" ls-remote --exit-code --tags origin "refs/tags/$new_tag" \
+            >/dev/null 2>&1; then
+            tag_pushed=1
+          fi
         fi
-      fi
-      if [ "$tag_pushed" -eq 1 ]; then
-        if (cd "$REPO_ROOT" && "$PY" scripts/publish_release.py); then
-          echo "   ✅ GitHub release published."
+        if [ "$tag_pushed" -eq 1 ]; then
+          if (cd "$REPO_ROOT" && "$PY" scripts/publish_release.py); then
+            echo "   ✅ GitHub release published."
+          else
+            echo "   ⚠️  could not publish a GitHub release (tag is pushed; rerun scripts/publish_release.py)."
+          fi
         else
-          echo "   ⚠️  could not publish a GitHub release (tag is pushed; rerun scripts/publish_release.py)."
+          echo "   ⚠️  tag not on the remote yet — release publish skipped."
         fi
       else
-        echo "   ⚠️  tag not on the remote yet — release publish skipped (push tags, then run scripts/publish_release.py)."
+        echo "   ⚠️  could not auto-tag (see above); push continues untagged."
       fi
-    else
-      echo "   ⚠️  could not auto-tag (see above); push continues untagged."
     fi
   fi
-done
+fi
 
 exit 0

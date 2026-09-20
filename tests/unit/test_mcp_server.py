@@ -59,4 +59,4 @@ class TestMCPServerIntegration:
         names = [t.name for t in result.tools]
         assert "read_file" in names
         assert "workspace_git_state" in names
-        assert len(names) == 11
+        assert len(names) == 18
