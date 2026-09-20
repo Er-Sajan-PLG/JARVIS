@@ -31,6 +31,21 @@ Rules with no exceptions: every pushed commit is SSH-signed
 catch it. To re-sign history after a rebase:
 `git rebase --exec "git commit --amend --no-edit -S"`.
 
+## Dependency posture (2026-09-19)
+
+Patched this round: `mcp` 1.2.0→2.2.0, `langgraph` 0.4.1→1.2.11,
+`dompurify`→3.4.13, `mermaid`→11.16.1, `file-type`→21.3.1, `uuid`→14.0.2.
+`extract-zip` has no patch (transitive dev/build-time dep only — mermaid
+toolchain/puppeteer — never server runtime).
+
+`chromadb` code-injection advisories have **no patched version**. Exposure
+analysis: JARVIS uses embedded `PersistentClient(path=...)` only
+(`app/memory/`, `app/db/`) — no `HttpClient`, no server socket, nothing
+listening. The pre-auth RCE requires a network-reachable Chroma server,
+which does not exist here. Accepted with monitoring: re-check on every
+Dependabot alert; migrate off embedded Chroma before ever exposing it.
+
+
 ## Reporting a Vulnerability
 
 JARVIS is a **single-tenant, self-hosted** personal AI platform. Security
