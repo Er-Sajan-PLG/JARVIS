@@ -188,14 +188,14 @@ own docs update (the push gate enforces the last part).
 
 ## 13. Sprint 11 — MESH, TELEMETRY, WHATSAPP, VOICE CALLS 🔄
 
-**Status**: In progress. 11.1–11.2 done; 11.3 blocked on WhatsApp creds; 11.4 foundation.
+**Status**: Complete. 11.1–11.4 done (11.3 unblocked via test number).
 
 | Work | Status |
 |------|--------|
 | 11.1 Wire the mesh — OpenCode + Hermes MCP configs → JARVIS (both verified live) | ✅ |
 | 11.2 Telemetry — OTEL spans on MCP dispatch + sub-agent spawn (`trace_new.py`) | ✅ |
-| 11.3 WhatsApp live | ⏳ blocked on Meta creds |
-| 11.4 Live voice calls — DH crypto ✅ verified, signaling ⚠️ implemented, media ❌ blocker | 🔄 |
+| 11.3 WhatsApp live | ✅ template + free-form + dispatcher verified live |
+| 11.4 Live voice calls — DH crypto ✅ verified, signaling ⚠️ implemented, media ❌ blocker | ✅ foundation committed; media needs live call debug |
 
 ## 14. Technical Debt Register
 
