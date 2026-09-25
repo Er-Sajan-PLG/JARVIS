@@ -71,7 +71,7 @@ nvidia-cusolver==12.3.4.7
 nvidia-cusparse==12.8.6.49
 nvidia-cusparselt-cu13==0.9.1
 nvidia-nccl-cu13==2.31.2
-nvidia-nvjitlink==13.4.52
+nvidia-nvjitlink==13.4.92
 nvidia-nvshmem-cu13==3.7.2
 nvidia-nvtx==13.4.92
 oauthlib==3.3.1
