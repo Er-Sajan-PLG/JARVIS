@@ -13,6 +13,16 @@
 
 ---
 
+## System overview
+
+Fourteen migration steps move JARVIS from its current two-request-path reality
+(HTTP plan-status + web direct-LLM) toward the target architecture (core/modes/
+memory/domains/hardware/interfaces/evolution/plugins/security) in smallest-risk
+order: audit sink, search plugin, correlation tracing, and mode facade first
+(all reversible and additive); the HTTP-path LLM fix and context unification
+behind flags next; hardware last as ADR-gated one-way doors. Each step records
+what changes, what could break, how to verify, and whether it is reversible.
+
 ## 0. Freeze the baseline (do first, before any migration step) — REVERSIBLE — ✅ DONE 2026-09-25
 
 - What changes: nothing in `app/`. Tag HEAD, record `.coverage` totals (currently 87%, 10274 stmts /
@@ -98,7 +108,7 @@
   prompt drift if anyone "improves" wording — forbid it in this step.
 - Verify: contract tests unchanged (`tests/contract/test_api_contract.py`, `test_comms.py`,
   `test_console_auth.py`, `test_mobile_pwa.py`); `evals/` golden outputs byte-identical before/after;
-  `ruff check`, `mypy --strict app/`, `board/review.py` green.
+  `ruff check`, `mypy --strict app/`, `scripts/board/review.py` green.
 - Reverse: remove the router call; adapters call bootstrap directly as today.
 - **Done 2026-09-25** (HEAD `5de9c64` + working tree): `app/modes/` (`base_mode.py` ABC,
   `production_mode.py` ⚡, `teacher_mode.py` 🎓, `maintenance_mode.py` 🔧, `evolution_mode.py` 🧬,
@@ -152,10 +162,10 @@
   `conversation/manager.py:62-222`, `context/builder.py:84-165`, `session/context.py:36-59`.
   Route the web path's inline assembly (`web/router.py:592-629`) through it without changing truncation
   behavior. The HTTP path keeps ignoring context until Step 5's flag is on.
-- Could break: prompt content drift (the working LLM path is 49%-covered — `web/router.py` 277 misses).
+- Could break: prompt content drift (the working LLM path is 49%-covered — `app/adapters/web/router.py` 277 misses).
   Any off-by-one in truncation changes every answer.
 - Verify: golden-output diff empty with facade on; `pytest tests/unit/test_context.py
-  tests/unit/test_conversation.py tests/unit/test_session.py -q`; coverage on `web/router.py` must not drop.
+  tests/unit/test_conversation.py tests/unit/test_session.py -q`; coverage on `app/adapters/web/router.py` must not drop.
 - Reverse: restore direct calls.
 
 ## 7. Plugin lifecycle, additive only — REVERSIBLE
@@ -164,18 +174,18 @@
   defaulting to no-op-healthy; expose per-plugin health beside provider health
   (`resources/provider_health.py:35-58`). Wrap `file_manager` (already exists:
   `workspace_tools.py:117-160`) and `email_handler` (exists but 36-47% covered:
-  `integrations/email/`, `adapters/web/email_routes.py`) without changing execution semantics.
-  Prioritize `mcp/transports.py` (34% cov) for tests, not rewrites.
+  `integrations/email/`, `app/adapters/web/email_routes.py`) without changing execution semantics.
+  Prioritize `app/integrations/mcp/transports.py` (34% cov) for tests, not rewrites.
 - Could break: runner hot path (`runner.py:93-104` invoke) if lifecycle hooks raise — make them
   non-blocking and never fail-closed on health.
 - Verify: `pytest tests/unit/test_tools.py tests/unit/test_mcp*.py -q`; health endpoint includes plugin
-  section; `board/review.py` layering still green.
+  section; `scripts/board/review.py` layering still green.
 - Reverse: remove the wrapper; registry behavior is unchanged.
 
 ## 8. Read-only evolution analyzer — REVERSIBLE
 
-- What changes: `evolution/analyzer.py` as pure queries over existing telemetry (`telemetry/metrics.py`,
-  `telemetry/logger.py`) + `evals/` results: usage patterns, domain share, p50/p99 latency. No writers,
+- What changes: `evolution/analyzer.py` as pure queries over existing telemetry (`app/telemetry/metrics.py`,
+  `app/telemetry/logger.py`) + `evals/` results: usage patterns, domain share, p50/p99 latency. No writers,
   no config mutation, no prompt mutation. Output is a report, not an action.
 - Could break: almost nothing (read-only). Cost risk only: full-table scans over Chroma/SQLite — cap windows.
 - Verify: analyzer runs on a prod snapshot in CI and its numbers match manual `coverage report`/metrics spot
@@ -283,7 +293,7 @@ spending anything on domains/hardware/evolution. If this slice cannot ship clean
 3. **Evolution is specified backwards.** `changelog.py` (log adaptations) and `evolution_mode.py`
    (self-evaluation) assume an autonomous optimizer that does not exist; the current evaluator is heuristic
    (`nodes.py:247-267`, "replace with LLM-based in Sprint 4" at :252). Auto-applying prompt/config changes
-   with 49% coverage on the LLM path (`web/router.py`) and heuristic evals is how you corrupt the system
+   with 49% coverage on the LLM path (`app/adapters/web/router.py`) and heuristic evals is how you corrupt the system
    unattended. Optimizer must be advisory + human-gated (Step 10) until evals are LLM-backed and green.
 4. **Six domains on day one is overkill with liability attached.** No domain traffic metrics exist
    (the analyzer that would produce them is itself missing). `health.py`/`finance.py` carry harm risk

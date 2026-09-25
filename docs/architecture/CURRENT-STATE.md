@@ -11,6 +11,20 @@
 
 ---
 
+## 0. System overview
+
+JARVIS is a single-tenant FastAPI + WebSocket personal-AI server (`app/main.py`,
+`app/adapters/`). One composition root (`app/bootstrap.py`) wires a heuristic
+cognitive pipeline (`app/brain/`: intent → plan → execute; the primary REST path
+returns plan status, only the web-console path calls an LLM), a multi-provider
+model pool with failover (`app/models/`), hybrid BM25+ChromaDB memory
+(`app/memory/`, `app/session/`), and a tiered safety gate with persisted
+human-in-the-loop approvals (`app/guardrails/`). State lives in `data/`
+(files/SQLite/Chroma) with optional Postgres; secrets are split across env,
+`config.yaml`, `data/web_settings.json`, and per-request headers. The sections
+below inventory every module, trace one request end to end, and list what is
+dead, half-finished, or abandoned.
+
 ## 1. Language, runtime, package manager, key dependencies
 
 - **Language**: Python, `requires-python = ">=3.11"` (`pyproject.toml:10`), `target-version = "py311"`
@@ -131,7 +145,7 @@ web `chat()` (:567-804 — memory search :595, email/brief inject :610-623, cata
 | `app/bootstrap.py` | Composition root: `ApplicationContainer` + `bootstrap_system()` singleton | 187 | every adapter (`http`, `ws`, `web`), health checks |
 | `app/provider_registry.py` | Provider catalogue/status (no inference) | 838 | `ApplicationContainer.get_provider_registry()`; web model list |
 | `app/brain/__init__.py` | Re-exports brain classes | 18 | `bootstrap.py` |
-| `app/brain/analyzer.py` | Heuristic intent classifier (no LLM) | 81 | `bootstrap.py`, `http/router.py`, `ws/stream.py`, graph nodes |
+| `app/brain/analyzer.py` | Heuristic intent classifier (no LLM) | 81 | `bootstrap.py`, `app/adapters/http/router.py`, `app/adapters/websocket/stream.py`, graph nodes |
 | `app/brain/planner.py` | Deterministic `ExecutionPlan` builder | 153 | same as analyzer |
 | `app/brain/runner.py` | Plan execution loop + tool dispatch + HITL pause | 149 | same; HITL resume path |
 | `app/brain/synthesizer.py` | Passthrough stream (provenance TODO in docstring) | 32 | `bootstrap.py`, graph |
@@ -139,7 +153,7 @@ web `chat()` (:567-804 — memory search :595, email/brief inject :610-623, cata
 | `app/brain/nodes.py` | Pure `CognitiveState→CognitiveState` nodes + heuristic evaluator (`quality_score`) | 267 | `graph.py` only |
 | `app/domain/` (8 files, ~675 total) | Pure dataclasses, stdlib-only (intent/plan/state/session/conversation/memory/content/safety/cognitive/tool_result) | `plan.py` 87, `state.py` 52, `intent.py` 26, +5 more | `brain/*`, `guardrails/*`, `session/*`, `memory/*` |
 | `app/adapters/__init__.py` | Re-exports `http_router`, `ws_router` | ~10 | `app/main.py` |
-| `app/adapters/security.py` | `is_authorized()` / streaming variant, `hmac.compare_digest` | 91 | `http/router.py`, `ws/stream.py`, web router |
+| `app/adapters/security.py` | `is_authorized()` / streaming variant, `hmac.compare_digest` | 91 | `app/adapters/http/router.py`, `app/adapters/websocket/stream.py`, web router |
 | `app/adapters/http/router.py` | REST: chat/completions (plan status), HITL approve/pending/notified, health | 244 | mounted in `main.py` |
 | `app/adapters/websocket/stream.py` | WS chat (intent + echo chunks), SSE endpoint | 81 | mounted in `main.py` |
 | `app/adapters/websocket/voice_handler.py` | Voice WS: wake-word → STT → **TODO brain** → TTS | 82 | mounted? UNKNOWN — needs human review (no mount seen in `main.py`) |
@@ -152,9 +166,9 @@ web `chat()` (:567-804 — memory search :595, email/brief inject :610-623, cata
 | `app/memory/` (~2929 total, 15+ files) | Hybrid BM25+Chroma memory: `service.py` 207, `manager.py` 291, `store.py` 301, `temporal.py` 430, `rules.py` 316, `ranking.py` 178, `pipeline.py` 131, `llm_extractor.py` (~160), `vector_retriever.py`, `conversation_store.py`, etc. | ~2929 | `bootstrap.py` (`MemoryService`), web router (search/store), context builder |
 | `app/guardrails/policy.py` | Tier evaluation (`SAFE/SENSITIVE/DESTRUCTIVE`) | 88 | `runner.py`, `decorator.py` |
 | `app/guardrails/decorator.py` | `@safety_gate` decorator + `set_global_policy` | 74 | tool functions; called at `bootstrap.py:148` |
-| `app/guardrails/approvals.py` | `ApprovalRegistry`: persist/list/decide/mark_notified, paused-plan store | 365 | `http/router.py` HITL endpoints; `runner.py` (via exception) |
-| `app/session/manager.py` | In-memory session/conversation cache + CRUD/fork/archive | 145 | `http/router.py`, `bootstrap.py` |
-| `app/session/persistence.py` | JSON file + (placeholder) Postgres session persistence | 124 | `session/manager.py` |
+| `app/guardrails/approvals.py` | `ApprovalRegistry`: persist/list/decide/mark_notified, paused-plan store | 365 | `app/adapters/http/router.py` HITL endpoints; `runner.py` (via exception) |
+| `app/session/manager.py` | In-memory session/conversation cache + CRUD/fork/archive | 145 | `app/adapters/http/router.py`, `bootstrap.py` |
+| `app/session/persistence.py` | JSON file + (placeholder) Postgres session persistence | 124 | `app/session/manager.py` |
 | `app/session/checkpointer.py` | `MemorySaverAdapter` (dev, in-mem dict) + sqlite import | 279 | `bootstrap.py:98-109` |
 | `app/session/postgres_checkpointer.py` | Prod checkpointer (`checkpoints` table) | 220 | `bootstrap.py` (best-effort; falls back on exception) |
 | `app/session/context.py` | Token-count + trim helpers | 105 | context builder |
@@ -163,8 +177,8 @@ web `chat()` (:567-804 — memory search :595, email/brief inject :610-623, cata
 | `app/conversation/manager.py` | `ConversationManager` lifecycle (`add_message/get_recent/save`, corrupt-quarantine) | 257 | `legacy/server.py`; current wiring UNKNOWN — needs human review |
 | `app/prompt/loader.py` | Jinja prompt loader (mtime cache) | 84 | `bootstrap.py` → `ContextBuilder` |
 | `app/config/settings.py` | `Settings.load(config.yaml)`, `ModelConfig/MemoryConfig/.../PathsConfig` | 269 | memory store paths, model registry |
-| `app/config/version.py` + `config/version.py` | Git-tag-derived version | 194 + small | `main.py`, `http/router.py` health |
-| `app/resources/` (4 files) | `TokenBudgetManager` (128k max), rate limits, provider health, `ResourceManager` | ~214 | `models/router.py` (health/rate), telemetry |
+| `app/config/version.py` + `config/version.py` | Git-tag-derived version | 194 + small | `main.py`, `app/adapters/http/router.py` health |
+| `app/resources/` (4 files) | `TokenBudgetManager` (128k max), rate limits, provider health, `ResourceManager` | ~214 | `app/models/router.py` (health/rate), telemetry |
 | `app/events/bus.py` + `models.py` | `InMemoryAsyncBus` (passive telemetry only) + event types incl. `TokenUsageEvent` | 69 + 76 | `runner.py` (step/HITL events), telemetry subscribers |
 | `app/telemetry/` (5 files) | `EventLogger`, `MetricsCollector`, `Tracer`, OTel exporter, `trace_new.register_tracer` | ~430 | `bootstrap.py`; `logging_middleware` |
 | `app/tools/__init__.py` | `DEFAULT_TOOLSET` (workspace + git + comms + subagent) | 74 | `bootstrap.py:160-161` registration |
@@ -175,7 +189,7 @@ web `chat()` (:567-804 — memory search :595, email/brief inject :610-623, cata
 | `app/tools/subagent_tools.py` | Sub-agent worker tools (ADR-017) | 307 | via `DEFAULT_TOOLSET` |
 | `app/tools/executor.py` | Prompt-based alt executor (`parse/run`, 4096-char cap) | 171 | doc agent (`ToolExecutor`) |
 | `app/tools/base.py` | `ToolResult/ToolDefinition/ToolRegistry` | 139 | executor, doc agent |
-| `app/integrations/` (~3827 total) | External systems: email (client/reader/sender/tools), telegram, brief, push, whatsapp, voice, mcp (server/client/manager/transports), ocr, vector | e.g. `mcp/server.py` 481, `email/client.py` 269, `brief/__init__.py` ~224 | adapters (email/voice/push/brief routes), memory (OCR/vector) |
+| `app/integrations/` (~3827 total) | External systems: email (client/reader/sender/tools), telegram, brief, push, whatsapp, voice, mcp (server/client/manager/transports), ocr, vector | e.g. `app/integrations/mcp/server.py` 481, `app/integrations/email/client.py` 269, `app/integrations/brief/__init__.py` ~224 | adapters (email/voice/push/brief routes), memory (OCR/vector) |
 | `app/agents/doc_agent.py` | `DocumentationAgent` (only agent class; `MAX_ITERATIONS=12`) | 246 | on-demand `docs` command only, NOT the request path |
 | `app/mcp/registry.py` | Thin MCP dataclass shim (no transport logic) | 91 | UNKNOWN — needs human review (real logic in `app/integrations/mcp/`) |
 | `app/utils/` (~2825 total) | Provider catalogs (`provider_catalog.py` 637, `model_selector.py` 322, 14 `*-catalog.py`), `tokenizer.py` 199, `server_manager.py` 197 | ~2825 | provider registry, context builder, switcher |
@@ -261,18 +275,18 @@ Counting: `utils/tokenizer.py:17-156` (tiktoken w/ estimate fallback); `session/
   `tests/utils/` **0 live** (1 orphan `.pyc`); `tests/performance/test_security.py` (773 lines, only perf test).
 - **Covered (100% in last `.coverage` run, 87% total: 10274 stmts / 1302 miss):**
   `app/domain/*`, `app/brain/analyzer.py`, `planner.py`, most `models/*_client.py`,
-  `models/router.py`, `switcher.py`, most `utils/*_catalog.py`, `memory/manager.py`,
-  `artifacts/manager.py`, `prompt/loader.py`, `resources/*`.
+  `app/models/router.py`, `switcher.py`, most `utils/*_catalog.py`, `app/memory/manager.py`,
+  `artifacts/manager.py`, `app/prompt/loader.py`, `resources/*`.
 - **Not covered / thin:**
   - `tests/e2e`, `tests/sprint4`, `tests/utils` — zero live tests; journeys/ecosystem/tokenizer e2e uncovered.
   - Lowest: `app/integrations/mcp/transports.py` 34%, `app/api/ocr/routes.py` 34%,
-    `app/adapters/web/email_routes.py` 36%, `voice_routes.py` 45%, `email/tools.py` 47%,
+    `app/adapters/web/email_routes.py` 36%, `voice_routes.py` 45%, `app/integrations/email/tools.py` 47%,
     **`app/adapters/web/router.py` 49% (541 stmts, 277 miss)** — the only real LLM path is half-untested,
-    `telegram/__init__.py` 53%, `tools/comms_tools.py` 53%, `brief_routes.py` 54%, `push_routes.py` 55%,
-    `memory/llm_extractor.py` 65%, `memory/dedup.py` 66%, `telemetry/tracer.py` 67%,
-    `memory/pipeline.py` 69%, `brain/nodes.py` 73%, `mcp/server.py` 73%,
-    `session/postgres_checkpointer.py` 74%, `brain/graph.py` 75%, `factory.py` 80%,
-    `workspace/manager.py` 83%. `app/main.py` 86% (17 miss incl. `main()` bind/auth warning :254-266).
+    `app/integrations/telegram/__init__.py` 53%, `app/tools/comms_tools.py` 53%, `brief_routes.py` 54%, `push_routes.py` 55%,
+    `app/memory/llm_extractor.py` 65%, `app/memory/dedup.py` 66%, `app/telemetry/tracer.py` 67%,
+    `app/memory/pipeline.py` 69%, `app/brain/nodes.py` 73%, `app/integrations/mcp/server.py` 73%,
+    `app/session/postgres_checkpointer.py` 74%, `app/brain/graph.py` 75%, `factory.py` 80%,
+    `app/workspace/manager.py` 83%. `app/main.py` 86% (17 miss incl. `main()` bind/auth warning :254-266).
   - `app/api/` has no unit test (only contract `tests/contract/test_api_contract.py:1-103`).
   - `app/db/`, `app/backend/providers/`, `app/evals/` have no sources AND no tests (empty packages).
   - Env-gated skips: `test_postgres_checkpointer.py:243` (`JARVIS_TEST_DATABASE_URL`),
