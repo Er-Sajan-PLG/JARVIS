@@ -247,24 +247,14 @@ def check(staged: list[str]) -> tuple[list[str], list[str]]:
     for finding in _manifest.validate(staged_docs or ["__none__"]):
         errors.append(f"R4 manifest: {finding}")
 
-    # R5: machine facts would rewrite — WARNING only, never blocking. Rationale:
-    # the framework stashes unstaged work before hooks run, so --check here
-    # evaluates a Frankenstein tree (staged + HEAD), and --apply is known
-    # partial (it leaves stale markers behind). Hard enforcement belongs to
-    # Layer 2, which always runs on real trees (pre-push worktree, ci_gate
-    # detached worktree). Reported so authors see it; exit code unaffected.
-    proc = subprocess.run(
-        [sys.executable, str(SCRIPTS / "sync_doc_facts.py"), "--check"],
-        capture_output=True,
-        text=True,
-        timeout=120,
-        cwd=str(REPO_ROOT),
-    )
-    if proc.returncode != 0:
-        warnings.append(
-            "R5 facts: sync_doc_facts --check fails (Layer 2 will block) — run "
-            ".venv/bin/python scripts/sync_doc_facts.py --apply and stage the result"
-        )
+    # R5 (retired as a check): machine-fact verification lives in Layer 2 (F7)
+    # and in the native hook's auto-apply step. Rationale: the framework stashes
+    # unstaged work before hooks run, so any worktree read here evaluates a
+    # Frankenstein tree (staged + HEAD) — observed to misreport during
+    # verification (see DOCS_VERIFICATION_LOG.md "stash-cycle" entry). Layer 1
+    # is therefore strictly index-based (staged snapshot + HEAD); it never
+    # reads the worktree and never writes anything, which makes it immune to
+    # stash/pop races by construction.
     return errors, warnings
 
 

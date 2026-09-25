@@ -51,7 +51,7 @@ Three distinct write-capable credentials exist. They are **not** interchangeable
 
 | Token | Stored in | Identity | list PRs | read statuses | publish statuses | contents:write |
 |---|---|---|---|---|---|---|
-| **CI token** | `.ci-bridge.env`, `JARVIS/.env` | `github_pat_11CAWY4NA…` (sha `5ab1adf1…`) | ✅ 200 | ✅ 200 | ✅ | ✅ **201** |
+| **CI token** | `.ci-bridge.env`, repo `.env` | `github_pat_11CAWY4NA…` (sha `5ab1adf1…`) | ✅ 200 | ✅ 200 | ✅ | ✅ **201** |
 | **n8n GitHub credential** | n8n credential `github-api-auth` | `github_pat_11CAWY4NA…` (sha `35465799…`) | ✅ 200 | ❌ **403** | ❌ 403 | ✅ 201 |
 | `gh` CLI | keyring (`gh auth`) | classic, `repo` scope | ✅ | ✅ | ✅ | ✅ |
 
@@ -88,7 +88,7 @@ three jobs:
 
 1. **Environment** — an env var beats every file. `.ci-bridge.env` is a systemd
    `EnvironmentFile`, so the service gets `JARVIS_CI_TOKEN` from here first.
-2. `TOKEN_FILES` in order: `~/Projects/.env`, `~/.hermes/.env`, `JARVIS/.env`.
+2. `TOKEN_FILES` in order: `~/Projects/.env`, `~/.hermes/.env`, repo `.env`.
 3. A **configured GitHub App**, if `JARVIS_APP_ID` + key path are set — and if the
    App is configured but broken it **raises** rather than silently falling back
    to the PAT (RISK-015: a silent fallback is how a permission regression hides).

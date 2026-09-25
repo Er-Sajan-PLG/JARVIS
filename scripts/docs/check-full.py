@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import importlib.util
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -187,6 +188,86 @@ def check_snippets(path: Path, errors: list[str]) -> None:
             lang, buf = None, []
 
 
+FACT_MARKER_RE = re.compile(r"<!--fact:([a-z_]+)-->(.*?)<!--/fact-->")
+
+# Facts F7 recomputes live. Coverage is excluded on purpose: it needs a full
+# suite execution and already has its own live gate (gate_coverage in ci_gate).
+F7_FACTS = ("test_count", "gate_count", "adr_count", "doc_count", "board_count", "context_count")
+
+# Frozen records pin history; rewriting their numbers would falsify the record.
+F7_SKIP_DIRS = ("docs/archive/", "docs/adr/")
+
+
+def live_facts() -> dict[str, str]:
+    """Recompute cross-checkable facts live (no cache, no snapshots)."""
+    live: dict[str, str] = {}
+    try:
+        doc_facts = _load("docs_doc_facts", SCRIPTS / "doc_facts.py")
+        cheap = doc_facts.collect_cheap()
+        for name in F7_FACTS:
+            if name != "test_count" and name in cheap:
+                live[name] = str(cheap[name])
+    except Exception:  # noqa: BLE001 - a failed recompute is reported, not fatal
+        pass
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/",
+                "--collect-only",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            cwd=str(REPO_ROOT),
+        )
+        m = re.search(r"(\d+) tests? collected", proc.stdout)
+        if m is None:
+            m = re.search(r"collected (\d+) items", proc.stdout)
+        if m:
+            live["test_count"] = m.group(1)
+    except Exception:  # noqa: BLE001 - same contract as above
+        pass
+    return live
+
+
+def check_fact_markers(text: str, live: dict[str, str]) -> list[str]:
+    """Compare fact markers against live values. Pure function (unit-tested)."""
+    findings = []
+    for m in FACT_MARKER_RE.finditer(text):
+        name, committed = m.group(1), m.group(2).strip()
+        if name not in live:
+            continue
+        if committed != live[name]:
+            findings.append(
+                f"fact '{name}' says '{committed}' but live recompute says '{live[name]}'"
+            )
+    return findings
+
+
+def check_facts_live(errors: list[str]) -> None:
+    live = live_facts()
+    if "test_count" not in live:
+        errors.append("F7 facts: live test_count could not be recomputed (pytest failed)")
+        return
+    for path in all_docs():
+        rel = _rel(path)
+        if rel.startswith(F7_SKIP_DIRS):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as err:
+            errors.append(f"F7 read: {rel}: {err}")
+            continue
+        for finding in check_fact_markers(text, live):
+            errors.append(f"F7 facts: {rel}: {finding}")
+
+
 def check_generated(errors: list[str]) -> None:
     try:
         generate = _load("docs_generate", DOCS_DIR / "generate.py")
@@ -202,8 +283,15 @@ def check_generated(errors: list[str]) -> None:
         errors.append(f"F5 generated: {doc} differs from generator output ({hint})")
 
 
+# Orphan ratchet (v1): existing orphans warn, but the count may never grow.
+# Revisit by ORPHAN_REVIEW_DATE: either burn the backlog down (index rows) and
+# lower the baseline, or consciously extend the date with a reason recorded here.
+ORPHAN_BASELINE = 75
+ORPHAN_REVIEW_DATE = "2027-01-15"
+
+
 def orphan_warnings(docs: list[Path]) -> list[str]:
-    inbound: dict[str, int] = {str(p.relative_to(REPO_ROOT)): 0 for p in docs}
+    inbound: dict[str, int] = {_rel(p): 0 for p in docs}
     for path in docs:
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
@@ -226,6 +314,17 @@ def orphan_warnings(docs: list[Path]) -> list[str]:
     return warnings
 
 
+def check_orphan_ratchet(warnings: list[str], errors: list[str]) -> None:
+    """Fail when the orphan count grows past baseline (new orphans block)."""
+    orphans = [w for w in warnings if w.startswith("F6 orphan:")]
+    if len(orphans) > ORPHAN_BASELINE:
+        errors.append(
+            f"F6 orphan ratchet: {len(orphans)} orphans exceed baseline "
+            f"{ORPHAN_BASELINE} — link the new doc from an index/README "
+            f"(review date {ORPHAN_REVIEW_DATE})"
+        )
+
+
 def main() -> int:
     errors: list[str] = []
     for finding in _manifest.validate():
@@ -236,7 +335,9 @@ def main() -> int:
         check_spelling(path, errors)
         check_snippets(path, errors)
     check_generated(errors)
+    check_facts_live(errors)
     warnings = orphan_warnings(docs)
+    check_orphan_ratchet(warnings, errors)
     for warning in warnings:
         print(f"warning: {warning}")
     for error in errors:

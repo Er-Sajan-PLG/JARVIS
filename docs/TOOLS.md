@@ -60,12 +60,14 @@ and runs them. It is composed of six source files plus the package init:
   Tools whose `risk_level` is not `"none"`/`"low"` get a ` [<risk> risk]` suffix (so
   `write_file` shows `[medium risk]`; git tools and `read_file` do not).
 
-### The runner toolset — `DEFAULT_TOOLSET` (15 entries, verified)
+### The runner toolset — `DEFAULT_TOOLSET` (16 entries, 17 with opt-in, verified)
 
 `app/tools/__init__.py` defines `DEFAULT_TOOLSET`, the composition-root wiring
 table the ExecutionRunner executes tools *by name* from (`app/bootstrap.py`
-registers this mapping at boot). It holds **14 entries**: 5 workspace + 3 git
-+ 6 comms (from `app/tools/comms_tools.py`).
+registers this mapping at boot). It holds **16 entries**: 5 workspace + 3 git
++ 6 comms (from `app/tools/comms_tools.py`) + 2 sub-agent
+(from `app/tools/subagent_tools.py`), plus optional `web_search`
+(`JARVIS_WEB_SEARCH=1`, `app/tools/web_search_tool.py`).
 
 | Tool | Source | Safety tier (`@safety_gate`) | requires_confirmation |
 |---|---|---|---|
@@ -84,6 +86,8 @@ registers this mapping at boot). It holds **14 entries**: 5 workspace + 3 git
 | `send_notification` | `comms_tools.py` (`comms_notify`, push and/or Telegram) | SENSITIVE | no |
 | `get_brief` | `comms_tools.py` (`comms_brief`, generates the morning brief) | SAFE | no |
 | `spawn_subagent` | `subagent_tools.py` (OpenCode worker: goal, agent, model, workdir, session_id, timeout_s) | SENSITIVE | no |
+| `spawn_worker` | `subagent_tools.py` (any-backend worker: goal, backend, agent, model, workdir, session_id, timeout_s) | SENSITIVE | no |
+| `web_search` | `web_search_tool.py` (Exa search; opt-in via `JARVIS_WEB_SEARCH=1`) | SAFE | no |
 
 Safety tiers are `SafetyTier` (`app/domain/plan.py`: SAFE / SENSITIVE /
 DESTRUCTIVE), enforced at runtime by `@safety_gate` (`app/guardrails/`), not

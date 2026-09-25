@@ -22,6 +22,7 @@ def _load(name: str, path: Path):
 _manifest = _load("test_docs_manifest", DOCS_SCRIPTS / "manifest-validate.py")
 _generate = _load("test_docs_generate", DOCS_SCRIPTS / "generate.py")
 _check_full = _load("test_docs_check_full", DOCS_SCRIPTS / "check-full.py")
+_sync = _load("test_docs_sync", REPO_ROOT / "scripts" / "sync_doc_facts.py")
 
 
 def test_manifest_covers_whole_tree() -> None:
@@ -53,6 +54,79 @@ def test_snippet_checker_catches_syntax_error(tmp_path: Path) -> None:
     errors.clear()
     _check_full.check_snippets(good, errors)
     assert errors == []
+
+
+def test_reconcile_rejects_stale_snapshot() -> None:
+    """A cache from another commit must not survive as writable facts."""
+    reconciled = _sync.reconcile_injected_facts(
+        {"commit": "deadbeef", "test_count": "1", "coverage": "1", "gate_count": "1"}
+    )
+
+    assert reconciled["test_count"] == "unknown"
+    assert reconciled["coverage"] == "unknown"
+    # Cheap facts are always recomputed live, even from a stale snapshot.
+    assert reconciled["gate_count"] != "1"
+
+
+def test_reconcile_accepts_current_snapshot() -> None:
+    import subprocess
+
+    head = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    ).stdout.strip()
+    reconciled = _sync.reconcile_injected_facts(
+        {"commit": head, "test_count": "1746", "coverage": "88"}
+    )
+
+    assert reconciled["test_count"] == "1746"
+    assert reconciled["coverage"] == "88"
+
+
+def test_f7_catches_stale_marker() -> None:
+    live = {"test_count": "1746", "gate_count": "28"}
+    findings = _check_full.check_fact_markers(
+        "a <!--fact:test_count-->1000<!--/fact--> b <!--fact:gate_count-->28<!--/fact--> c",
+        live,
+    )
+
+    assert len(findings) == 1
+    assert "'1000'" in findings[0] and "'1746'" in findings[0]
+    assert _check_full.check_fact_markers("<!--fact:test_count-->1746<!--/fact-->", live) == []
+
+
+def test_layer1_ignores_unstaged_worktree_noise() -> None:
+    """Stash-safety: Layer 1 reads the staged snapshot + HEAD only.
+
+    Regression test for the verification-time stash-cycle incident: unstaged
+    worktree content (what pre-commit stashes away mid-run) must not change
+    Layer 1 output. Uses the real repo but stages nothing and restores the
+    one touched file, so the tree is untouched afterward.
+    """
+    import subprocess
+
+    _changed = _load("test_docs_check_changed", DOCS_SCRIPTS / "check-changed.py")
+    voice = REPO_ROOT / "docs" / "VOICE.md"
+    original = voice.read_text(encoding="utf-8")
+    before = _changed.check([])
+    try:
+        with voice.open("a", encoding="utf-8") as handle:
+            handle.write("\nUnstaged probe line that must not affect Layer 1.\n")
+        during = _changed.check([])
+    finally:
+        voice.write_text(original, encoding="utf-8")
+    assert before == during
+    assert voice.read_text(encoding="utf-8") == original
+    # And the tree really is untouched (nothing staged by the check itself).
+    staged = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "diff", "--cached", "--name-only"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    ).stdout.strip()
+    assert "docs/VOICE.md" not in staged.splitlines()
 
 
 def test_spelling_checker_flags_typo(tmp_path: Path) -> None:

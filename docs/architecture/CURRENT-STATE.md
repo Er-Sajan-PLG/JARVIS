@@ -210,7 +210,7 @@ web `chat()` (:567-804 — memory search :595, email/brief inject :610-623, cata
   `sessions/session_{id}.json` + `conv_{id}.json` (`app/session/persistence.py:31-88`);
   `conversations/default.json` + friends (`app/conversation/manager.py:72-222`);
   `web_settings.json` (0600, `app/adapters/web/settings.py:27`);
-  `checkpoints.db`, `jarvis.db`, `sessions/jarvis.db` (SQLite, live);
+  `checkpoints.db`, `jarvis.db`, `data/sessions/jarvis.db` (SQLite, live);
   `chroma/` (`chroma.sqlite3` + UUID dirs); `artifacts/`, `attachments/`, `uploads/`, `backups/`, `projects/`.
 - **DBs:** Postgres **optional/prod** (`docker-compose.yml:4` pgvector/pg16;
   `bootstrap.py:95-109` uses `PostgresCheckpointer` only if `JARVIS_DATABASE_URL` starts with

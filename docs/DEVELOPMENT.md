@@ -19,6 +19,14 @@
 > `scripts/setup_dev_env.sh`, `requirements-dev.txt` or `.releaserc.json`:
 > none of them exist in this tree.
 
+Preferred (one command, installs hooks too):
+
+```bash
+cd /home/sajan/Projects/JARVIS && ./scripts/setup.sh
+```
+
+Manual fallback:
+
 ```bash
 # Run once per machine
 cd /home/sajan/Projects/JARVIS

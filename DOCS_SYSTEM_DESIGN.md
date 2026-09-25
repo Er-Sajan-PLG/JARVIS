@@ -41,7 +41,12 @@ Inputs: `git diff --cached --name-only` (+ staged content via `git show :path`).
 - R2 **docstrings**: new `def/class` (added lines starting with `def |class |async def `, minus tests) without a docstring within 3 lines → block (stdlib `ast` on staged content).
 - R3 **markdown**: changed `*.md` → heading-structure lint (single H1, no skipped levels, no trailing whitespace beyond pre-commit's, fenced-block balance), internal `](...)` targets resolve (repo- or doc-relative), no new backticked path that fails `rel_exists` logic.
 - R4 **manifest**: every staged doc must be classifiable (in manifest or `standalone, reviewed <date>`); `docs.manifest.yaml` itself must stay valid YAML matching the schema.
-- R5 **facts**: run `sync_doc_facts.py` in check mode over changed scope; if it would rewrite, block with the command to apply (same UX as the existing hook).
+- R5 **facts**: RETIRED as a Layer-1 check (see §6 deltas). The native hook already
+  auto-applies facts pre-framework, and any worktree read inside the framework's
+  stash window evaluates a Frankenstein tree. Fact verification lives in Layer 2
+  (F7 live cross-validation) and the drift unit test. Layer 1 is strictly
+  index-based and never reads the worktree (except the manifest file itself) —
+  stash-proof by construction; `test_layer1_ignores_unstaged_worktree_noise` pins it.
 - Exit non-zero blocks commit. Runtime target <10s (staged-only by construction). No network.
 
 ## 3. Layer 2 — `scripts/docs/check-full.py` + `generate.py` (pre-push subset, `ci_gate` gate, n8n schedule)
