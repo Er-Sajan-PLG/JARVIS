@@ -123,6 +123,38 @@ ALLOWED_MISSING = {
     # correction note under it explains this and points at the real file. The
     # reference is intentional and must stay for the record.
     "scripts/mint_app_token.py",
+    # Target-architecture names used by docs/architecture/GAP-ANALYSIS.md and
+    # docs/architecture/MIGRATION-PLAN.md. A gap analysis is correct by naming
+    # files that do not exist yet; un-backticking them would destroy the
+    # target-component table the migration is measured against.
+    "core/config.py",
+    "core/jarvis.py",
+    "core/mode_manager.py",
+    "core/intent_engine.py",
+    "core/response_engine.py",
+    "memory/short_term.py",
+    "memory/long_term.py",
+    "memory/semantic.py",
+    "domains/coding.py",
+    "domains/science.py",
+    "domains/finance.py",
+    "domains/health.py",
+    "domains/writing.py",
+    "domains/research.py",
+    "hardware/controller.py",
+    "hardware/smart_home.py",
+    "hardware/iot_bridge.py",
+    "hardware/desktop_control.py",
+    "interfaces/cli.py",
+    "interfaces/voice.py",
+    "interfaces/web.py",
+    "evolution/analyzer.py",
+    "evolution/optimizer.py",
+    "evolution/changelog.py",
+    "plugins/base_plugin.py",
+    "plugins/calendar_sync.py",
+    "security/permissions.py",
+    "security/audit_log.py",
 }
 
 # Documents exempt from the *path* rule, because their whole purpose is to record

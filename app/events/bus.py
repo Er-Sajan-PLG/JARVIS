@@ -1,13 +1,13 @@
-import typing
-
 """In-Memory Async Event Bus.
 
-Reserved for passive telemetry, logging, metrics, background jobs, streaming events, and scheduler notifications.
-Core execution loops MUST use direct async interface calls instead of the bus.
+Reserved for passive telemetry, logging, metrics, background jobs, streaming
+events, and scheduler notifications. Core execution loops MUST use direct
+async interface calls instead of the bus.
 """
 
 import asyncio
 import logging
+import typing
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
@@ -40,6 +40,16 @@ class InMemoryAsyncBus:
 
     async def publish_async(self, event: Event) -> None:
         """Publish an event and await all registered handlers concurrently."""
+        # Migration Step 2.5: stamp the active request's correlation ID onto the
+        # event (unless the publisher set one explicitly). Same-package import:
+        # the layering gate holds app.events standalone, and the ContextVar lives
+        # in app.events.correlation precisely so this edge stays in-package.
+        # (Local import: bus.py loads before app.events finishes initializing.)
+        from app.events.correlation import get_correlation_id
+
+        cid = get_correlation_id()
+        if cid != "none" and event.metadata.get("correlation_id", "none") in ("none", None):
+            event.metadata["correlation_id"] = cid
         handlers = self._handlers.get(event.event_type, []) + self._handlers.get("*", [])
         if not handlers:
             return
