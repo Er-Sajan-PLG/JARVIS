@@ -136,9 +136,10 @@ User Request
      │
      ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  app/brain/IntentAnalyzer.analyze(prompt)                    │
+│  app/brain/IntentAnalyzer.analyze(query, has_attachments=False) │
 │  → IntentAnalysis { complexity: DIRECT_CHAT | FILE_QUERY |   │
-│       TOOL_SEARCH | MULTI_STEP, requires_tools, safety_flags }│
+│       TOOL_SEARCH | MULTI_STEP, requires_tools, suggested_tools,│
+│       confidence, reasoning, urgency, domain, action }        │
 └──────────────────────────┬───────────────────────────────────┘
                            │
                            ▼
@@ -227,7 +228,7 @@ bootstrap_system() → ApplicationContainer (singleton)
 SessionManager.get_session(session_id)
      │
      ▼
-IntentAnalyzer.analyze(prompt)
+IntentAnalyzer.analyze(query, has_attachments=False)
      │
      ▼
 TaskPlanner.create_plan(prompt, analysis)
@@ -332,7 +333,7 @@ ModelRouter
 
 | Component | Version | Notes |
 |-----------|---------|-------|
-| JARVIS Runtime | git-tag derived (currently `v3.23.0`) | `app/config/version.py` derives it; see `docs/VERSIONING.md` |
+| JARVIS Runtime | git-tag derived (see `git describe`; never pinned here) | `app/config/version.py` derives it; see `docs/VERSIONING.md` |
 | Python | **3.11/3.12** (NOT 3.14) | 3.14 breaks ML deps |
 | FastAPI | 0.115+ | |
 | ChromaDB | 1.5.9 (pinned) | Vector backend — 4 known CVEs, RISK-001 |
@@ -342,7 +343,7 @@ ModelRouter
 
 ## 12. Architectural Decisions (ADR Index)
 
-All fifteen decisions live in [`adr/`](adr/). This is the index; the ADR files are
+All seventeen decisions live in [`adr/`](adr/). This is the index; the ADR files are
 authoritative.
 
 | ADR | Title | Status |
@@ -399,6 +400,23 @@ The comms tools give the ExecutionRunner email/notification/brief capabilities: 
 Mobile is a Capacitor wrapper that bundles the web console as an Android debug APK, with PWA manifest/service worker/offline page, self-healing server resolution, wake lock during generations, and voice UI. Source: `mobile/`, `mobile/capacitor.config.json`, `mobile/www`.
 
 The tgcall sidecar is a Node peer-to-peer call scaffold beside the Python server, using user-session Telegram libraries for voice notes and calls. Source: `tgcall/`, `tgcall/call.js`, `tgcall/login.js`.
+
+---
+
+## 14. Migration Steps 0–4 (landed 2026-09-25/26; full plan in `architecture/MIGRATION-PLAN.md`)
+
+- **Step 0**: baseline frozen (`architecture/BASELINE.md`, tag `migration-baseline-20260925`).
+- **Step 1**: append-only JSONL audit sink (`app/security/audit_sink.py`), wired in
+  `bootstrap_system()`, env-gated (`JARVIS_AUDIT_SINK`, default on).
+- **Step 2**: opt-in Exa web-search runner tool (`app/tools/web_search_tool.py`,
+  `JARVIS_WEB_SEARCH=1`; default toolset unchanged).
+- **Step 2.5**: `X-Correlation-ID` propagation via `contextvars`
+  (`app/events/correlation.py`, canonical; `app/telemetry/correlation.py`
+  re-exports); the bus stamps the active ID onto events lacking one.
+- **Step 3**: mode facade (`app/modes/`, `app/core/mode_manager.py`,
+  `container.mode_manager`); every mode renders today's default prompt — no callers yet.
+- **Step 4**: additive `IntentAnalysis` fields (`urgency`, `domain`, `action`)
+  with keyword detectors; no consumer reads them yet.
 
 ---
 
