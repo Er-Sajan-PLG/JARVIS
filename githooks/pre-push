@@ -50,7 +50,20 @@ while IFS= read -r _line || [ -n "$_line" ]; do
     fi
     RANGES="$RANGES $remote_sha..$local_sha"
   else
-    RANGES="$RANGES $local_sha"
+    # New branch: gate only commits not already on the remote default branch.
+    # Rev-listing $local_sha alone walks the entire history back to root and
+    # demands signatures on pre-policy commits, which makes every new branch
+    # unpushable. Signatures are still required on every NEW commit.
+    _upstream="$(git -C "$REPO_ROOT" rev-parse --verify refs/remotes/origin/HEAD 2>/dev/null || git -C "$REPO_ROOT" rev-parse --verify refs/remotes/origin/main 2>/dev/null || true)"
+    _base=""
+    if [ -n "$_upstream" ]; then
+      _base="$(git -C "$REPO_ROOT" merge-base "$_upstream" "$local_sha" 2>/dev/null || true)"
+    fi
+    if [ -n "$_base" ]; then
+      RANGES="$RANGES $_base..$local_sha"
+    else
+      RANGES="$RANGES $local_sha"
+    fi
   fi
 done
 
