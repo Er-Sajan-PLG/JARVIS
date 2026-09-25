@@ -97,7 +97,7 @@ platformdirs==4.11.8
 pluggy==1.6.0
 prettytable==3.18.0
 propcache==0.5.2
-protobuf==7.36.1
+protobuf==7.36.2
 py-serializable==2.1.0
 pybase64==1.5.0
 pydantic==2.13.5
