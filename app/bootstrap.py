@@ -12,6 +12,7 @@ from pathlib import Path
 from app.artifacts import ArtifactManager
 from app.brain import ExecutionRunner, IntentAnalyzer, ResponseSynthesizer, TaskPlanner
 from app.context import ContextBuilder
+from app.core import ModeManager
 from app.events import InMemoryAsyncBus
 from app.guardrails import ApprovalRegistry, ToolSafetyPolicy, set_global_policy
 from app.memory import MemoryService
@@ -50,6 +51,7 @@ class ApplicationContainer:
     task_planner: TaskPlanner
     execution_runner: ExecutionRunner
     response_synthesizer: ResponseSynthesizer
+    mode_manager: ModeManager
 
     def create_model_client(self, config):
         """Create a model client from config (delegates to app.models.factory)."""
@@ -113,6 +115,10 @@ def bootstrap_system(
     # 1. Event Bus & Telemetry
     bus = InMemoryAsyncBus()
     event_logger = EventLogger(bus=bus)
+    # Migration Step 1: append-only audit sink (env-gated, fire-and-forget).
+    from app.security import maybe_attach_sink
+
+    maybe_attach_sink(bus)
     tracer = Tracer(
         bus=bus,
         otel_enabled=os.environ.get("JARVIS_OTEL_ENABLED", "").lower() == "true",
@@ -153,6 +159,8 @@ def bootstrap_system(
     # 7. Cognitive Engine (Brain)
     intent_analyzer = IntentAnalyzer()
     task_planner = TaskPlanner()
+    # Migration Step 3: mode facade (no callers yet; default prompt == today's).
+    mode_manager = ModeManager(prompts_dir=prompts_dir)
     execution_runner = ExecutionRunner(event_bus=bus, safety_policy=safety_policy)
     # Composition-root wiring (ADR-011). ExecutionRunner dispatches tools by NAME, so the
     # registry must be populated here: unregistered names were silently marked COMPLETED
@@ -181,6 +189,7 @@ def bootstrap_system(
         task_planner=task_planner,
         execution_runner=execution_runner,
         response_synthesizer=response_synthesizer,
+        mode_manager=mode_manager,
     )
 
     logger.info("JARVIS Composition Root bootstrapped successfully.")
