@@ -92,6 +92,7 @@ Beyond parity, the gate adds the supply-chain layer Actions never had:
 | 19 | Documentation type contract | DOC-GOVERNANCE §10 | `gate_doc_types` → `scripts/doc_types.py` vs `docs/DOC-GOVERNANCE.md` | **Implemented** (blocking) | contract diff |
 | 20 | Documentation coverage of code | doc coverage | `gate_doc_coverage` → `scripts/check_doc_coverage.py --strict` | **Implemented** (blocking) | undocumented surfaces |
 | 21 | Documentation truth (numbers) | DOC-GOVERNANCE §8 | `gate_doc_facts` → `scripts/sync_doc_facts.py --check` | **Implemented** (blocking) | stale-claim findings |
+| 21b | Documentation Layer 2 (manifest/markdown/spelling/snippets/generated) | autonomous docs system | `gate_docs_layer2` → `scripts/docs/check-full.py` (offline) | **Implemented** (blocking) | layer-2 errors |
 | 22 | Eval suite | functional correctness | `gate_evals` → `scripts/run_evals.py` (opt-in `--with-evals`) | **Implemented** (opt-in) | eval verdict |
 | 23 | Contract tests | interface stability | `gate_contract` → `tests/contract` (blocking) | **Implemented** | pytest summary |
 | 24 | Risk acceptance must be explicit | SSDF RV.3, ASVS 1.14 | `ACCEPTED_RISKS.md` parsed by the gate as a machine-readable exemption source | **Implemented (novel)** | acknowledged findings listed separately |
