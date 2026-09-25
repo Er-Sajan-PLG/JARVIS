@@ -20,12 +20,14 @@ is the composition root for the execution runner. The doc agent imports ``file_t
 directly and is unaffected.
 """
 
+import os
 from collections.abc import Callable
 from typing import Any
 
 from app.tools.comms_tools import COMMS_TOOLS
 from app.tools.git_tools import git_diff_full, git_diff_stat, git_log
 from app.tools.subagent_tools import SUBAGENT_TOOLS
+from app.tools.web_search_tool import web_search
 from app.tools.workspace_tools import (
     WORKSPACE_TOOLS,
     workspace_append_file,
@@ -35,6 +37,7 @@ from app.tools.workspace_tools import (
     workspace_write_file,
 )
 
+# Default tools; see Migration Plan Step 2 for web_search.
 # Runner-facing surface: generic sandboxed primitives + comms + sub-agents.
 # Values may be sync or async callables; the runner awaits coroutine results.
 DEFAULT_TOOLSET: dict[str, Callable[..., Any]] = {
@@ -51,6 +54,11 @@ DEFAULT_TOOLSET: dict[str, Callable[..., Any]] = {
     # Orchestration: sub-agent workers (SENSITIVE, policy-capped).
     **SUBAGENT_TOOLS,
 }
+
+# Migration Step 2: web_search is opt-in (default OFF) so the default toolset
+# — and therefore every existing plan — is byte-identical unless enabled.
+if os.getenv("JARVIS_WEB_SEARCH", "0") == "1":
+    DEFAULT_TOOLSET["web_search"] = web_search
 
 __all__ = [
     "DEFAULT_TOOLSET",
