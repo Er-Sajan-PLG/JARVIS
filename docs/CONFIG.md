@@ -66,6 +66,7 @@ file but have no reader in `app/` at HEAD — setting them has no effect.
 | Variable | Read by | Default |
 |---|---|---|
 | JARVIS_API_KEY | `app/adapters/security.py`, `app/main.py` (required when binding beyond localhost) | unset (empty) |
+| JARVIS_AUDIT_SINK | `app/security/audit_sink.py`, `app/bootstrap.py` (kill-switch for the append-only audit sink; `0` disables) | `1` (enabled) |
 | OPENROUTER_API_KEY | `app/provider_registry.py`, `app/adapters/web/router.py`, `app/adapters/web/settings.py`, `config.yaml` | unset |
 | XAI_API_KEY | `config.yaml`, `app/models/groq_client.py`, `app/utils/model_selector.py` | unset |
 | GOOGLE_API_KEY | `app/provider_registry.py`, `app/models/google_client.py`, `app/adapters/web/router.py`, `app/adapters/web/settings.py`, `config.yaml` | unset |
@@ -101,7 +102,8 @@ file but have no reader in `app/` at HEAD — setting them has no effect.
 | UNOROUTER_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
 | TOKENROUTER_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
 | TOKENHARBOUR_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
-| EXA_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
+| EXA_API_KEY | `app/tools/web_search_tool.py` (Migration Step 2) | unset |
+| JARVIS_WEB_SEARCH | `app/tools/__init__.py` — `1` registers `web_search` in DEFAULT_TOOLSET | `0` (disabled) |
 | XKIRO_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
 | CHUTES_AI_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
 | CHUTES_AI_FINGLERPRINT | `.env.example` only — no reader in `app/` at HEAD | unset |

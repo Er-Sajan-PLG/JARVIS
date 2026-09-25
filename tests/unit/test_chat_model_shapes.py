@@ -66,6 +66,9 @@ def test_string_model_does_not_500() -> None:
         {"message": "Say OK.", "model": "nvidia/nemotron-3-super-120b-a12b"}
     )
     assert status == 200, f"string model id returned {status}: {data}"
+    error = str(data.get("error") or "")
+    if "HTTP 401" in error or "HTTP 403" in error or "HTTP 429" in error:
+        pytest.skip("live provider refused (auth/quota) — endpoint did not crash")
     assert data.get("response")
 
 
