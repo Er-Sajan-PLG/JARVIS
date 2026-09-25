@@ -112,6 +112,11 @@ async def logging_middleware(
     request: Request, call_next: Callable[[Request], Response]
 ) -> Response:
     correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+    # Migration Step 2.5: publish the ID to the contextvar so the event bus
+    # and audit sink observe it without signature changes downstream.
+    from app.telemetry.correlation import reset_correlation_id, set_correlation_id
+
+    token = set_correlation_id(correlation_id)
     start_time = time.time()
 
     logger.info(
@@ -119,7 +124,10 @@ async def logging_middleware(
         f'"method": "{request.method}", "path": "{request.url.path}"}}'
     )
 
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    finally:
+        reset_correlation_id(token)
 
     process_time = time.time() - start_time
     logger.info(
