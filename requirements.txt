@@ -123,7 +123,7 @@ requests==2.34.2
 requests-oauthlib==2.0.0
 rich==15.0.0
 rpds-py==2026.6.3
-ruff==0.16.7
+ruff==0.16.8
 safetensors==0.8.0
 scikit-learn==1.9.1
 scipy==1.17.1
