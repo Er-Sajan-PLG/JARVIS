@@ -30,7 +30,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from doc_facts import MARKER_RE, REPO_ROOT, collect, collect_cheap  # noqa: E402
 
-EXPENSIVE_FACTS = ("test_count", "coverage")
+EXPENSIVE_FACTS = (
+    "test_count",
+    "coverage",
+)  # historical grouping; see reconcile for per-fact rules
 
 
 def _full_head() -> str:
@@ -47,16 +50,53 @@ def _full_head() -> str:
     return proc.stdout.strip()
 
 
+def _live_test_count() -> str:
+    """Count tests via --collect-only (seconds, deterministic, no execution)."""
+    venv_py = REPO_ROOT / ".venv" / "bin" / "python"
+    if not venv_py.is_file():
+        return "unknown"
+    try:
+        proc = subprocess.run(
+            [
+                str(venv_py),
+                "-m",
+                "pytest",
+                "tests/",
+                "--collect-only",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            cwd=str(REPO_ROOT),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+    m = re.search(r"(\d+) tests? collected", proc.stdout) or re.search(
+        r"collected (\d+) items", proc.stdout
+    )
+    return m.group(1) if m else "unknown"
+
+
 def reconcile_injected_facts(injected: object) -> dict[str, str]:
     """Merge an externally supplied snapshot with live cheap facts.
 
     The ``--facts-json`` fast path exists to skip pytest, but a snapshot is a
     claim about a PAST tree. Applying it blindly writes stale numbers as
-    current truth (observed in the wild: ``test_count`` 1694 written while the
-    suite collected 1746). So: cheap facts are always recomputed live
-    (milliseconds), and expensive measurements survive ONLY when the
-    snapshot's commit matches HEAD. Otherwise they become ``"unknown"`` —
-    ``apply_facts`` then skips those markers and ``check_facts`` reports
+    current truth (observed twice in the wild: ``test_count`` 1694 written
+    while the suite collected 1746, then 1703 written while it collected
+    1751 — the second time the cache commit even MATCHED head, because at
+    pre-commit time HEAD is the parent, not the tree being committed).
+    So the rule is:
+    - cheap facts: always recomputed live (milliseconds);
+    - ``test_count``: ALWAYS recomputed live via --collect-only (seconds,
+      deterministic) — caching it buys nothing and risks everything, so the
+      snapshot's value is never trusted;
+    - ``coverage``: survives ONLY when the snapshot's commit matches HEAD
+      (prefix either way: cheap=short, caches=full), else ``"unknown"``.
+    ``apply_facts`` skips ``"unknown"`` markers and ``check_facts`` reports
     explicit cannot-verify findings instead of passing on a lie.
     """
     facts: dict[str, str] = {}
@@ -72,8 +112,8 @@ def reconcile_injected_facts(injected: object) -> dict[str, str]:
         or not head
         or not (head.startswith(snapshot_commit) or snapshot_commit.startswith(head))
     ):
-        for name in EXPENSIVE_FACTS:
-            facts[name] = "unknown"
+        facts["coverage"] = "unknown"
+    facts["test_count"] = _live_test_count()
     return facts
 
 

@@ -110,8 +110,9 @@ Run checks locally:
 ```
 
 Rule of thumb: never hardcode volatile counts (tests, gates, files) in prose;
-cite them via `<!--fact:name-->value<!--/fact-->` markers (auto-synced) or omit
-the number — stale numbers in prose are the exact drift this system exists to kill.
+cite them via fact markers (auto-synced; see `sync_doc_facts.py` for the list)
+or omit the number — stale numbers in prose are the exact drift this system
+exists to kill.
 
 When GitHub billing returns, mirror Layer 2 as a required PR check (exact recipe
 in `DOCS_SYSTEM_DESIGN.md` §7).
