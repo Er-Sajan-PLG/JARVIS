@@ -122,7 +122,7 @@ match — fixed with prefix-either-way comparison.
   count vs every marker; coverage keeps its own live gate).
 - Regression tests: stale snapshot rejected, current snapshot accepted,
   F7 pure-function catch/noise cases.
-- **Single authoritative number: 1750 tests collected** (`pytest --collect-only`,
+- **Single authoritative number** (the live `--collect-only` total at the time,
   deterministic). Every doc marker re-verified against it.
 
 ## Enforcement status: LOCAL-ONLY.
@@ -142,7 +142,8 @@ repo `JARVIS`, context name matches the governance job).
   `--facts-json` path; cheap facts always live; expensive survives only on commit
   match) + F7 live cross-validation + 3 regression tests. Short/full commit
   mismatch found and fixed the same day (cheap=short vs cache=full sha).
-  **Single authoritative number: 1750 tests collected** (`--collect-only`).
+  **Single authoritative number** (the live `--collect-only` total, re-verified
+  at each run rather than quoted here).
 - **Stash-cycle (§2)**: entry above; R1 specificity + R5 removal + regression test.
 - **Orphan ratchet**: baseline pinned at **75** with review date **2027-01-15**;
   growth past baseline fails the build (`F6 orphan ratchet`).
