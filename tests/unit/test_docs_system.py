@@ -142,3 +142,42 @@ def test_spelling_checker_flags_typo(tmp_path: Path) -> None:
     _check_full.check_spelling(doc, errors)
     assert len(errors) == 1
     assert "Teh" in errors[0]
+
+
+def test_untracked_cache_ignored_without_explicit_opt_in() -> None:
+    """No gate/sync path may auto-load the untracked scratch cache.
+
+    Even a commit-matching cache is ignored unless the caller explicitly opts
+    in (run_tests=True for live measurement, --facts-json through the
+    provenance-checked reconcile, or allow_cache=True). Proves the 1703-class
+    recurrence cannot re-enter through the default path.
+    """
+    import json
+    import subprocess
+
+    _doc_facts = _load("test_docs_doc_facts", REPO_ROOT / "scripts" / "doc_facts.py")
+    cache = REPO_ROOT / ".governance" / "doc_facts.json"
+    head = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    ).stdout.strip()
+    had_cache = cache.is_file()
+    backup = cache.read_bytes() if had_cache else None
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(
+            json.dumps({"commit": head, "test_count": "1", "coverage": "1"}),
+            encoding="utf-8",
+        )
+        facts = _doc_facts.collect()
+        assert facts["test_count"] == "unknown"
+        assert facts["coverage"] == "unknown"
+        # Explicit opt-in still honors a commit-matching cache.
+        assert _doc_facts.collect(allow_cache=True)["test_count"] == "1"
+    finally:
+        if backup is not None:
+            cache.write_bytes(backup)
+        elif cache.is_file():
+            cache.unlink()
