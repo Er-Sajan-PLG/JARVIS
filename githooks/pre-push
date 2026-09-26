@@ -123,7 +123,9 @@ echo "✅ lint ok."
 echo "— documentation gates…"
 "$PY" "$REPO_ROOT/scripts/check_docs.py" --strict || FAIL=1
 "$PY" "$REPO_ROOT/scripts/check_doc_coverage.py" --strict || FAIL=1
-"$PY" -m pytest "$REPO_ROOT/tests/unit/test_doc_coverage.py" -q -p no:cacheprovider || FAIL=1
+"$PY" "$REPO_ROOT/scripts/docs/manifest-validate.py" || FAIL=1
+"$PY" "$REPO_ROOT/scripts/docs/check-full.py" || FAIL=1
+"$PY" -m pytest "$REPO_ROOT/tests/unit/test_doc_coverage.py" "$REPO_ROOT/tests/unit/test_docs_system.py" -q -p no:cacheprovider || FAIL=1
 [ "$FAIL" -ne 0 ] && { echo "❌ push refused: documentation gates failed."; exit 1; }
 echo "✅ doc gates passed."
 

@@ -47,7 +47,7 @@
 ### Doc Facts (machine-derivable)
 - `scripts/sync_doc_facts.py --sync` computes facts once, applies markers, verifies
 - 70 markdown files checked
-**<!--fact:test_count-->1741<!--/fact--> tests collected**
+**<!--fact:test_count-->1750<!--/fact--> tests collected**
 **41+ tests in new Sprint 3/4 code**:
 - `test_cognitive_graph.py` — 6 tests (graph flow, HITL, streaming, tracer)
 - `test_memory_pipeline.py` — 7 tests (extract, dedup, store, retrieve)
@@ -80,7 +80,7 @@
 - **Auto-tag**: `githooks/pre-push` creates tags on conventional commits
 - **Pre-commit**: runs `sync_doc_facts.py --sync` (fast path via cached facts)
 - **Pre-push**: auto-tags version + publishes GitHub release
-- **CI gate**: `scripts/ci_gate.py` runs <!--fact:gate_count-->26<!--/fact--> gates against a detached worktree at target SHA
+- **CI gate**: `scripts/ci_gate.py` runs <!--fact:gate_count-->28<!--/fact--> gates against a detached worktree at target SHA
 - **Branch protection**: ⛔ BLOCKED (GitHub 403 free-tier) — RISK-012 accepted
 
 ---
@@ -100,7 +100,7 @@
 |------|--------------|------|
 | `githooks/pre-commit` | Version guard, doc facts sync, doc type table, pre-commit framework | Every commit |
 | `githooks/pre-push` | Auto-tag version, publish GitHub release | Every push |
-| `scripts/ci_gate.py` | <!--fact:gate_count-->26<!--/fact--> gates against target SHA (idempotent) | CI / manual |
+| `scripts/ci_gate.py` | <!--fact:gate_count-->28<!--/fact--> gates against target SHA (idempotent) | CI / manual |
 | `scripts/sync_doc_facts.py --sync` | Compute facts, apply markers, verify | Pre-commit / CI |
 | `scripts/doc_review_due.py` | Semantic staleness check | Monthly cron |
 | `scripts/doc_type_table.py` | Regenerate §10 type tables from code | Pre-commit |

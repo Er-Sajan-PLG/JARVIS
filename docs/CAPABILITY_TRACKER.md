@@ -138,7 +138,7 @@ tables and must not be reintroduced.
 ## 3. Sprint-by-sprint Compliance Targets
 
 ### Sprint 0-2 (Weeks 0-4): Foundation + Hardening
-- [x] CI pipeline (<!--fact:gate_count-->26<!--/fact--> gates, 9 contexts)
+- [x] CI pipeline (<!--fact:gate_count-->28<!--/fact--> gates, 9 contexts)
 - [x] Security scanning (gitleaks, trufflehog, bandit, semgrep, trivy)
 - [x] Containerization (Dockerfile + hadolint)
 - [x] Release automation (auto-tag + publish)

@@ -30,6 +30,15 @@ the code wins — and the document is a bug.
 | **[FINAL_STATE.md](FINAL_STATE.md)** | Snapshot of repository state at v3.15.4 |
 | **[VERSIONING.md](VERSIONING.md)** | How versions are derived from git tags and what cuts a release |
 | **[DOC-GOVERNANCE.md](DOC-GOVERNANCE.md)** | How these documents are versioned, classified, and kept honest |
+| **[CLI_REFERENCE.md](CLI_REFERENCE.md)** | Generated CLI reference for `scripts/*.py` (regenerated, never hand-edited) |
+
+## 🤖 Autonomous documentation system
+
+| Document | Purpose |
+|---|---|
+| **[../DOCS_AUDIT_REPORT.md](../DOCS_AUDIT_REPORT.md)** | Phase-1 audit: inventory, staleness, automation gaps (frozen snapshot) |
+| **[../DOCS_SYSTEM_DESIGN.md](../DOCS_SYSTEM_DESIGN.md)** | Layered verification design, manifest schema, enforcement points |
+| **[../DOCS_VERIFICATION_LOG.md](../DOCS_VERIFICATION_LOG.md)** | Phase-4 proof transcripts (block/pass scenarios) |
 
 ---
 
@@ -37,7 +46,7 @@ the code wins — and the document is a bug.
 
 | Document | Purpose |
 |---|---|
-| **[CI-GATE-SOTA.md](CI-GATE-SOTA.md)** | The local CI engine: <!--fact:gate_count-->26<!--/fact--> checks, <!--fact:context_count-->9<!--/fact--> published contexts, threat model |
+| **[CI-GATE-SOTA.md](CI-GATE-SOTA.md)** | The local CI engine: <!--fact:gate_count-->28<!--/fact--> checks, <!--fact:context_count-->9<!--/fact--> published contexts, threat model |
 | **[CI-TOKEN-PERMISSIONS.md](CI-TOKEN-PERMISSIONS.md)** | Which GitHub token needs which permission, and why |
 | **[GITHUB-APP-SETUP.md](GITHUB-APP-SETUP.md)** | Migrating CI auth from long-lived PATs to GitHub Apps |
 | **[N8N-SETUP.md](N8N-SETUP.md)** | Standing up the n8n automation plane |
@@ -83,7 +92,7 @@ the code wins — and the document is a bug.
 
 | Directory | Content |
 |---|---|
-| [`architecture/`](architecture/) | Mermaid diagrams: components, cognitive brain, model routing, memory, data flow, startup |
+| [`architecture/`](architecture/) | System topology docs + Mermaid diagrams (components, cognitive brain, model routing, memory, data flow, startup) + migration audit, gap analysis, and plan |
 | [`modules/`](modules/) | Per-subsystem guides: domain, brain, models, memory, guardrails, adapters, integrations |
 | [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-017) |
 | [`migrations/`](migrations/) | v2→v3 migration notes and symbol tombstones |

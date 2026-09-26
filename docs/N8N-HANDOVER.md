@@ -32,7 +32,7 @@ n8n is the **conductor, not the orchestra**. It has exactly three jobs:
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `JARVIS-CI-Local` | every 30 min | POSTs to the bridge → the bridge runs the <!--fact:gate_count-->26<!--/fact-->-check gate and publishes GitHub statuses |
+| `JARVIS-CI-Local` | every 30 min | POSTs to the bridge → the bridge runs the <!--fact:gate_count-->28<!--/fact-->-check gate and publishes GitHub statuses |
 | `JARVIS-HITL` | every 1 min (poll) + a webhook | Finds JARVIS approvals waiting on a human, tells you on Slack, accepts your approve/deny |
 | `JARVIS-Cleanup` | schedule | Housekeeping |
 

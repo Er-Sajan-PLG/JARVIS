@@ -113,8 +113,11 @@ file but have no reader in `app/` at HEAD — setting them has no effect.
 | CLOUDFLARE_ACCOUNT_ID | `app/models/cloudflare_ai_client.py` | unset |
 | HF_API_URL | `app/utils/hf_catalog.py` | `https://huggingface.co/api/models` |
 | HF_TOKEN | `app/utils/hf_catalog.py`, `app/utils/provider_catalog.py`, `app/adapters/web/router.py`, `app/adapters/web/settings.py` | unset |
+| HF_HUB_OFFLINE | `app/utils/tokenizer.py` (offline mode for model downloads) | unset |
+| TRANSFORMERS_OFFLINE | `app/utils/tokenizer.py` (offline mode for model downloads) | unset |
 | LEARNING_COMMONS_API_KEY | `.env.example` only — no reader in `app/` at HEAD | unset |
 | TELEGRAM_BOT_TOKEN | `app/integrations/telegram/__init__.py` (falls back to TELEGRAM_API_KEYS) | unset |
+| TELEGRAM_API_KEYS | `app/integrations/telegram/__init__.py` (fallback alias for the bot token) | unset |
 | TELEGRAM_ALLOWED_CHAT_IDS | `app/integrations/telegram/__init__.py` | unset (empty — no chat is answered) |
 | TELEGRAM_ENABLED | `app/integrations/telegram/__init__.py`, `app/main.py` (poller starts only when `true` with a token) | `false` |
 | WHATSAPP_TOKEN | `app/integrations/whatsapp/__init__.py` | unset |

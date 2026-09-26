@@ -16,8 +16,18 @@ summarized below; `AGENTS.md` is authoritative.
 
 ```bash
 cd /home/sajan/Projects/JARVIS
+./scripts/setup.sh   # venv + deps + ALL hooks (framework and native) + API key
+```
+
+Manual equivalent (must include BOTH hook installs — skipping either leaves
+commits unenforced on your machine):
+
+```bash
 python3.11 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+.venv/bin/pip install "pre-commit==4.6.2"   # NOT in requirements.txt (runtime set)
+.venv/bin/pre-commit install                # framework hooks (or rely on native path below)
+.venv/bin/python scripts/bump_version.py install-hooks  # native githooks via core.hooksPath
 ```
 
 ## Workflow
@@ -37,7 +47,7 @@ python3.11 -m venv .venv
 ```
 
 5. **Commit** — conventional commits (`feat:`, `fix:`, `chore:`, etc.), small scope.
-6. **PR** — describe what/why; CI runs all <!--fact:gate_count-->26<!--/fact--> gates.
+6. **PR** — describe what/why; CI runs all <!--fact:gate_count-->28<!--/fact--> gates.
 
 ## Standards
 

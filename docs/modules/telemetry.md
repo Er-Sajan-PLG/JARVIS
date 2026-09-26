@@ -84,7 +84,7 @@ from app.telemetry import Tracer, MetricsCollector
 
 tracer = Tracer()
 with tracer.start_span("llm-call", {"provider": "openai"}):
-    # ... LLM call ...
+    ...  # LLM call
 
 metrics = MetricsCollector()
 metrics.increment_counter("requests_total", {"endpoint": "/chat"})
