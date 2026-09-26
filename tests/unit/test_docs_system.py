@@ -57,12 +57,17 @@ def test_snippet_checker_catches_syntax_error(tmp_path: Path) -> None:
 
 
 def test_reconcile_rejects_stale_snapshot() -> None:
-    """A cache from another commit must not survive as writable facts."""
+    """A cache from another commit must not survive as writable facts.
+
+    test_count is ALWAYS recomputed live (never trusted from a snapshot);
+    coverage survives only on commit match.
+    """
     reconciled = _sync.reconcile_injected_facts(
         {"commit": "deadbeef", "test_count": "1", "coverage": "1", "gate_count": "1"}
     )
 
-    assert reconciled["test_count"] == "unknown"
+    assert reconciled["test_count"] != "1"
+    assert reconciled["test_count"].isdigit()
     assert reconciled["coverage"] == "unknown"
     # Cheap facts are always recomputed live, even from a stale snapshot.
     assert reconciled["gate_count"] != "1"
@@ -81,7 +86,8 @@ def test_reconcile_accepts_current_snapshot() -> None:
         {"commit": head, "test_count": "1746", "coverage": "88"}
     )
 
-    assert reconciled["test_count"] == "1746"
+    # test_count comes from live --collect-only, never from the snapshot.
+    assert reconciled["test_count"].isdigit()
     assert reconciled["coverage"] == "88"
 
 
