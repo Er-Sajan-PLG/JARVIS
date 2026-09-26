@@ -28,11 +28,6 @@ from app.tools.base import ToolDefinition
 
 ALLOWED_READ: set[str] = {
     "docs/CHANGELOG.md",
-    "docs/DEVLOG.md",
-    "docs/CHANGELOG_recovered.md",
-    "docs/DEVLOG_recovered.md",
-    "docs/V3_ROADMAP.md",
-    "CHANGELOG.md",
     "DEVLOG.md",
     "README.md",
     "config.yaml",
@@ -40,8 +35,6 @@ ALLOWED_READ: set[str] = {
 
 ALLOWED_WRITE: set[str] = {
     "docs/CHANGELOG.md",
-    "docs/DEVLOG.md",
-    "CHANGELOG.md",
     "DEVLOG.md",
 }
 

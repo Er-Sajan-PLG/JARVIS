@@ -301,3 +301,17 @@ def test_git_tools_mocked() -> None:
 
     with patch("app.tools.git_tools._run_git", side_effect=RuntimeError("no tags")):
         assert git_tags() == "(no tags found)"
+
+
+def test_file_tools_allowlist_paths_exist() -> None:
+    """Every allowlisted path must exist (issue #107: dead entries removed).
+
+    An allowlist entry pointing at a deleted file is dead surface that can
+    never match — fail closed on the list itself, not just on lookups.
+    """
+    from app.tools.file_tools import ALLOWED_CREATE_DIR, ALLOWED_READ, ALLOWED_WRITE
+
+    repo_root = Path(__file__).resolve().parents[2]
+    allowed = ALLOWED_READ | ALLOWED_WRITE | ALLOWED_CREATE_DIR
+    missing = sorted(p for p in allowed if not (repo_root / p).exists())
+    assert missing == [], f"allowlist references deleted files: {missing}"

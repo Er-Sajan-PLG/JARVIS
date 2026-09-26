@@ -234,10 +234,8 @@ Safety is layered and enforced inside the tool handlers and the executor, not by
 DocumentationAgent's tools (the runner uses the workspace sandbox above,
 not these sets):
 
-- `ALLOWED_READ`: `docs/CHANGELOG.md`, `docs/DEVLOG.md`,
-  `docs/CHANGELOG_recovered.md`, `docs/DEVLOG_recovered.md`, `docs/V3_ROADMAP.md`,
-  `CHANGELOG.md`, `DEVLOG.md`, `README.md`, `config.yaml`.
-- `ALLOWED_WRITE`: `docs/CHANGELOG.md`, `docs/DEVLOG.md`, `CHANGELOG.md`, `DEVLOG.md`.
+- `ALLOWED_READ`: `docs/CHANGELOG.md`, `DEVLOG.md`, `README.md`, `config.yaml`.
+- `ALLOWED_WRITE`: `docs/CHANGELOG.md`, `DEVLOG.md`.
 
 `read_file` raises `PermissionError` if `path` not in `ALLOWED_READ`; `write_file` and
 `append_file` raise `PermissionError` if `path` not in `ALLOWED_WRITE`. The check is an
