@@ -13,7 +13,7 @@
 
 1. **Capability Contract Drives Features** — JARVIS matches PROFESSOR-J interface
 2. **Archive, Don't Migrate** — Legacy v2.x servers archived at `legacy/`
-3. **Local CI Plane** — `scripts/ci_gate.py` runs <!--fact:gate_count-->26<!--/fact--> gates, publishes 9 contexts
+3. **Local CI Plane** — `scripts/ci_gate.py` runs <!--fact:gate_count-->28<!--/fact--> gates, publishes 9 contexts
 4. **Python 3.11+ Only** — 3.14 breaks ML ecosystem
 5. **Documentation as Code** — Doc facts are machine-derived, never hardcoded
 
@@ -39,7 +39,7 @@
 
 | Task | Status |
 |------|--------|
-| CI plane (<!--fact:gate_count-->26<!--/fact--> gates, 9 contexts) | ✅ VERIFIED |
+| CI plane (<!--fact:gate_count-->28<!--/fact--> gates, 9 contexts) | ✅ VERIFIED |
 | Branch protection | ⛔ BLOCKED (GitHub 403) |
 | Dependabot | ✅ VERIFIED |
 | Security scanning | ✅ VERIFIED |

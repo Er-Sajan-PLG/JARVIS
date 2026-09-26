@@ -197,11 +197,8 @@ That is **9 tools total**. Derived risk levels and confirmation requirements
 
 `file_tools.py` defines the blast radius:
 
-- `ALLOWED_READ`: `docs/CHANGELOG.md`, `docs/DEVLOG.md`,
-  `docs/CHANGELOG_recovered.md`, `docs/DEVLOG_recovered.md`,
-  `docs/V3_ROADMAP.md`, `CHANGELOG.md`, `DEVLOG.md`, `README.md`, `config.yaml`.
-- `ALLOWED_WRITE`: `docs/CHANGELOG.md`, `docs/DEVLOG.md`, `CHANGELOG.md`,
-  `DEVLOG.md`.
+- `ALLOWED_READ`: `docs/CHANGELOG.md`, `DEVLOG.md`, `README.md`, `config.yaml`.
+- `ALLOWED_WRITE`: `docs/CHANGELOG.md`, `DEVLOG.md`.
 - `read_file` raises `PermissionError` for anything outside `ALLOWED_READ`;
   `write_file` raises `PermissionError` for anything outside `ALLOWED_WRITE`.
   This is the only access control; it is enforced inside the tool functions,

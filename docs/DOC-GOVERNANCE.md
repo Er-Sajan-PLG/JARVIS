@@ -230,7 +230,7 @@ structural checker.
 A number in a document is therefore not text — it is a **fact reference**:
 
 ```markdown
-The gate runs <!--fact:gate_count-->26<!--/fact--> checks.
+The gate runs <!--fact:gate_count-->28<!--/fact--> checks.
 ```
 
 `scripts/doc_facts.py` derives the value from the repository;

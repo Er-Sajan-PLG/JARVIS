@@ -23,11 +23,59 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from doc_facts import MARKER_RE, REPO_ROOT, collect  # noqa: E402
+from doc_facts import MARKER_RE, REPO_ROOT, collect, collect_cheap  # noqa: E402
+
+EXPENSIVE_FACTS = ("test_count", "coverage")
+
+
+def _full_head() -> str:
+    """Full HEAD sha of the tree being described (empty when unavailable)."""
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return proc.stdout.strip()
+
+
+def reconcile_injected_facts(injected: object) -> dict[str, str]:
+    """Merge an externally supplied snapshot with live cheap facts.
+
+    The ``--facts-json`` fast path exists to skip pytest, but a snapshot is a
+    claim about a PAST tree. Applying it blindly writes stale numbers as
+    current truth (observed in the wild: ``test_count`` 1694 written while the
+    suite collected 1746). So: cheap facts are always recomputed live
+    (milliseconds), and expensive measurements survive ONLY when the
+    snapshot's commit matches HEAD. Otherwise they become ``"unknown"`` —
+    ``apply_facts`` then skips those markers and ``check_facts`` reports
+    explicit cannot-verify findings instead of passing on a lie.
+    """
+    facts: dict[str, str] = {}
+    if isinstance(injected, dict):
+        facts = {str(k): str(v) for k, v in injected.items()}
+    snapshot_commit = facts.get("commit", "")
+    facts.update(collect_cheap())  # cheap facts always live, including commit
+    # NOTE: collect_cheap reports a SHORT commit while caches carry the full
+    # sha — compare by prefix in either direction, never by equality.
+    head = _full_head()
+    if (
+        not snapshot_commit
+        or not head
+        or not (head.startswith(snapshot_commit) or snapshot_commit.startswith(head))
+    ):
+        for name in EXPENSIVE_FACTS:
+            facts[name] = "unknown"
+    return facts
+
 
 BACKTICK_FACT_RE = re.compile(r"<!--fact:([a-z_]+)-->(.*?)<!--/fact-->", re.DOTALL)
 
@@ -296,7 +344,7 @@ def main() -> int:
     if args.facts_json:
         import json
 
-        facts = json.loads(args.facts_json)
+        facts = reconcile_injected_facts(json.loads(args.facts_json))
     else:
         facts = collect(run_tests=args.run_tests)
 

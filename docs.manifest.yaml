@@ -1,0 +1,756 @@
+# Doc-to-code manifest (autonomous docs system v1).
+# Every human-readable doc is classified exactly once. Sections with empty
+# covers justify themselves in notes. Generated sections name their generator;
+# check-full.py diffs regenerated output against committed blocks.
+
+version: 1
+sections:
+  # Root docs.
+  - doc: README.md
+    covers: [app/main.py, app/bootstrap.py]
+    kind: hand
+    staleness: content
+    owner: platform
+  - doc: AGENTS.md
+    covers: [githooks/, scripts/board/review.py, scripts/ci_gate.py]
+    kind: hand
+    staleness: semantic
+    owner: governance
+  - doc: CONTRIBUTING.md
+    covers: [.pre-commit-config.yaml, githooks/, .github/workflows/]
+    kind: hand
+    staleness: content
+    owner: governance
+  - doc: CODE_OF_CONDUCT.md
+    covers: []
+    kind: hand
+    staleness: semantic
+    owner: governance
+    notes: Covenant policy; no code mapping by design.
+  - doc: SECURITY.md
+    covers: [.github/dependabot.yml]
+    kind: hand
+    staleness: semantic
+    owner: security
+  - doc: DEVLOG.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: platform
+    notes: Append-only dev log; entries are point-in-time facts.
+  - doc: DOCS_AUDIT_REPORT.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: docs-system
+    notes: Phase 1 point-in-time audit; superseded by design + logs, never edited in place.
+  - doc: DOCS_SYSTEM_DESIGN.md
+    covers: [scripts/docs/]
+    kind: hand
+    staleness: content
+    owner: docs-system
+  - doc: DOCS_VERIFICATION_LOG.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: docs-system
+    notes: Phase 4 proof transcripts; append-only.
+  - doc: .env.example
+    covers: [app/config/settings.py]
+    kind: hand
+    staleness: facts
+    owner: platform
+
+  # docs/ top-level.
+  - doc: docs/README.md
+    covers: [docs/]
+    kind: hand
+    staleness: content
+    owner: docs-system
+  - doc: docs/ARCHITECTURE.md
+    covers: [app/bootstrap.py, app/brain/, app/main.py, app/adapters/]
+    kind: hand
+    staleness: content
+    owner: architecture
+  - doc: docs/GOVERNANCE.md
+    covers: [scripts/board/review.py, scripts/ci_gate.py]
+    kind: hand
+    staleness: semantic
+    owner: governance
+  - doc: docs/DEVELOPMENT.md
+    covers: [pyproject.toml, tests/]
+    kind: hand
+    staleness: content
+    owner: platform
+  - doc: docs/API_CONTRACT.md
+    covers: [app/adapters/, app/main.py, app/api/]
+    kind: hand
+    staleness: content
+    owner: api
+  - doc: docs/ROADMAP.md
+    covers: []
+    kind: hand
+    staleness: semantic
+    owner: planning
+    notes: Planning judgments, not code claims; reviewed per release.
+  - doc: docs/ACCEPTED_RISKS.md
+    covers: []
+    kind: hand
+    staleness: semantic
+    owner: governance
+    notes: Risk register with owners and dates.
+  - doc: docs/FINAL_STATE.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: platform
+    notes: Pinned snapshot at v3.15.4; do not update in place.
+  - doc: docs/VERSIONING.md
+    covers: [scripts/version_bump.py, app/config/version.py]
+    kind: hand
+    staleness: content
+    owner: platform
+  - doc: docs/DOC-GOVERNANCE.md
+    covers: [scripts/check_docs.py, scripts/new_doc.py]
+    kind: hand
+    staleness: semantic
+    owner: docs-system
+  - doc: docs/CI-GATE-SOTA.md
+    covers: [scripts/ci_gate.py]
+    kind: hand
+    staleness: content
+    owner: ci
+  - doc: docs/CI-TOKEN-PERMISSIONS.md
+    covers: [.github/workflows/]
+    kind: hand
+    staleness: content
+    owner: ci
+  - doc: docs/GITHUB-APP-SETUP.md
+    covers: [scripts/github_app_token.py]
+    kind: hand
+    staleness: content
+    owner: ci
+  - doc: docs/N8N-SETUP.md
+    covers: [n8n/]
+    kind: hand
+    staleness: content
+    owner: automation
+  - doc: docs/N8N-HANDOVER.md
+    covers: [n8n/]
+    kind: hand
+    staleness: content
+    owner: automation
+  - doc: docs/MOBILE_ACCESS.md
+    covers: [mobile/, app/main.py]
+    kind: hand
+    staleness: content
+    owner: mobile
+  - doc: docs/AGENTS.md
+    covers: [app/agents/]
+    kind: hand
+    staleness: content
+    owner: agents
+  - doc: docs/TOOLS.md
+    covers: [app/tools/]
+    kind: hand
+    staleness: content
+    owner: tools
+  - doc: docs/LLM.md
+    covers: [app/models/]
+    kind: hand
+    staleness: content
+    owner: models
+  - doc: docs/MEMORY.md
+    covers: [app/memory/, app/session/]
+    kind: hand
+    staleness: content
+    owner: memory
+  - doc: docs/COMMS.md
+    covers: [app/integrations/email/, app/integrations/telegram/]
+    kind: hand
+    staleness: content
+    owner: comms
+  - doc: docs/VOICE.md
+    covers: [app/integrations/voice/]
+    kind: hand
+    staleness: content
+    owner: voice
+  - doc: docs/MESH.md
+    covers: [app/integrations/mcp/, app/adapters/integrations/agy.py]
+    kind: hand
+    staleness: content
+    owner: mesh
+  - doc: docs/DATABASE.md
+    covers: [app/memory/, app/session/]
+    kind: hand
+    staleness: content
+    owner: memory
+  - doc: docs/CLI_REFERENCE.md
+    covers: [scripts/]
+    kind: generated
+    staleness: facts
+    owner: platform
+    generator: scripts/docs/generate.py:cli_reference
+  - doc: docs/CONFIG.md
+    covers: [app/config/, config.yaml, .env.example]
+    kind: hand
+    staleness: facts
+    owner: platform
+  - doc: docs/DEBUGGING.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: platform
+    notes: Historical v0.1-v3 matrix; kept for archaeology, not current practice.
+  - doc: docs/SYMBOL_LINEAGE.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: docs-system
+    notes: Birth/death registry snapshot; generator unverified, do not treat as live.
+  - doc: docs/DECISIONS-AUTONOMOUS-2026-09-10.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: Dated decision snapshot.
+  - doc: docs/CAPABILITY-CONTRACT.md
+    covers: []
+    kind: hand
+    staleness: semantic
+    owner: governance
+    notes: Cross-repo contract terms.
+  - doc: docs/CAPABILITY_TRACKER.md
+    covers: [app/tools/, app/guardrails/]
+    kind: hand
+    staleness: content
+    owner: governance
+  - doc: docs/SPRINT_1_2_COMPLETION.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: planning
+    notes: Sprint record; frozen.
+  - doc: docs/AUDIT-USAT.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: Dated audit snapshot.
+  - doc: docs/CHANGELOG.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: platform
+    notes: Release notes accumulate; entries frozen once written.
+
+  # docs/architecture/.
+  - doc: docs/architecture/BASELINE.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: migration
+    notes: Frozen Step-0 baseline; never edited in place.
+  - doc: docs/architecture/CURRENT-STATE.md
+    covers: [app/]
+    kind: hand
+    staleness: snapshot
+    owner: migration
+    notes: Pre-migration point-in-time audit.
+  - doc: docs/architecture/GAP-ANALYSIS.md
+    covers: [app/]
+    kind: hand
+    staleness: content
+    owner: migration
+  - doc: docs/architecture/MIGRATION-PLAN.md
+    covers: [app/]
+    kind: hand
+    staleness: content
+    owner: migration
+  - doc: docs/architecture/cognitive_brain.md
+    covers: [app/brain/, app/guardrails/]
+    kind: hand
+    staleness: content
+    owner: brain
+  - doc: docs/architecture/components.md
+    covers: [app/]
+    kind: hand
+    staleness: content
+    owner: architecture
+  - doc: docs/architecture/data_flow.md
+    covers: [app/adapters/]
+    kind: hand
+    staleness: content
+    owner: architecture
+  - doc: docs/architecture/memory_subsystem.md
+    covers: [app/memory/]
+    kind: hand
+    staleness: content
+    owner: memory
+  - doc: docs/architecture/model_routing.md
+    covers: [app/models/]
+    kind: hand
+    staleness: content
+    owner: models
+  - doc: docs/architecture/startup_flow.md
+    covers: [app/bootstrap.py, app/main.py]
+    kind: hand
+    staleness: content
+    owner: architecture
+
+  # docs/adr/ — decision records are snapshots by definition.
+  - doc: docs/adr/ADR-001-ollama-cli-integration.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-002-json-file-persistent-memory.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-003-multi-model-task-router.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-004-chromadb-semantic-memory.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-005-fastapi-web-server-and-ui.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-006-pragmatic-hybrid-architecture.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-007-domain-purity-and-dataclasses.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-008-tiered-tool-safety-policy.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-009-multi-provider-circuit-breaker-failover.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-010-adapters-and-integrations-isolation.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-011-tool-wiring-and-hitl-gate.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-012-github-auth-identity-per-function.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-014-documentation-facts-are-machine-checked.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-015-memory-is-bi-temporal.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-016-doc-coverage-blocks-push.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-017-orchestrator-subagents-opencode-first.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+
+  # docs/archive/, docs/migrations/, docs/timelines/ — frozen by policy.
+  - doc: docs/archive/API_SIGNATURE_HISTORY.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: docs-system
+    notes: Frozen; do not cite as current.
+  - doc: docs/archive/CHANGELOG_v3.0.0.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: platform
+    notes: Frozen; do not cite as current.
+  - doc: docs/archive/DEVLOG.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: platform
+    notes: Frozen; do not cite as current.
+  - doc: docs/archive/DEVLOG_v3.0.0.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: platform
+    notes: Frozen; do not cite as current.
+  - doc: docs/archive/HEALTH_REPORT_2026-07-28.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: platform
+    notes: Frozen; do not cite as current.
+  - doc: docs/archive/HISTORY.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: platform
+    notes: Frozen; do not cite as current.
+  - doc: docs/migrations/tombstones.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: docs-system
+    notes: Deletion ledger; append-only.
+  - doc: docs/migrations/v2_to_v3_migration.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: platform
+    notes: Historical migration guide.
+  - doc: docs/timelines/evolution_timeline.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: docs-system
+    notes: Mermaid timeline snapshot; generator unverified.
+  - doc: docs/timelines/symbol_timeline.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: docs-system
+    notes: Symbol timeline snapshot; generator unverified.
+
+  # docs/modules/ — subsystem references.
+  - doc: docs/modules/adapters.md
+    covers: [app/adapters/]
+    kind: hand
+    staleness: content
+    owner: adapters
+  - doc: docs/modules/brain.md
+    covers: [app/brain/]
+    kind: hand
+    staleness: content
+    owner: brain
+  - doc: docs/modules/domain.md
+    covers: [app/domain/]
+    kind: hand
+    staleness: content
+    owner: domain
+  - doc: docs/modules/guardrails.md
+    covers: [app/guardrails/]
+    kind: hand
+    staleness: content
+    owner: guardrails
+  - doc: docs/modules/integrations.md
+    covers: [app/integrations/]
+    kind: hand
+    staleness: content
+    owner: integrations
+  - doc: docs/modules/memory.md
+    covers: [app/memory/]
+    kind: hand
+    staleness: content
+    owner: memory
+  - doc: docs/modules/models.md
+    covers: [app/models/]
+    kind: hand
+    staleness: content
+    owner: models
+  - doc: docs/modules/artifacts.md
+    covers: [app/artifacts/]
+    kind: hand
+    staleness: content
+    owner: artifacts
+  - doc: docs/modules/context.md
+    covers: [app/context/]
+    kind: hand
+    staleness: content
+    owner: context
+  - doc: docs/modules/session.md
+    covers: [app/session/]
+    kind: hand
+    staleness: content
+    owner: session
+  - doc: docs/modules/provider_registry.md
+    covers: [app/provider_registry.py]
+    kind: hand
+    staleness: content
+    owner: models
+  - doc: docs/modules/telemetry.md
+    covers: [app/telemetry/]
+    kind: hand
+    staleness: content
+    owner: telemetry
+  - doc: docs/modules/integrations/agy.md
+    covers: [app/adapters/integrations/agy.py]
+    kind: hand
+    staleness: content
+    owner: mesh
+  - doc: docs/modules/integrations/ocr.md
+    covers: [app/integrations/ocr/]
+    kind: hand
+    staleness: content
+    owner: integrations
+  - doc: docs/modules/tools/workspace.md
+    covers: [app/tools/workspace_tools.py]
+    kind: hand
+    staleness: content
+    owner: tools
+  - doc: docs/modules/models/router.md
+    covers: [app/models/router.py]
+    kind: hand
+    staleness: content
+    owner: models
+
+  # Non-docs/ surfaces.
+  - doc: n8n/README.md
+    covers: [n8n/]
+    kind: hand
+    staleness: content
+    owner: automation
+  - doc: tgcall/README.md
+    covers: [tgcall/]
+    kind: hand
+    staleness: content
+    owner: voice
+  - doc: prompts/identity.md
+    covers: [prompts/]
+    kind: hand
+    staleness: content
+    owner: prompts
+  - doc: prompts/planner.md
+    covers: [prompts/]
+    kind: hand
+    staleness: content
+    owner: prompts
+  - doc: prompts/synthesizer.md
+    covers: [prompts/]
+    kind: hand
+    staleness: content
+    owner: prompts
+  - doc: prompts/system_base.md
+    covers: [prompts/, app/context/builder.py]
+    kind: hand
+    staleness: content
+    owner: prompts
+
+  # Generated module READMEs (generate.py creates them; manifest lists them so
+  # un-generated state fails loudly instead of silently).
+  - doc: app/README.md
+    covers: [app/bootstrap.py, app/main.py]
+    kind: generated
+    staleness: facts
+    owner: platform
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/adapters/README.md
+    covers: [app/adapters/]
+    kind: generated
+    staleness: facts
+    owner: adapters
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/agents/README.md
+    covers: [app/agents/]
+    kind: generated
+    staleness: facts
+    owner: agents
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/api/README.md
+    covers: [app/api/]
+    kind: generated
+    staleness: facts
+    owner: api
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/artifacts/README.md
+    covers: [app/artifacts/]
+    kind: generated
+    staleness: facts
+    owner: artifacts
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/backend/README.md
+    covers: [app/backend/]
+    kind: generated
+    staleness: facts
+    owner: backend
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/brain/README.md
+    covers: [app/brain/]
+    kind: generated
+    staleness: facts
+    owner: brain
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/config/README.md
+    covers: [app/config/]
+    kind: generated
+    staleness: facts
+    owner: platform
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/context/README.md
+    covers: [app/context/]
+    kind: generated
+    staleness: facts
+    owner: context
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/conversation/README.md
+    covers: [app/conversation/]
+    kind: generated
+    staleness: facts
+    owner: conversation
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/core/README.md
+    covers: [app/core/]
+    kind: generated
+    staleness: facts
+    owner: core
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/db/README.md
+    covers: [app/db/]
+    kind: generated
+    staleness: facts
+    owner: db
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/domain/README.md
+    covers: [app/domain/]
+    kind: generated
+    staleness: facts
+    owner: domain
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/evals/README.md
+    covers: [app/evals/]
+    kind: generated
+    staleness: facts
+    owner: evals
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/events/README.md
+    covers: [app/events/]
+    kind: generated
+    staleness: facts
+    owner: events
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/guardrails/README.md
+    covers: [app/guardrails/]
+    kind: generated
+    staleness: facts
+    owner: guardrails
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/integrations/README.md
+    covers: [app/integrations/]
+    kind: generated
+    staleness: facts
+    owner: integrations
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/mcp/README.md
+    covers: [app/mcp/]
+    kind: generated
+    staleness: facts
+    owner: mcp
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/memory/README.md
+    covers: [app/memory/]
+    kind: generated
+    staleness: facts
+    owner: memory
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/modes/README.md
+    covers: [app/modes/]
+    kind: generated
+    staleness: facts
+    owner: modes
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/models/README.md
+    covers: [app/models/]
+    kind: generated
+    staleness: facts
+    owner: models
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/prompt/README.md
+    covers: [app/prompt/]
+    kind: generated
+    staleness: facts
+    owner: prompt
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/resources/README.md
+    covers: [app/resources/]
+    kind: generated
+    staleness: facts
+    owner: resources
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/security/README.md
+    covers: [app/security/]
+    kind: generated
+    staleness: facts
+    owner: security
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/session/README.md
+    covers: [app/session/]
+    kind: generated
+    staleness: facts
+    owner: session
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/telemetry/README.md
+    covers: [app/telemetry/]
+    kind: generated
+    staleness: facts
+    owner: telemetry
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/tools/README.md
+    covers: [app/tools/]
+    kind: generated
+    staleness: facts
+    owner: tools
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/utils/README.md
+    covers: [app/utils/]
+    kind: generated
+    staleness: facts
+    owner: utils
+    generator: scripts/docs/generate.py:module_readmes
+  - doc: app/workspace/README.md
+    covers: [app/workspace/]
+    kind: generated
+    staleness: facts
+    owner: workspace
+    generator: scripts/docs/generate.py:module_readmes

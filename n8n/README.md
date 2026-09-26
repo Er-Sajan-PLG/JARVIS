@@ -44,10 +44,10 @@ overwrites on import. Ids in use:
 
 | Name | Type | Source | Status |
 |---|---|---|---|
-| `github-api-auth` | httpHeaderAuth | `n8n_github_token` (`JARVIS/.env`) | ✅ |
+| `github-api-auth` | httpHeaderAuth | `n8n_github_token` (repo `.env`) | ✅ |
 | `ci-bridge-auth` | httpHeaderAuth | `CI_BRIDGE_TOKEN` (`.ci-bridge.env`) | ✅ |
-| `telegram-credentials` | telegramApi | `TELEGRAM_API_KEYS` (`JARVIS/.env`) → `naya_jarvis_bot` | ✅ |
-| `slack-credentials` | slackApi | `SLACK_BOT_TOKEN` (`JARVIS/.env`) → team `STEM`, bot `learninghub` | ✅ |
+| `telegram-credentials` | telegramApi | `TELEGRAM_API_KEYS` (repo `.env`) → `naya_jarvis_bot` | ✅ |
+| `slack-credentials` | slackApi | `SLACK_BOT_TOKEN` (repo `.env`) → team `STEM`, bot `learninghub` | ✅ |
 | `jarvis-api-auth` | httpHeaderAuth | `JARVIS_API_KEY` | ❌ missing |
 
 ## Commands
