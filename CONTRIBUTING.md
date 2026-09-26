@@ -80,6 +80,43 @@ app.telemetry  → app.events
 
 Types: `feat` `fix` `chore` `docs` `refactor` `test` `breaking`.
 
+## Documentation system (autonomous, enforced)
+
+Every code change must keep its docs true. Three layers enforce this:
+
+- **Layer 1 — pre-commit** (`.venv/bin/python scripts/docs/check-changed.py`, wired
+  in `.pre-commit-config.yaml`): staged-scope only, seconds. Blocks the commit when
+  staged code changes public surface without its manifest-mapped doc, when new
+  defs lack docstrings, or when staged markdown has broken fences/links/paths.
+- **Layer 2 — pre-push + local CI** (`scripts/docs/check-full.py`, `gate_docs_layer2`
+  in `scripts/ci_gate.py`): whole tree — manifest completeness, markdown, spelling,
+  snippet compile checks, generated-vs-committed diff, live fact cross-validation.
+  Fails the push/gate.
+- **Scheduled** (`scripts/scheduled_doc_maintenance.py`, 15-day): external links +
+  semantic-review packets, auto-opens a GitHub issue.
+
+Rules: no `--no-verify` culture — the local CI plane (`ci_gate.py` via n8n) is the
+backstop even if a hook is bypassed. New docs go in `docs.manifest.yaml`
+(classify every doc, or mark it `standalone, reviewed <date>`); new modules get a
+generated `app/<pkg>/README.md` via `scripts/docs/generate.py --apply` (hand notes
+go below the marked block — the generator only replaces marked content).
+Run checks locally:
+
+```bash
+.venv/bin/python scripts/docs/manifest-validate.py
+.venv/bin/python scripts/docs/check-changed.py
+.venv/bin/python scripts/docs/check-full.py
+.venv/bin/python scripts/docs/generate.py --apply  # then stage the result
+```
+
+Rule of thumb: never hardcode volatile counts (tests, gates, files) in prose;
+cite them via fact markers (auto-synced; see `sync_doc_facts.py` for the list)
+or omit the number — stale numbers in prose are the exact drift this system
+exists to kill.
+
+When GitHub billing returns, mirror Layer 2 as a required PR check (exact recipe
+in `DOCS_SYSTEM_DESIGN.md` §7).
+
 ## Questions
 
 Open an issue, or read the ADRs (`docs/adr/`) for why decisions were made.

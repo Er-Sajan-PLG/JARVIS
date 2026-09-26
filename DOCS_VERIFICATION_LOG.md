@@ -157,6 +157,26 @@ repo `JARVIS`, context name matches the governance job).
 - **ARCHITECTURE/ROADMAP prose**: medium edits, deferred to follow-up PR with
   owner input (sizing in final summary, not silently dropped).
 
+## Fact-sync lineage: v1 closed path A, v2 closed path B (review follow-up)
+
+- **Path A (v1, pre-#109)**: `--apply --facts-json <cache>` loaded the snapshot
+  with no provenance check at all — a cache from any commit became committed
+  truth (observed: 1694 written while live was higher).
+- **Path B (v2, this session)**: v1's provenance rule (snapshot commit == HEAD)
+  was necessary but not sufficient — at pre-commit time HEAD is the *parent*,
+  so a cache matching HEAD still describes the wrong tree once staged changes
+  move the truth (observed: 1703 written from a commit-matching cache while
+  staged tests moved live to 1751).
+- **General invariant now (v2, final)**: trust is a function of recompute cost,
+  not of provenance. Any numeric fact recomputable in seconds (`test_count` via
+  `--collect-only`, all cheap facts) is recomputed live on every invocation and
+  never trusted from any snapshot, no matter how it is invoked. Only facts too
+  expensive to recompute (`coverage`) may come from snapshots, and only on
+  commit match — and `coverage` has its own live gate regardless. The remaining
+  write paths are covered independently: hand-edited markers by `check_facts` +
+  F7, bare prose by the bare-claim detector, plain `--apply` by
+  provenance-checked `_read_cache` (mismatch → `unknown` → skipped, never written).
+
 ## Lessons / follow-ups baked in during verification
 
 1. R1 most-specific-cover-wins (broad overviews warn, deepest match blocks).
