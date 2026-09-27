@@ -263,7 +263,9 @@ docker-compose.override.yml
 scripts/verify.py
 scripts/verify_git_safety.py
 
-# Governance scanner output (generated per run — never commit)
+# Governance scanner output (generated per run — never commit).
+# In particular .governance/doc_facts.json is a local measurement cache, never
+# a source of truth unless explicitly passed (--facts-json) or recomputed live.
 .governance/
 !.governance/mypy_baseline.txt
 governance-report.json
