@@ -72,6 +72,17 @@ grep -q JARVIS_API_KEY .env || echo "JARVIS_API_KEY=$(openssl rand -hex 32)" >> 
 curl -H "Authorization: Bearer $JARVIS_API_KEY" http://localhost:8000/api/v1/health
 ```
 
+### 1.4 Commit signing (required — pushes are rejected without it)
+
+```bash
+# One time per machine: generate a key, add the .pub to GitHub → Settings → SSH keys
+ssh-keygen -t ed25519 -C "you@example.com"   # skip if you already have one
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+git config --global commit.gpgsign true
+# Verify: make any commit, then `git log --show-signature -1` must show Good.
+```
+
 ---
 
 ## 2. Daily Workflow
