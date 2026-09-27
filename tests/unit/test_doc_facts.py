@@ -93,14 +93,19 @@ def test_expensive_facts_are_unknown_without_a_cache(facts_mod, tmp_path, monkey
 
 
 def test_expensive_facts_read_the_gate_cache(facts_mod, tmp_path, monkeypatch):
-    """A cache is a claim about a past tree. It is only trusted when its recorded
-    commit matches the one being described — otherwise it describes code that no
-    longer exists and would assert a stale measurement as current truth."""
+    """A cache is a claim about a past tree. It is only trusted on explicit
+    opt-in (allow_cache=True) AND a matching recorded commit — otherwise it
+    describes code that may no longer exist and would assert a stale
+    measurement as current truth. The default path never auto-loads."""
     cache = tmp_path / "doc_facts.json"
     current = facts_mod._head_commit()
     cache.write_text(json.dumps({"test_count": "4242", "coverage": "77", "commit": current}))
     monkeypatch.setattr(facts_mod, "FACTS_CACHE", cache)
-    got = facts_mod.collect_expensive(run_tests=False)
+    assert facts_mod.collect_expensive(run_tests=False) == {
+        "test_count": "unknown",
+        "coverage": "unknown",
+    }
+    got = facts_mod.collect_expensive(run_tests=False, allow_cache=True)
     assert got == {"test_count": "4242", "coverage": "77"}
 
 

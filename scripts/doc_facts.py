@@ -137,7 +137,7 @@ def _head_commit() -> str | None:
     return commit or None
 
 
-def collect_expensive(run_tests: bool = False) -> dict[str, str]:
+def collect_expensive(run_tests: bool = False, allow_cache: bool = False) -> dict[str, str]:
     """Facts that need the test suite.
 
     Preference order: run them (`run_tests=True`), else read the gate's cache **when
@@ -210,7 +210,15 @@ def collect_expensive(run_tests: bool = False) -> dict[str, str]:
             _write_cache(facts)
         return facts
 
-    return _read_cache()
+    # No implicit cache loading: the cache file is untracked scratch whose
+    # provenance no caller has verified at this point. A commit-matching cache
+    # can still describe the wrong tree (written pre-commit, when HEAD is the
+    # parent). Expensive facts load ONLY via explicit paths: run_tests (live),
+    # --facts-json through reconcile_injected_facts (provenance-checked), or
+    # allow_cache=True passed deliberately by the caller.
+    if allow_cache:
+        return _read_cache()
+    return {"test_count": "unknown", "coverage": "unknown"}
 
 
 def _read_cache() -> dict[str, str]:
@@ -256,9 +264,9 @@ def _write_cache(facts: dict[str, str]) -> None:
     FACTS_CACHE.write_text(json.dumps(existing, indent=2, sort_keys=True) + "\n")
 
 
-def collect(run_tests: bool = False) -> dict[str, str]:
+def collect(run_tests: bool = False, allow_cache: bool = False) -> dict[str, str]:
     facts = collect_cheap()
-    facts.update(collect_expensive(run_tests=run_tests))
+    facts.update(collect_expensive(run_tests=run_tests, allow_cache=allow_cache))
     return facts
 
 
