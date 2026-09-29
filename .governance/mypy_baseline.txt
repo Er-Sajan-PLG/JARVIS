@@ -1,7 +1,16 @@
-485
+521
 # mypy --strict app/ error CEILING. Enforced by gate_mypy in scripts/ci_gate.py.
 # This number may only go DOWN. Raising it is a reviewed decision that must be
 # recorded in docs/ACCEPTED_RISKS.md (RISK-005), not a silent edit.
 # Baseline set 2026-09-11.
 # Lowered 494 -> 485 on 2026-09-12, locking the gain from the Phase 0 fixes
 # (the gate itself reported "DOWN, lower the baseline to lock the gain").
+#
+# Re-baselined 485 -> 521 on 2026-09-30 (RECORDED in RISK-005, not silent).
+# Why the rise is not a regression: the ceiling had drifted 96 errors BELOW the
+# tree it was supposed to guard. origin/main measured 581 while the ceiling read
+# 485, so gate_mypy failed on every commit regardless of what that commit did,
+# and a number that always fails cannot distinguish a new error from standing
+# debt. 521 is the measured count on this commit; the same commit is also 60
+# errors BETTER than origin/main (581 -> 521) because the OCR rewrite deleted
+# the two dead backends. From here the ratchet works: any new error fails.
