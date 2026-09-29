@@ -571,6 +571,26 @@ POST /api/agy/analyze-file
 - `POST /api/agy/analyze-file` (`{"file_path"}` required, `400` otherwise;
   optional `query`, `model`) → `{"response": "…"}` or `{"error": "…"}`.
 
+  **The path is sandboxed** (`resolve_analysis_path` in
+  `app/adapters/integrations/agy.py`). This endpoint reads a server-side file
+  and sends its contents to a third party, so a path is refused with **`403`**
+  and a `{"detail": "…"}` body when it:
+
+  - names a secret file — `data/web_settings.json`, `.env*`, `*.pem`, `*.key`,
+    `*.p12`, `*.pfx`, `id_rsa`, `.netrc`, `.git-credentials`, … — matched
+    against the **resolved** basename, so `..` and symlinks do not evade it;
+  - resolves outside the workspace root and the temp dir;
+  - lies under `data/` other than `data/uploads/` — that is JARVIS state
+    (memory, transcripts, databases, the settings key store), not a document.
+
+  A refusal is never a `{"response": …}` and never an empty result: a blocked
+  exfiltration must not read as success.
+
+  Known limits: hardlinks are not detected (`Path.resolve` follows symlinks
+  only), a TOCTOU window remains between resolution and `open`, and
+  `JARVIS_WORKSPACE_ROOT` / `JARVIS_EXTRA_ALLOWED_ROOTS` widen the boundary by
+  design.
+
 ### 5.8 Console Health
 
 ```http
@@ -748,7 +768,7 @@ GET /offline.html
 | 200 | Success | Normal response |
 | 400 | Bad Request | Invalid JSON, missing required fields |
 | 401 | Unauthorized | Missing/invalid API key |
-| 403 | Forbidden | Valid key but insufficient scope (future) |
+| 403 | Forbidden | Refused by an egress/path policy (`POST /api/agy/analyze-file`); scope-based refusal is future |
 | 404 | Not Found | Endpoint doesn't exist |
 | 422 | Unprocessable | Validation failed |
 | 429 | Rate Limited | Not yet implemented |
