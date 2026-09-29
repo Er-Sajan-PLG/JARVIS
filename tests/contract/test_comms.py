@@ -37,11 +37,36 @@ def _auth(secured_client):
 # ─── VAPID public key (public by design) ─────────────────────────────────────
 
 
-def test_vapid_public_key_needs_no_auth(client):
-    """A device subscribes before any key is entered, so this stays public."""
+def test_vapid_public_key_needs_no_auth(client, monkeypatch):
+    """A device subscribes before any key is entered, so this stays public.
+
+    The test supplies its own key rather than assuming one is configured. It
+    previously asserted `200` against whatever the ambient environment held, so
+    it passed in a developer checkout (which has a `.env`) and returned 503 in a
+    fresh worktree, where the CI gate runs. The contract under test is *no auth
+    required*, not *VAPID configured* — so the key is injected here and the
+    unconfigured case is covered separately below.
+    """
+    monkeypatch.setenv("VAPID_PUBLIC_KEY", "test-vapid-public-key")
     r = client.get("/api/v1/push/vapid-public-key")
     assert r.status_code == 200
-    assert r.json()["publicKey"]
+    assert r.json()["publicKey"] == "test-vapid-public-key"
+
+
+def test_vapid_public_key_is_unauthenticated_even_when_unconfigured(client, monkeypatch):
+    """Unconfigured must read as 503, never 401/403 — the route stays public.
+
+    This is the assertion that holds in every environment, and it is the one the
+    original test was reaching for: a device cannot subscribe before it holds a
+    credential, so this route must never demand one.
+    """
+    monkeypatch.delenv("VAPID_PUBLIC_KEY", raising=False)
+    r = client.get("/api/v1/push/vapid-public-key")
+    assert r.status_code not in (401, 403), (
+        f"the public push-key route demanded auth ({r.status_code}); "
+        "a device cannot subscribe before it has a credential"
+    )
+    assert r.status_code == 503
 
 
 # ─── Notify dispatcher ───────────────────────────────────────────────────────
