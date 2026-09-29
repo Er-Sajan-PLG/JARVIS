@@ -58,7 +58,7 @@ def test_non_ascii_credential_is_rejected_not_raised(presented: str) -> None:
 
 
 def test_non_ascii_in_authorization_header_is_rejected() -> None:
-    assert is_authorized(authorization=f"Bearer café") is False
+    assert is_authorized(authorization="Bearer café") is False
 
 
 def test_correct_key_still_accepted() -> None:
