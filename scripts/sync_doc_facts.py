@@ -52,7 +52,16 @@ def _full_head() -> str:
 
 def _live_test_count() -> str:
     """Count tests via --collect-only (seconds, deterministic, no execution)."""
+    # Prefer the repository interpreter, but fall back to the one already
+    # running this script. REPO_ROOT is a *worktree* whenever the CI gate runs
+    # (ci_gate.py checks out the commit under test), and a worktree has no
+    # .venv -- so hardcoding REPO_ROOT/.venv made this return "unknown" in
+    # exactly the environment the gate uses, which failed
+    # test_docs_system.py and test_doc_facts.py there while passing in a
+    # developer's checkout.
     venv_py = REPO_ROOT / ".venv" / "bin" / "python"
+    if not venv_py.is_file():
+        venv_py = Path(sys.executable)
     if not venv_py.is_file():
         return "unknown"
     try:

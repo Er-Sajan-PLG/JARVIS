@@ -341,9 +341,12 @@ Counting: `utils/tokenizer.py:17-156` (tiktoken w/ estimate fallback); `session/
   `tests/integration` (2 files), `tests/performance/stress_test.*` — `.pyc` without `.py`.
 - **Committed build/vendor/scratch:** `frontend/out/`, `frontend/.next/`, `frontend/_next/`,
   `frontend/node_modules/`, `mobile/www/` (committed build output), `mobile/node_modules/`,
-  `tgcall/node_modules/`, `external/Unlimited-OCR/` (+ 1 `.whl`), `tmp/lib_code.js`/`styles_append.css`,
+  `tgcall/node_modules/`, `external/Unlimited-OCR/` (+ 1 `.whl`),
   `artifacts/` (174 committed provenance/SBOM outputs), `.archaeology/` (research notes),
   `node_modules/` at root. `frontend`/`mobile`/`tgcall` have `"test": "echo ...no test..."` — no JS tests.
+  Root scratch (`tmp/`, e.g. `lib_code.js`, `styles_append.css`) is **gitignored and untracked**, so it is
+  absent from a fresh clone and is not listed as committed. (Corrected: this line previously named those
+  two scratch files as committed; `git ls-files tmp/` returns nothing.)
 - **`pass`-only stubs (21 hits):** `models/llamacpp_client.py:40`, `switcher.py:128/196/234`,
   `cohere_client.py:117`, `memory/vector_retriever.py:47/61`, `memory/store.py:214`,
   `session/postgres_checkpointer.py:37/43/49`, `tokenizer.py:107`, `model_selector.py:73`,
