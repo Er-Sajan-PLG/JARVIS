@@ -78,6 +78,51 @@ class RankingConfig:
 
 
 @dataclass
+class OCRConfig:
+    """OCR configuration.
+
+    This section exists because its absence was a two-month outage. Both
+    previous OCR backends (``paddle_ocr.py``, ``unlimited_ocr.py``) read
+    ``self.settings.ocr.*`` across 22 call sites, but ``Settings`` never had an
+    ``ocr`` field, so every ``load()`` raised ``AttributeError`` before it could
+    import an engine. The backends were dead from the day they were written.
+
+    The engine is now ``tesseract``, which is a system binary rather than a
+    model: there are no weights to download, no CUDA device to select, and
+    nothing to load, which is what removes the multi-minute blocking load.
+
+    Language is English-only for now (``eng``). ``tesseract`` needs the matching
+    traineddata installed; ``eng`` ships with the base package.
+    """
+
+    engine: str = "tesseract"
+    # Absolute path or bare name; resolved via ``shutil.which`` at load time.
+    binary_path: str = "tesseract"
+    # Tesseract language code(s), e.g. "eng". Multiple: "eng+deu".
+    language: str = "eng"
+    # Per-page subprocess timeout. A hung engine must not occupy a worker
+    # forever; the previous backend applied no timeout at all.
+    page_timeout_seconds: int = 120
+    # Below this many characters of native PDF text, a page is treated as
+    # scanned and sent to OCR. Keeps digital PDFs fast and OCR-free.
+    native_text_min_chars: int = 20
+    max_upload_size_mb: int = 100
+    allowed_extensions: list[str] = field(
+        default_factory=lambda: [
+            ".pdf",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".tiff",
+            ".tif",
+            ".bmp",
+            ".webp",
+        ]
+    )
+    thread_pool_workers: int = 2
+
+
+@dataclass
 class PathsConfig:
     """All file paths in one place"""
 
@@ -168,6 +213,7 @@ class Settings:
     retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
     ranking: RankingConfig = field(default_factory=RankingConfig)
     paths: PathsConfig = field(default_factory=PathsConfig)
+    ocr: OCRConfig = field(default_factory=OCRConfig)
 
     @classmethod
     def load(cls, path: str | None = None) -> "Settings":
@@ -233,6 +279,8 @@ class Settings:
             )
         if "ranking" in data:
             settings.ranking = _safe_dataclass(RankingConfig, data["ranking"], settings.ranking)
+        if "ocr" in data:
+            settings.ocr = _safe_dataclass(OCRConfig, data["ocr"], settings.ocr)
 
         if "active_profile" in data and isinstance(data["active_profile"], str):
             settings.active_profile = data["active_profile"]

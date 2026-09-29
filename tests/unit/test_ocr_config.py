@@ -1,85 +1,78 @@
-"""Unit tests for OCR settings configuration in app/integrations/ocr/config.py."""
+"""Tests for the OCR configuration section.
 
-from app.integrations.ocr.config import OCRSettings, get_ocr_settings
+Replaces the previous ``test_ocr_config.py``, which tested
+``app/integrations/ocr/config.py``. That module held a *second* OCR settings
+object (a pydantic ``OCRSettings``) that nothing in production ever wrote to,
+while the backends read ``Settings.ocr`` -- which did not exist. Two config
+systems, one of them unreachable, is root cause #7 of the OCR outage.
 
+The configuration now lives in exactly one place: ``Settings.ocr``
+(``app/config/settings.py``). These tests assert **literal** expected values
+rather than importing them from the module under test: a test that derives its
+expectations from the code it checks cannot detect that code changing, which is
+the defect found in ``test_workspace_secret_protection.py:91``.
+"""
 
-def test_ocr_settings_defaults():
-    """Verify default values of OCRSettings."""
-    settings = OCRSettings()
-    assert settings.ocr_backend == "auto"
-    assert settings.unlimited_model_id == "baidu/Unlimited-OCR"
-    assert settings.unlimited_device == "cuda"
-    assert settings.unlimited_dtype == "bfloat16"
-    assert settings.unlimited_max_length == 32768
-    assert settings.unlimited_trust_remote_code is True
-    assert settings.paddle_lang == "en"
-    assert settings.paddle_use_gpu is True
-    assert settings.paddle_det_model_dir == ""
-    assert settings.paddle_rec_model_dir == ""
-    assert settings.max_upload_size_mb == 100
-    assert settings.pdf_dpi == 300
-    assert ".pdf" in settings.allowed_extensions
-    assert ".png" in settings.allowed_extensions
-    assert ".jpg" in settings.allowed_extensions
-    assert settings.thread_pool_workers == 2
-    assert settings.request_timeout_seconds == 600
+from __future__ import annotations
+
+from app.config.settings import OCRConfig, get_settings
 
 
-def test_ocr_settings_custom_values():
-    """Verify OCRSettings initialization with custom arguments."""
-    settings = OCRSettings(
-        ocr_backend="unlimited",
-        unlimited_model_id="custom/model",
-        unlimited_device="cpu",
-        unlimited_dtype="float32",
-        unlimited_max_length=4096,
-        unlimited_trust_remote_code=False,
-        paddle_lang="ch",
-        paddle_use_gpu=False,
-        paddle_det_model_dir="/models/det",
-        paddle_rec_model_dir="/models/rec",
-        max_upload_size_mb=50,
-        pdf_dpi=200,
-        allowed_extensions={".png", ".jpg"},
-        thread_pool_workers=4,
-        request_timeout_seconds=120,
-    )
-    assert settings.ocr_backend == "unlimited"
-    assert settings.unlimited_model_id == "custom/model"
-    assert settings.unlimited_device == "cpu"
-    assert settings.unlimited_dtype == "float32"
-    assert settings.unlimited_max_length == 4096
-    assert settings.unlimited_trust_remote_code is False
-    assert settings.paddle_lang == "ch"
-    assert settings.paddle_use_gpu is False
-    assert settings.paddle_det_model_dir == "/models/det"
-    assert settings.paddle_rec_model_dir == "/models/rec"
-    assert settings.max_upload_size_mb == 50
-    assert settings.pdf_dpi == 200
-    assert settings.allowed_extensions == {".png", ".jpg"}
-    assert settings.thread_pool_workers == 4
-    assert settings.request_timeout_seconds == 120
+def test_settings_exposes_ocr_section() -> None:
+    """The single fact whose absence broke every backend for two months."""
+    assert hasattr(get_settings(), "ocr")
 
 
-def test_ocr_settings_from_env(monkeypatch):
-    """Verify OCRSettings parses values from environment variables."""
-    monkeypatch.setenv("OCR_BACKEND", "paddle")
-    monkeypatch.setenv("UNLIMITED_DEVICE", "mps")
-    monkeypatch.setenv("THREAD_POOL_WORKERS", "8")
-    monkeypatch.setenv("REQUEST_TIMEOUT_SECONDS", "300")
-
-    settings = OCRSettings()
-    assert settings.ocr_backend == "paddle"
-    assert settings.unlimited_device == "mps"
-    assert settings.thread_pool_workers == 8
-    assert settings.request_timeout_seconds == 300
+def test_ocr_config_defaults_are_literal() -> None:
+    """Defaults are asserted as literals, not read back from the same object."""
+    cfg = OCRConfig()
+    assert cfg.engine == "tesseract"
+    assert cfg.binary_path == "tesseract"
+    assert cfg.language == "eng", "language is English-only for now"
+    assert cfg.page_timeout_seconds == 120
+    assert cfg.native_text_min_chars == 20
+    assert cfg.max_upload_size_mb == 100
+    assert cfg.thread_pool_workers == 2
 
 
-def test_get_ocr_settings_caching():
-    """Verify get_ocr_settings is cached and returns singleton."""
-    get_ocr_settings.cache_clear()
-    first = get_ocr_settings()
-    second = get_ocr_settings()
-    assert first is second
-    assert isinstance(first, OCRSettings)
-    get_ocr_settings.cache_clear()
+def test_ocr_default_extension_allowlist_is_literal() -> None:
+    """The allow-list must contain exactly these, pinned here on purpose.
+
+    Writing them out means removing one from the code fails this test, instead
+    of silently removing its own test case.
+    """
+    assert sorted(OCRConfig().allowed_extensions) == [
+        ".bmp",
+        ".jpeg",
+        ".jpg",
+        ".pdf",
+        ".png",
+        ".tif",
+        ".tiff",
+        ".webp",
+    ]
+
+
+def test_ocr_config_no_longer_carries_the_removed_engines_fields() -> None:
+    """The removed engines' settings must be gone, not merely unused.
+
+    ``unlimited_*`` and ``paddle_*`` keys were dead or wrong on this host:
+    ``unlimited_device`` defaulted to ``cuda`` with no CUDA present, and
+    ``paddle_use_gpu`` defaulted ``True``. Leaving them would invite a future
+    reader to think they configure something.
+    """
+    cfg = OCRConfig()
+    for stale in (
+        "unlimited_model_id",
+        "unlimited_device",
+        "unlimited_dtype",
+        "unlimited_trust_remote_code",
+        "paddle_lang",
+        "paddle_use_gpu",
+    ):
+        assert not hasattr(cfg, stale), f"{stale} should have been removed"
+
+
+def test_ocr_section_is_the_singleton_settings_object() -> None:
+    """Repeated reads return the same object; the section is not rebuilt per call."""
+    assert get_settings().ocr is get_settings().ocr

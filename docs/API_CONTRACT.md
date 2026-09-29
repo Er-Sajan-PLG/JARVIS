@@ -703,7 +703,11 @@ Request/response only — nothing streams.
 
 ## 7. OCR (`/api/ocr/*`)
 
-No auth dependency (`app/api/ocr/routes.py`). Multipart upload surface.
+**Auth is required.** The router declares
+`dependencies=[Depends(_validate_api_key)]` (`app/api/ocr/routes.py:67`), so all
+three routes below are gated. This section previously stated the opposite; the
+claim was never true, and `tests/unit/test_ocr_routes_auth.py` has always asserted
+a 401 without a key.
 
 ```http
 GET /api/ocr/health
@@ -711,14 +715,23 @@ POST /api/ocr/process
 POST /api/ocr/process-path
 ```
 
-- `GET /api/ocr/health` → OCR service/model health (`HealthResponse`).
+- `GET /api/ocr/health` → `HealthResponse`. `status` is `healthy` or `degraded`
+  (`"loading"` was removed — see `docs/modules/integrations/ocr.md`). Returns
+  `200` even when the engine is unusable, with the reason in `error`.
 - `POST /api/ocr/process` (multipart `file` plus form fields `backend`
-  (`auto | unlimited | paddle`), `mode` (`gundam | base`), `prompt`,
-  `ngram_window`, `max_tokens`, `paddle_mode`, `dpi`, `return_json`) →
-  `OCRResult`. Rejects unsupported extensions (`400`) and oversize files
-  (`413`); service failures surface as `502`.
+  (`auto | tesseract`), `dpi`, `return_json`) → `OCRResult`.
+  - `400` — extension not in `OCRConfig.allowed_extensions`, or a NUL byte in the
+    filename.
+  - `413` — larger than `OCRConfig.max_upload_size_mb`.
+  - `422` — `dpi` outside `50..600`.
+  - `503` — the OCR engine is unavailable (not installed / unusable).
+  - `502` — the engine ran and this file could not be processed.
 - `POST /api/ocr/process-path` (form `file_path` of a server-side file plus
-  `backend`/`mode`/`prompt`/`dpi`) → `OCRResult`; `404` when the path is missing.
+  `backend`, `dpi`, `return_json`) → `OCRResult`; `404` when the path is missing or
+  is not a file; otherwise the same codes as `/process`.
+
+The engine is Tesseract and supports English only for now. See
+`docs/adr/ADR-018-ocr-engine-is-tesseract.md`.
 
 ---
 

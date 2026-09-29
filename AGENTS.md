@@ -198,6 +198,7 @@ What did we decide?
 | ADR-015 | Memory facts are bi-temporal, invalidated not deleted | ✅ Accepted |
 | ADR-016 | Documentation coverage blocks the push | ✅ Accepted |
 | ADR-017 | JARVIS orchestrates subagents; OpenCode first | ✅ Accepted |
+| ADR-018 | OCR engine is Tesseract; two dead backends removed | ✅ Accepted |
 
 ---
 
