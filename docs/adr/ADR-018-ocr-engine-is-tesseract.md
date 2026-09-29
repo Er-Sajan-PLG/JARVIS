@@ -122,6 +122,22 @@ scanned documents (the fixture is machine-generated text); accuracy on poor
 scans, handwriting or rotated pages; and behaviour on a PDF whose pages are
 images behind a misleading text layer.
 
+### Follow-up applied 2026-09-30: the pin this ADR described is now removed
+
+The Context section above cited `requirements.txt:162` pinning
+`paddleocr==3.7.0`. That pin outlived the code it existed for. Once every
+`paddleocr` import was deleted, nothing in `app/` or `scripts/` referenced it,
+yet it remained pinned — so a fresh `pip install -r requirements.txt` would
+download a large, unused dependency tree, and `scripts/board/review.py` carried a
+`SKIP_UNUSED` allowlist entry for `paddleocr` that excused it from the board's own
+"Package 'X' in requirements.txt never imported" warning. The allowlist entry was
+what kept the dead pin invisible to the governance check.
+
+Both are now removed: the pin from `requirements.txt`, the entry from
+`SKIP_UNUSED`. The board still passes all 11 checks. Note this ADR's Context text
+above is deliberately left as written — it records what was true when the
+decision was taken, and the line number it cites has shifted by one as a result.
+
 ## Related
 
 - `docs/modules/integrations/ocr.md` — the reference for the subsystem as it is now

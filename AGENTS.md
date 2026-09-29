@@ -77,7 +77,7 @@ suite while no such file had ever been committed, and it omitted
 
 ```
 tests/
-├── unit/           # Pure unit tests (fast, no external deps)      155 files
+├── unit/           # Pure unit tests (fast, no external deps)      154 files
 ├── integration/    # Real DB, real providers, containers             1 file
 ├── contract/       # API contract tests                              4 files
 ├── performance/    # Timing/throughput assertions                    1 file
