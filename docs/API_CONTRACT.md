@@ -461,7 +461,13 @@ POST /api/upload
 - `GET /api/files/{file_id}/download` streams the stored bytes. `404` when unknown.
 - `DELETE /api/files/{file_id}` removes the upload. → `{"success": true, "deleted": "<id>"}`
 - `POST /api/upload` (multipart `file`) stores under `data/uploads/` and returns
-  extracted text (images / non-extractable files get a placeholder note):
+  extracted text. **Images and scanned PDFs are OCR'd** (Tesseract, via
+  `app/integrations/ocr/service.py`); plain text and spreadsheets are decoded
+  directly; a PDF with a text layer is read from that layer without OCR. If the
+  OCR engine is unavailable the upload still succeeds and falls back to the text
+  layer — the file is stored and downloadable either way. A file that genuinely
+  yields no text returns an honest note (`[No text found in image: x.png]` or
+  `[x.pdf — no extractable text]`), never a silent empty string:
 
 ```json
 {
