@@ -22,7 +22,13 @@ Sandbox model (fail closed):
     (repo root by default, override with ``JARVIS_WORKSPACE_ROOT``) or the system
     temp dir. Anything else -> PermissionError.
   * Inside the workspace root, protected prefixes (``app/``, ``tests/``,
-    ``scripts/``, ``.git/``, ...) are refused for writes.
+    ``scripts/``, ``.git/``, ...) are refused for reads and writes.
+  * Inside the workspace root, write-only protected prefixes (``prompts/``,
+    ``githooks/``, ``.venv/``, ``data/``) and protected build manifests
+    (``requirements.txt``, ``pyproject.toml``, ``package.json``, ``Dockerfile``,
+    ``docker-compose.yml``) are refused for writes only: a write to any of them is
+    code execution or a persistent behaviour change, while reading a data
+    attachment or a prompt file is an ordinary workspace read.
   * Secret-shaped files are refused for reads and writes.
 """
 
@@ -61,7 +67,33 @@ def _allowed_roots() -> list[Path]:
 
 
 # Write-protected inside the workspace root: source, tests, CI and VCS metadata.
+# Refused for reads as well as writes.
 PROTECTED_PREFIXES: tuple[str, ...] = ("app", "tests", "scripts", ".git", ".github", "legacy")
+
+# Write-protected inside the workspace root, but still readable. Each entry is a
+# path where a *write* is code execution or a persistent behaviour change:
+#   prompts/  -> system/identity prompts; a write is prompt injection that
+#                survives a restart.
+#   githooks/ -> hooks execute on the next commit/push.
+#   .venv/    -> the interpreter and site-packages that run JARVIS.
+#   data/     -> runtime state (approvals, sessions, DBs, provider API keys).
+# Reads stay allowed because data attachments and prompt files are ordinary read
+# targets for a task; only rewriting them is out of bounds.
+PROTECTED_WRITE_PREFIXES: tuple[str, ...] = ("prompts", "githooks", ".venv", "data")
+
+# Build/dependency manifests and container definitions at the workspace root.
+# Writing one is arbitrary code execution on the next install/build, and none of
+# them is secret-shaped, so SECRET_NAMES cannot cover them. Matched as exact
+# workspace-relative paths (a nested docs/pyproject.toml is not this file).
+PROTECTED_FILES: frozenset[str] = frozenset(
+    {
+        "requirements.txt",
+        "pyproject.toml",
+        "package.json",
+        "Dockerfile",
+        "docker-compose.yml",
+    }
+)
 
 # Never readable/writable regardless of location.
 SECRET_NAMES: frozenset[str] = frozenset(
@@ -76,6 +108,12 @@ SECRET_NAMES: frozenset[str] = frozenset(
         ".netrc",
         ".npmrc",
         ".pypirc",
+        # data/web_settings.json persists provider API keys in plaintext (it is
+        # the on-disk twin of .env:GOOGLE_API_KEY).
+        "web_settings.json",
+        # data/tgcall.session is a Telegram userbot StringSession: a full account
+        # credential, written by tgcall/login.js at mode 600.
+        "tgcall.session",
     }
 )
 
@@ -107,6 +145,17 @@ def _check_sandbox(path: str, operation: str, *, for_write: bool) -> Path:
             raise PermissionError(
                 f"Path not allowed for {operation}: {path} (protected path '{rel.parts[0]}/')"
             )
+
+        if for_write:
+            if rel.parts and rel.parts[0] in PROTECTED_WRITE_PREFIXES:
+                raise PermissionError(
+                    f"Path not allowed for {operation}: {path} "
+                    f"(protected write path '{rel.parts[0]}/')"
+                )
+            if rel.as_posix() in PROTECTED_FILES:
+                raise PermissionError(
+                    f"Path not allowed for {operation}: {path} (protected build/config file)"
+                )
 
     if for_write and resolved.is_dir():
         raise PermissionError(f"Path not allowed for {operation}: {path} (is a directory)")

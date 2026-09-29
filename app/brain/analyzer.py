@@ -5,6 +5,7 @@ and required tools without incurring unnecessary LLM latency for simple requests
 """
 
 import logging
+import re
 
 from app.domain import IntentAnalysis, IntentComplexity
 
@@ -46,13 +47,26 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
 
 def _detect_urgency(text: str) -> str:
     """Urgency heuristic. Precedence: critical > high > low > normal."""
-    if any(word in text for word in _CRITICAL_WORDS):
+    if _keyword_hits(text, _CRITICAL_WORDS):
         return "critical"
-    if any(word in text for word in _HIGH_WORDS):
+    if _keyword_hits(text, _HIGH_WORDS):
         return "high"
-    if any(phrase in text for phrase in _LOW_PHRASES):
+    if _has_phrase(text, _LOW_PHRASES):
         return "low"
     return "normal"
+
+
+def _keyword_hits(text: str, keywords: tuple[str, ...]) -> int:
+    """Count keywords present in ``text`` as whole words.
+
+    Plain ``in`` matching is wrong here: "api" is a substring of "capital", so
+    "what is the capital of France" classified as *coding* (caught in Step 4
+    review). Multi-word phrases still match as phrases; single words must sit on
+    word boundaries. Words are matched with a lookaround rather than ``\\b`` so
+    that hyphenated members ("deep dive" is a phrase, but "e-mail"-style joins
+    stay intact) behave predictably.
+    """
+    return sum(1 for keyword in keywords if re.search(rf"(?<!\w){re.escape(keyword)}(?!\w)", text))
 
 
 def _detect_domain(text: str) -> str:
@@ -60,22 +74,27 @@ def _detect_domain(text: str) -> str:
     best_domain = "general"
     best_hits = 0
     for domain, keywords in _DOMAIN_KEYWORDS.items():
-        hits = sum(1 for keyword in keywords if keyword in text)
+        hits = _keyword_hits(text, keywords)
         if hits > best_hits:
             best_domain = domain
             best_hits = hits
     return best_domain
 
 
+def _has_phrase(text: str, phrases: tuple[str, ...]) -> bool:
+    """True if any phrase occurs in ``text`` on word boundaries (see _keyword_hits)."""
+    return _keyword_hits(text, phrases) > 0
+
+
 def _detect_action(text: str) -> str | None:
     """Requested-action heuristic. None means no specific action detected."""
-    if any(phrase in text for phrase in ("create file", "write file", "save to", "generate file")):
+    if _has_phrase(text, ("create file", "write file", "save to", "generate file")):
         return "file_write"
-    if any(phrase in text for phrase in ("read file", "open file", "show me")):
+    if _has_phrase(text, ("read file", "open file", "show me")):
         return "file_read"
-    if any(phrase in text for phrase in ("search for", "look up", "find online")):
+    if _has_phrase(text, ("search for", "look up", "find online")):
         return "web_search"
-    if any(phrase in text for phrase in ("turn on", "turn off", "lights")):
+    if _has_phrase(text, ("turn on", "turn off", "lights")):
         return "hardware_control"
     return None
 

@@ -58,7 +58,11 @@ class BatchOCRRequest(BaseModel):
 
 class HealthResponse(BaseModel):
     status: Literal["healthy", "loading", "unhealthy"]
-    backend: str
+    # ``None`` before any backend has been selected. Declared ``str``, it made
+    # ``/api/ocr/health`` raise a validation error and answer HTTP 500 instead
+    # of reporting that OCR was not ready -- a health endpoint that fails rather
+    # than reporting unhealth.
+    backend: str | None = None
     model_loaded: bool
     device: str
     version: str = "1.0.0"

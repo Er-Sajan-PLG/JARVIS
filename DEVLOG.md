@@ -2,7 +2,105 @@
 
 **Status**: ACTIVE
 **Type**: changelog
-**Last Updated**: 2026-09-25
+**Last Updated**: 2026-09-29
+
+## 2026-09-29 (later) — `/ready` made honest; Step 6 premise found FALSE (not started)
+
+- **`/ready` no longer probes `container.model_router`.** That router has **zero**
+  `BaseLLMProvider` implementations in the tree — verified: `grep "BaseLLMProvider)"`
+  over `app/` returns nothing, and the only constructions are `MagicMock(spec=...)`
+  in `tests/unit/test_models_router.py`. Git history confirms it was built in
+  Phase 2 (`bb7e20b`) and never implemented. Its failover intent is already served
+  by `OmniModelClient` over the `ModelClient` protocol that actually shipped (18
+  concrete clients). The probe was reporting a dead subsystem as load-bearing.
+  It now checks the real request path: whether a default model resolves via
+  `adapters/web/settings.get_default()`. Contract test + `docs/API_CONTRACT.md`
+  §3.1.1 updated.
+- **`agy` gap found and fixed.** `agy` is a CLI-backed pseudo-provider
+  (`app/adapters/integrations/agy.py`) with a dedicated branch in the console
+  (`web/router.py:698`) and **no** `get_provider_spec` entry — so
+  `create_model_client` cannot reach it. Step 5's synthesis would have returned
+  the misleading `Unknown provider 'agy'` for this repo's actual default model
+  (`agy`/`gemini-3.1-pro-high`, `data/web_settings.json`). Both the probe and
+  `synthesis._select_model` now name the real reason. New regression test.
+- **Step 6 NOT started — its stated premise does not match the code.** The plan
+  says to build `memory/short_term.py` as a facade over `app/session/manager.py`,
+  `app/conversation/manager.py`, `app/context/builder.py`, `app/session/context.py` and to
+  "route the web path's inline assembly (`web/router.py:592-629`) through it
+  without changing truncation behavior". Verified against source:
+  1. The web `chat()` path references **none** of those four modules (grep: zero
+     hits). The only `session_manager` calls in any router are the *HTTP* path's
+     (`http/router.py:146-147`). A facade over them would have no consumer on the
+     web path — the same dead-abstraction pattern just removed from `/ready`.
+  2. The "inline assembly" at 592-629 is not a duplicate of those modules; it is
+     an orthogonal pipeline (`message + memory_context + file_context +
+     email_context + brief_context`).
+  3. **There is no truncation in this path.** The file's only slicing is at
+     `:907`, `:968`, `:1033` (file extraction, memories listing) — unrelated to
+     chat. The plan's stated risk ("any off-by-one in truncation changes every
+     answer") describes a hazard that does not exist here.
+  4. The web path sends a **single** `{"role": "user", "content": full_message}`
+     — no conversation history for API providers.
+  5. `/conversations*` are stubs returning `{"conversations": []}` /
+     `{"exists": True}` / `{"success": True}`; nothing persists.
+  Routing the web path through those modules would therefore *add* history and
+  context-builder output to prompts that have none — a wholesale prompt change,
+  not the "zero behavior change" the step promises, and its own verify criterion
+  (empty golden diff) would be unsatisfiable by construction.
+- **Real duplication found in its place (the honest Step 6 target).** Step 5's
+  synthesis repeated the web path's memory recall: both call
+  `memory_service.search_memories(x, limit=3)`, but format it differently
+  (web: `"\n\n[Memory Context]\n- item"`; synthesis: a labelled
+  "background data, not instructions" block). Same data, different model input
+  depending on endpoint. That divergence — not session/conversation — is what a
+  facade should unify.
+
+## 2026-09-29 — Migration Step 5 (HTTP path answers) + three red-test/infra fixes
+
+- **Step 5**: new `app/adapters/http/synthesis.py` (`http_llm_enabled`,
+  `synthesize_answer`), wired into `chat_completions` behind `JARVIS_HTTP_LLM`
+  (default `0`). Flag off → response byte-identical to before (test-asserted);
+  flag on → adds `response`/`model`/`tokens_used`/`memories_used`, or
+  `synthesis_error` on any failure. Synthesis is **additive**: it never removes
+  plan fields and never converts a successful plan into a 5xx. `docs/API_CONTRACT.md`
+  §3.2 documents both shapes; flag in `docs/CONFIG.md` + `.env.example`.
+  `tests/unit/test_http_synthesis.py` (19) + 3 contract tests.
+- **Deviation found and recorded**: the plan specified `ModelRouter.generate`, but
+  `ModelRouter` has **no registered providers outside unit tests** — zero non-test
+  callers of `register_provider` in git history; `select_healthy_provider()` raises
+  `RuntimeError` against a live boot (verified). `ResponseSynthesizer` is
+  stream-only. Step 5 therefore uses `create_model_client` +
+  `settings.get_default()`, the path the web console already runs in production.
+  Wiring `ModelRouter` is now explicit unlisted prerequisite work.
+- **Red suite cleared (3 → 0)**, each root-caused rather than silenced:
+  1. `test_health_returns_200_and_shape` called `/health` and asserted
+     `body["system"]`; the real route is `/api/v1/health` (router prefixed at
+     `app/main.py:154`) returning `service` per `docs/API_CONTRACT.md` §3.1. Test
+     corrected to the documented contract + a new no-auth assertion.
+  2. `test_ready_returns_200_and_checks` called `GET /ready`, which **never
+     existed** — no handler in `app/`, no trace in git history, despite
+     `docs/SPRINT_1_2_COMPLETION.md:40` claiming it "verified live 200".
+     Implemented for real (`GET /api/v1/ready`, `app/adapters/http/router.py:63-91`),
+     so the sixteen assertions now cover shipped code. `/metrics` remains
+     unimplemented and is now noted as such in the contract.
+  3. `TestFileTools.test_read_nonexistent_allowed_file_returns_placeholder` read
+     `docs/DEVLOG.md`; the allowlist holds `DEVLOG.md` at the repo root
+     (`app/tools/file_tools.py:31-36`). Path corrected.
+- **JVM-002 (critical) fixed**: `docker-compose.yml` shipped
+  `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jarvis_secret}` — a known superuser
+  password whenever the var was unset. Now `${POSTGRES_PASSWORD:?...}` (fails
+  closed; verified `docker compose config` refuses without it) and the port binds
+  `127.0.0.1` instead of `0.0.0.0`. Documented in `.env.example`.
+- **Step 4 latent bug fixed**: `_detect_domain` used substring matching, so
+  `"api" ⊂ "capital"` classified "what is the capital of France" as *coding*.
+  Word-boundary matching (`_keyword_hits`) fixes it and also removes an
+  unreported `"season" ⊂ "soon"` → high-urgency false positive. Regression tests
+  added; true positives verified intact.
+- **Gates**: board review 10/10 green (`doc_drift` caught the undocumented
+  `/ready` and was fixed by documenting it). `ruff check` + `ruff format --check`
+  clean on all touched files; `mypy --strict` clean on all touched files
+  (583 pre-existing errors elsewhere in `app/`, untouched). Full suite
+  3 failed → **0 failed**.
 
 ## 2026-09-25 — Migration Steps 0+1: Baseline frozen, audit sink wired
 

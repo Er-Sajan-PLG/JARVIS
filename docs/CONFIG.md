@@ -67,6 +67,7 @@ file but have no reader in `app/` at HEAD — setting them has no effect.
 |---|---|---|
 | JARVIS_API_KEY | `app/adapters/security.py`, `app/main.py` (required when binding beyond localhost) | unset (empty) |
 | JARVIS_AUDIT_SINK | `app/security/audit_sink.py`, `app/bootstrap.py` (kill-switch for the append-only audit sink; `0` disables) | `1` (enabled) |
+| JARVIS_HTTP_LLM | `app/adapters/http/synthesis.py`, `app/adapters/http/router.py` (Migration Step 5: `1` adds synthesized `response` text to `POST /api/v1/chat/completions`; off keeps the plan-status-only shape HITL consumers expect) | `0` (disabled) |
 | OPENROUTER_API_KEY | `app/provider_registry.py`, `app/adapters/web/router.py`, `app/adapters/web/settings.py`, `config.yaml` | unset |
 | XAI_API_KEY | `config.yaml`, `app/models/groq_client.py`, `app/utils/model_selector.py` | unset |
 | GOOGLE_API_KEY | `app/provider_registry.py`, `app/models/google_client.py`, `app/adapters/web/router.py`, `app/adapters/web/settings.py`, `config.yaml` | unset |

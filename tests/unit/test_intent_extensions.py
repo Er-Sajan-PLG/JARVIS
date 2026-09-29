@@ -35,13 +35,36 @@ def test_lights_prompt_detects_hardware_action() -> None:
 
 
 def test_plain_question_gets_neutral_defaults() -> None:
-    # NB: "capital" contains the substring "api", so it is NOT keyword-free
-    # under the spec'd substring matching — this question is verified clean.
     analysis = IntentAnalyzer().analyze("Who won the match yesterday?")
 
     assert analysis.urgency == "normal"
     assert analysis.domain == "general"
     assert analysis.action is None
+
+
+def test_keywords_match_whole_words_only() -> None:
+    """Regression: "api" is a substring of "capital".
+
+    Substring matching classified "what is the capital of France" as *coding*.
+    Detectors now require word boundaries (app/brain/analyzer.py:_keyword_hits).
+    """
+    analysis = IntentAnalyzer().analyze("What is the capital of France?")
+
+    assert analysis.domain == "general"
+    assert analysis.action is None
+
+
+def test_urgency_does_not_fire_on_substrings() -> None:
+    """Regression: "soon" is a substring of "season"."""
+    assert IntentAnalyzer().analyze("What happens in the season finale?").urgency == "normal"
+    assert IntentAnalyzer().analyze("Send it soon please").urgency == "high"
+
+
+def test_word_boundary_fix_keeps_true_positives() -> None:
+    """The fix must not blunt real detection."""
+    assert IntentAnalyzer().analyze("write an api endpoint").domain == "coding"
+    assert IntentAnalyzer().analyze("help me with my tax return").domain == "finance"
+    assert IntentAnalyzer().analyze("search for battery papers").action == "web_search"
 
 
 def test_high_urgency_and_file_actions() -> None:

@@ -440,8 +440,13 @@ class TestFileTools(unittest.TestCase):
         self.assertIn("# Changelog", content)
 
     def test_read_nonexistent_allowed_file_returns_placeholder(self):
-        """Non-existent file in allowlist should return a message, not crash."""
-        result = read_file("docs/DEVLOG.md")  # doesn't exist yet
+        """Non-existent but allowlisted file should return a message, not crash.
+
+        The allowlist (app/tools/file_tools.py:31-36) holds ``DEVLOG.md`` at the
+        repo root, not ``docs/DEVLOG.md`` — this test runs in a fresh tmpdir with
+        only ``docs/`` created, so the allowlisted root path is absent here.
+        """
+        result = read_file("DEVLOG.md")  # allowlisted, absent in the tmpdir
         self.assertIn("not found", result)
 
     def test_write_creates_file(self):

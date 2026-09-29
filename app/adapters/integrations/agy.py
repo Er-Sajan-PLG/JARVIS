@@ -14,11 +14,13 @@ Sprint 8.3: stateful conversations (--conversation/--continue), --effort,
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +28,51 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "gemini-3.8-flash-medium"
 MAX_FILE_CHARS = 60000
+
+# Repo root = .../app/adapters/integrations/agy.py -> parents[3]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# Basenames whose contents must never be inlined into a prompt. Whatever is
+# inlined leaves the machine, so this is an *egress* control, and it is
+# maintained here rather than imported from ``app.tools.workspace_tools``:
+# ``app.adapters`` is not allowed to import ``app.tools``
+# (scripts/board/review.py, check_import_layering -- a function-local import does
+# not exempt it either). Drift is caught by a test instead of by the type system:
+# tests/unit/test_agy_analyze_file_sandbox.py asserts this set is a superset of
+# workspace_tools.SECRET_NAMES, so adding a secret name there fails the build
+# until it is added here.
+EGRESS_SECRET_NAMES: frozenset[str] = frozenset(
+    {
+        ".ci-bridge.env",
+        ".env",
+        ".env.development",
+        ".env.local",
+        ".env.production",
+        ".env.staging",
+        ".env.test",
+        ".git-credentials",
+        ".netrc",
+        ".npmrc",
+        ".pypirc",
+        "credentials.json",
+        "id_ecdsa",
+        "id_ed25519",
+        "id_rsa",
+        "tgcall.session",
+        "web_settings.json",
+    }
+)
+
+# Suffixes that are credentials whatever they are called. ``.env`` covers both
+# ``.ci-bridge.env`` and, via the ``.env`` prefix rule below, ``.env.local``.
+_EGRESS_SECRET_SUFFIXES: tuple[str, ...] = (".env", ".key", ".p12", ".pem", ".pfx")
+
+# JARVIS's own state directory: the memory store, conversation transcripts, the
+# SQLite databases and the web settings key store. None of it is a document.
+# ``data/uploads`` is excluded -- that is the console's document area, and it is
+# what file analysis is legitimately pointed at.
+_PRIVATE_STATE_DIR = "data"
+_UPLOAD_SUBDIR = "uploads"
 
 
 def _agy_which() -> str | None:
@@ -233,6 +280,88 @@ def chat(
     }
 
 
+def _analysis_roots() -> list[Path]:
+    """Roots a file may be analysed from: the workspace root and the temp dir.
+
+    Mirrors the tool sandbox's roots without importing it -- see
+    ``EGRESS_SECRET_NAMES`` for why that import is unavailable here.
+    """
+    env = os.environ.get("JARVIS_WORKSPACE_ROOT")
+    roots = [Path(env).resolve() if env else _REPO_ROOT]
+    with contextlib.suppress(OSError, ValueError):
+        roots.append(Path(tempfile.gettempdir()).resolve())
+    extra = os.environ.get("JARVIS_EXTRA_ALLOWED_ROOTS", "")
+    for chunk in extra.split(os.pathsep):
+        if chunk.strip():
+            roots.append(Path(chunk.strip()).resolve())
+    return roots
+
+
+def _is_private_state(resolved: Path, workspace_root: Path) -> bool:
+    """True for JARVIS's own state tree, which is not a document and never leaves."""
+    state_dir = workspace_root / _PRIVATE_STATE_DIR
+    if not resolved.is_relative_to(state_dir):
+        return False
+    return not resolved.is_relative_to(state_dir / _UPLOAD_SUBDIR)
+
+
+def resolve_analysis_path(file_path: str) -> Path:
+    """Resolve ``file_path`` and refuse it unless its contents may leave the machine.
+
+    The file is read locally and inlined into a prompt sent to a third party, so
+    this is an egress boundary as much as a read boundary: a refusal here is the
+    only thing between an arbitrary path and an outbound request.
+
+    Resolution happens *before* the decision, and the resolved path is returned so
+    the caller opens exactly what was checked -- checking one form of a path and
+    opening another is how ``..`` and symlinks slip past a sandbox.
+
+    Args:
+        file_path: Path as supplied by the caller.
+
+    Returns:
+        The resolved path. The caller must open *this*, not the original string.
+
+    Raises:
+        PermissionError: The path must not be read into an outgoing prompt.
+    """
+    if not file_path or not file_path.strip():
+        raise PermissionError("File analysis refused: no path given")
+
+    candidate = Path(file_path).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+    # strict=False: the target need not exist for the decision to be made.
+    resolved = candidate.resolve()
+
+    name = resolved.name
+    lowered = name.lower()
+    if (
+        name in EGRESS_SECRET_NAMES
+        or lowered.startswith(".env")
+        or lowered.endswith(_EGRESS_SECRET_SUFFIXES)
+    ):
+        raise PermissionError(
+            f"File analysis refused: '{name}' is a secret file and its contents "
+            "would be sent to a third party"
+        )
+
+    roots = _analysis_roots()
+    if not any(resolved.is_relative_to(root) for root in roots):
+        raise PermissionError(
+            f"File analysis refused: {file_path} resolves outside the workspace root "
+            "and the temp dir, so it may not be analysed"
+        )
+
+    if _is_private_state(resolved, roots[0]):
+        raise PermissionError(
+            f"File analysis refused: {file_path} is JARVIS state, not a document "
+            f"(only {_PRIVATE_STATE_DIR}/{_UPLOAD_SUBDIR}/ is analysable)"
+        )
+
+    return resolved
+
+
 def analyze_file(
     file_path: str,
     query: str,
@@ -245,11 +374,18 @@ def analyze_file(
     Reads the file locally (capped at MAX_FILE_CHARS) and inlines it; native
     CLI upload is still on the roadmap. The mime hint is passed along so the
     model knows binary vs text handling.
+
+    The path is checked before the file is opened and before any prompt exists
+    (``resolve_analysis_path``). A refusal is a ``PermissionError`` -- never an
+    empty result -- and it is raised outside the ``try`` below so that it is not
+    reported as an "analysis failure".
     """
+    resolved = resolve_analysis_path(file_path)
+
     # For now, read file and include in prompt (capped).
     # TODO: Use agy's native file upload when available
     try:
-        with open(file_path, "rb") as f:
+        with open(resolved, "rb") as f:
             content = f.read()
 
         # Try to decode as text

@@ -8,14 +8,16 @@ from pathlib import Path
 import structlog
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     File,
     Form,
     HTTPException,
+    Request,
     UploadFile,
+    status,
 )
 
+from app.adapters.security import is_authorized
 from app.integrations.ocr.config import get_ocr_settings
 from app.integrations.ocr.schemas import (
     HealthResponse,
@@ -29,7 +31,38 @@ from app.integrations.ocr.service import OCRService, OCRServiceError, get_ocr_se
 
 log = structlog.get_logger()
 
-ocr_router = APIRouter(prefix="/api/ocr", tags=["OCR"])
+
+def _validate_api_key(request: Request) -> bool:
+    """Reject an OCR request that presents no valid credential.
+
+    Applied as a router-level dependency, deliberately: this router was mounted
+    without one, so on a live ``0.0.0.0`` bind all three endpoints answered
+    anonymous callers. Two of them are file primitives, which made the omission
+    an arbitrary-read primitive rather than a missing header check.
+
+    ``app.adapters.web.router`` documents this exact failure mode -- "per-route
+    decoration is what let this surface sit open" -- after the same mistake left
+    chat, settings and the provider catalogue anonymous. The lesson did not
+    travel to this router, so the guard is now attached to the ``APIRouter``
+    itself and every endpoint added here inherits it by construction.
+
+    The credential is accepted as ``Authorization: Bearer <key>`` or
+    ``X-API-Key: <key>``. Query-parameter credentials stay disabled: an OCR URL
+    is likely to be pasted or logged. When ``JARVIS_API_KEY`` is unset,
+    ``is_authorized`` allows everything, preserving local development.
+    """
+    authorization = request.headers.get("authorization")
+    x_api_key = request.headers.get("x-api-key")
+    if is_authorized(authorization=authorization, x_api_key=x_api_key):
+        return True
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+
+ocr_router = APIRouter(
+    prefix="/api/ocr",
+    tags=["OCR"],
+    dependencies=[Depends(_validate_api_key)],
+)
 
 
 def get_service() -> OCRService:
@@ -45,7 +78,6 @@ async def health_check(service: OCRService = Depends(get_service)):
 
 @ocr_router.post("/process", response_model=OCRResult)
 async def process_document(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="Image or PDF file"),
     backend: OCRBackend = Form(default=OCRBackend.AUTO, description="OCR engine"),
     # Unlimited-OCR options
@@ -98,9 +130,13 @@ async def process_document(
             detail=f"File too large: {size_mb:.1f}MB > {settings.max_upload_size_mb}MB",
         )
 
-    # Save to temp file
+    # Save to temp file. ``file.filename`` is client-supplied and was joined
+    # verbatim: a name of ``../../x`` escaped ``temp_dir``, and an absolute name
+    # (``/etc/cron.d/x``) discarded it entirely, because ``os.path.join`` resets
+    # on a leading separator. Reduce it to a basename before use.
     temp_dir = tempfile.mkdtemp(prefix="jarvis_ocr_")
-    temp_path = os.path.join(temp_dir, file.filename)
+    safe_name = Path(file.filename or "").name or "upload"
+    temp_path = os.path.join(temp_dir, safe_name)
 
     try:
         with open(temp_path, "wb") as f:
@@ -126,21 +162,25 @@ async def process_document(
         )
 
         # Process
-        result = await service.process_upload(temp_path, request)
-
-        # Schedule cleanup
-        background_tasks.add_task(shutil.rmtree, temp_dir, True)
-
-        return result
+        return await service.process_upload(temp_path, request)
 
     except OCRServiceError as e:
-        background_tasks.add_task(shutil.rmtree, temp_dir, True)
         log.error("ocr_service_error", error=str(e))
-        raise HTTPException(502, str(e))
+        raise HTTPException(502, str(e)) from e
     except Exception as e:
-        background_tasks.add_task(shutil.rmtree, temp_dir, True)
         log.exception("processing_failed", filename=file.filename)
-        raise HTTPException(500, f"Processing failed: {e}")
+        raise HTTPException(500, f"Processing failed: {e}") from e
+    finally:
+        # Clean up here, NOT via BackgroundTasks.
+        #
+        # A BackgroundTasks entry is attached to the route's *response*. When the
+        # handler raises HTTPException, FastAPI builds a fresh response and the
+        # pending task is silently dropped -- so every failure path leaked the
+        # entire upload (up to max_upload_size_mb, default 100 MB) under
+        # /tmp/jarvis_ocr_*. With no rate limit on this endpoint that is
+        # repeatable disk exhaustion, and the leaked bytes are the user's
+        # document. A finally block runs on every exit, including cancellation.
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 @ocr_router.post("/process-path", response_model=OCRResult)
@@ -152,8 +192,23 @@ async def process_server_path(
     dpi: int = Form(default=300),
     service: OCRService = Depends(get_service),
 ):
-    """Process a file already on the server filesystem (for batch/internal use)."""
-    if not os.path.exists(file_path):
+    """Process a file already on the server filesystem (for batch/internal use).
+
+    The path is checked against ``allowed_extensions`` exactly as ``/process``
+    does. It previously applied no filter at all, so any readable file --
+    ``.env``, ``~/.ssh/id_rsa`` -- was handed to the OCR engine and its decoded
+    text returned in the response body. That turned an unauthenticated endpoint
+    into an arbitrary-file-read primitive.
+    """
+    settings = get_ocr_settings()
+    ext = Path(file_path).suffix.lower()
+    if ext not in settings.allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {ext}. Allowed: {settings.allowed_extensions}",
+        )
+
+    if not os.path.isfile(file_path):
         raise HTTPException(404, f"File not found: {file_path}")
 
     request = OCRRequest(

@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
+from app.adapters.http.synthesis import http_llm_enabled, synthesize_answer
 from app.adapters.security import is_authorized
 from app.bootstrap import ApplicationContainer, bootstrap_system
 from app.config.version import VERSION as __version__
@@ -60,6 +61,60 @@ async def health_check() -> dict[str, Any]:
     }
 
 
+@http_router.get("/ready", tags=["System"])
+async def readiness_check() -> dict[str, Any]:
+    """Readiness probe: are the subsystems an answer depends on usable?
+
+    Liveness (``/health``) asks "is the process up?"; readiness asks "should this
+    instance receive traffic?". A container can be live while no model is
+    resolvable — a chat request fails anyway, so the probe reports not-ready
+    instead. Never raises: an unusable subsystem is reported as ``"down"`` with
+    the reason, not as a 5xx.
+
+    This checks the model path the request path actually uses
+    (``adapters/web/settings.get_default`` + ``create_model_client``), not
+    ``container.model_router``. The router is an abandoned abstraction: it has
+    **zero** ``BaseLLMProvider`` implementations in the tree (verified — only
+    ``MagicMock`` builds one), and its failover intent is already served by
+    ``OmniModelClient`` over the ``ModelClient`` protocol that actually shipped.
+    Reporting it here made the probe claim a subsystem was load-bearing when
+    nothing reads it.
+    """
+    container: ApplicationContainer = bootstrap_system()
+    checks: dict[str, str] = {}
+
+    try:
+        from app.adapters.web.settings import get_default
+
+        default = get_default() or {}
+        provider = default.get("provider") or ""
+        model = default.get("model") or ""
+        if not provider or not model:
+            checks["model"] = "down: no default model selected (Settings → Model → Default Model)"
+        elif provider == "agy":
+            # CLI-backed pseudo-provider (app/adapters/integrations/agy.py). The
+            # console reaches it directly; the HTTP path cannot, so readiness
+            # reflects that split honestly instead of claiming either way.
+            from app.adapters.integrations.agy import is_available as agy_available
+
+            if agy_available():
+                checks["model"] = f"ok: agy/{model} (console path only)"
+            else:
+                checks["model"] = "down: agy CLI not found on PATH"
+        elif container.get_provider_spec(provider) is None:
+            checks["model"] = f"down: default provider '{provider}' is not a known route"
+        else:
+            checks["model"] = f"ok: {provider}/{model}"
+    except Exception as exc:  # noqa: BLE001 — a probe must answer, never raise
+        checks["model"] = f"down: {exc}"
+
+    checks["memory_service"] = "ok" if container.memory_service is not None else "down: not wired"
+    checks["mode_manager"] = "ok" if container.mode_manager is not None else "down: not wired"
+
+    ready = all(value.startswith("ok") for value in checks.values())
+    return {"ready": ready, "checks": checks, "version": __version__}
+
+
 @http_router.post("/chat/completions", dependencies=[Depends(validate_api_key)])
 async def chat_completions(payload: dict[str, Any]) -> dict[str, Any]:
     """Primary synchronous cognitive loop endpoint.
@@ -68,6 +123,11 @@ async def chat_completions(payload: dict[str, Any]) -> dict[str, Any]:
     Any DESTRUCTIVE step pauses for Human-in-the-Loop approval; the plan is then
     registered with the approval registry so it can be decided via
     POST /api/v1/hitl/approve and resumed.
+
+    Migration Step 5: with ``JARVIS_HTTP_LLM=1`` the response also carries
+    synthesized ``response`` text (see app/adapters/http/synthesis.py). With the
+    flag off the payload is exactly what it has always been — plan status only —
+    so existing HITL clients are unaffected either way.
     """
     container: ApplicationContainer = bootstrap_system()
 
@@ -101,7 +161,7 @@ async def chat_completions(payload: dict[str, Any]) -> dict[str, Any]:
     awaiting = container.approval_registry.register_paused_plan(executed_plan)
 
     inner_analysis = analysis["analysis"] if isinstance(analysis, dict) else analysis
-    return {
+    response: dict[str, Any] = {
         "session_id": session_id,
         "plan_id": executed_plan.plan_id,
         "status": _plan_status(executed_plan),
@@ -110,6 +170,14 @@ async def chat_completions(payload: dict[str, Any]) -> dict[str, Any]:
         "requires_tools": inner_analysis.requires_tools,
         "awaiting_approval": [item.to_dict() for item in awaiting],
     }
+
+    # 6. Step 5 (flag-gated): synthesize the answer the plan does not contain.
+    #    Additive only — failure adds ``synthesis_error`` instead of replacing
+    #    the plan payload, so HITL consumers never lose their fields.
+    if http_llm_enabled():
+        response.update(await synthesize_answer(container, prompt, session_id))
+
+    return response
 
 
 @http_router.get("/hitl/pending", dependencies=[Depends(validate_api_key)])

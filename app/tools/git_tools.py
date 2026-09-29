@@ -2,10 +2,13 @@
 Git tools for JARVIS Documentation Agent (v2.4.0)
 
 All tools are read-only. Zero write risk.
+Refs are caller-supplied, so they are validated before they reach git's argv.
+
 These are the eyes of the documentation agent — it reads git history
 to understand what JARVIS did and when.
 """
 
+import re
 import subprocess
 
 from app.domain import SafetyTier
@@ -14,6 +17,26 @@ from app.tools.base import ToolDefinition
 
 # Cap diff output so it doesn't blow the context window
 DIFF_MAX_CHARS = 8000
+
+# Conservative revision grammar: an object id (full or abbreviated), or a ref
+# name — HEAD, a tag, a local branch, origin/x — optionally followed by
+# ancestry operators (~N, ^N). A leading "-" is impossible, so a ref can never
+# be read by git as an option.
+_SAFE_REF_RE = re.compile(r"(?:[0-9a-fA-F]{4,40}|[A-Za-z0-9][A-Za-z0-9._/-]*)(?:[~^]\d*)*")
+
+
+def _validate_ref(ref: str, name: str) -> str:
+    """Return ``ref`` when it is a plain revision, else raise ValueError.
+
+    A ref is caller-controlled and becomes a git argv element, so it must never
+    be readable as an option. Without this, ``git_diff_stat(from_ref=
+    "--output=/tmp/x")`` made git write an arbitrary absolute path.
+    """
+    if not isinstance(ref, str) or not _SAFE_REF_RE.fullmatch(ref):
+        raise ValueError(f"Invalid git ref for {name}: {ref!r}")
+    if ".." in ref or "@{" in ref or "//" in ref or ref.endswith(("/", ".")):
+        raise ValueError(f"Invalid git ref for {name}: {ref!r}")
+    return ref
 
 
 def _run_git(*args: str, cwd: str = ".") -> str:
@@ -42,7 +65,9 @@ def git_log(n: int = 15) -> str:
 
 def git_diff_stat(from_ref: str = "HEAD~1", to_ref: str = "HEAD") -> str:
     """Compact file-level summary: which files changed and by how much."""
-    return _run_git("diff", from_ref, to_ref, "--stat")
+    from_ref = _validate_ref(from_ref, "from_ref")
+    to_ref = _validate_ref(to_ref, "to_ref")
+    return _run_git("diff", "--stat", "--end-of-options", from_ref, to_ref, "--")
 
 
 def git_diff_full(from_ref: str = "HEAD~1", to_ref: str = "HEAD") -> str:
@@ -50,7 +75,9 @@ def git_diff_full(from_ref: str = "HEAD~1", to_ref: str = "HEAD") -> str:
     Full patch diff — what lines actually changed.
     Capped at DIFF_MAX_CHARS to prevent context explosion.
     """
-    diff = _run_git("diff", from_ref, to_ref)
+    from_ref = _validate_ref(from_ref, "from_ref")
+    to_ref = _validate_ref(to_ref, "to_ref")
+    diff = _run_git("diff", "--end-of-options", from_ref, to_ref, "--")
     if len(diff) > DIFF_MAX_CHARS:
         return (
             diff[:DIFF_MAX_CHARS]
@@ -67,7 +94,16 @@ def git_status() -> str:
 
 def git_show(ref: str = "HEAD") -> str:
     """Show commit message + diff for a single commit."""
-    output = _run_git("show", ref, "--stat", "--format=%h %ad %s%n%n%b", "--date=short")
+    ref = _validate_ref(ref, "ref")
+    output = _run_git(
+        "show",
+        "--stat",
+        "--format=%h %ad %s%n%n%b",
+        "--date=short",
+        "--end-of-options",
+        ref,
+        "--",
+    )
     if len(output) > DIFF_MAX_CHARS:
         return output[:DIFF_MAX_CHARS] + "\n...(truncated)"
     return output

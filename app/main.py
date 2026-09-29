@@ -36,6 +36,15 @@ logging.basicConfig(
         '"logger": "%(name)s", "message": "%(message)s"}'
     ),
 )
+
+# The Telegram client puts the bot token in the request URL *path*
+# (app/integrations/telegram/__init__.py), and httpx logs the full URL at INFO.
+# With the root logger at INFO that wrote the live credential into the systemd
+# journal on every poll -- 55,552 occurrences between 2026-09-17 and 2026-09-29.
+# Quiet the transport loggers so a third-party URL can never re-introduce a
+# secret into the journal. Rotating the leaked token is still required.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
