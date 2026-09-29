@@ -147,8 +147,13 @@
           <div class="composer-bar">
             <button class="icon-btn" id="attachBtn" aria-label="Attach a file" title="Attach file">📎</button>
             <button class="icon-btn" id="micBtn" aria-label="Voice input" title="Voice input (tap, speak, tap to send)">🎤</button>
+            <!-- Image types are listed because the upload route OCRs them:
+                 /api/upload sends images and scanned PDFs through the OCR
+                 service, so a screenshot or a photo of a page now yields its
+                 text. Omitting them made the file picker refuse the very file
+                 types the feature exists for. -->
             <input type="file" id="fileInput" hidden multiple
-                   accept=".pdf,.txt,.md,.csv,.json,.py,.js,.ts,.html,.css,.yaml,.yml,.log">
+                   accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp,.txt,.md,.csv,.json,.py,.js,.ts,.html,.css,.yaml,.yml,.log">
             <button class="model-trigger" id="modelTrigger" aria-label="Select model" title="Select model (Ctrl+K)">
               <span class="dot dot-off" id="modelTriggerDot"></span>
               <span class="model-trigger-name" id="modelTriggerName">Select model</span>

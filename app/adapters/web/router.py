@@ -821,8 +821,13 @@ def _classify(name: str, content_type: str) -> str:
     return "other"
 
 
-def _read_extracted(path: Path) -> str:
-    """Extract text from a stored upload."""
+def _read_native_text(path: Path) -> str:
+    """Extract text from a stored upload without OCR.
+
+    For PDFs this reads only the *embedded* text layer, and for images it
+    returns nothing at all. Callers that need text out of an image, or out of a
+    scanned PDF, must go through :func:`_extract_upload`.
+    """
     try:
         content = path.read_bytes()
     except Exception:  # noqa: BLE001
@@ -851,6 +856,46 @@ def _read_extracted(path: Path) -> str:
         except Exception:  # noqa: BLE001
             return content.decode("latin-1", errors="replace")
     return ""
+
+
+# Retained under its original name: `_file_record` and other callers read a
+# preview and do not want to pay for OCR on a listing.
+_read_extracted = _read_native_text
+
+
+async def _extract_upload(path: Path) -> str:
+    """Extract text from a stored upload, OCR-ing where the text layer is absent.
+
+    This is the function the upload path needs. ``_read_native_text`` reads only
+    an embedded text layer, so an image returned "" and the caller substituted
+    the placeholder ``"[Image: x.png — no text layer]"`` -- which is why
+    uploading a screenshot or a scanned document produced no text. The OCR
+    service does the per-page native-vs-scanned decision and runs Tesseract on
+    the pages that need it, so one call covers both cases.
+    """
+    kind = _classify(path.name, mimetypes.guess_type(path.name)[0] or "")
+
+    # Plain text is already text; OCR would be slower and lossy.
+    if kind in ("text", "spreadsheet"):
+        return _read_native_text(path)
+
+    if kind in ("pdf", "image"):
+        try:
+            from app.integrations.ocr.schemas import OCRBackend, OCRRequest
+            from app.integrations.ocr.service import get_ocr_service
+
+            result = await get_ocr_service().process_upload(
+                str(path), OCRRequest(backend=OCRBackend.AUTO)
+            )
+            text = (result.markdown or "").strip()
+            if text:
+                return text
+        except Exception as exc:  # noqa: BLE001
+            # An unavailable engine must not fail the upload: the file is still
+            # stored and downloadable. Fall through to the text layer.
+            logger.warning("OCR extraction failed for %s: %s", path.name, exc)
+
+    return _read_native_text(path)
 
 
 def _file_record(path: Path) -> dict[str, Any]:
@@ -950,12 +995,15 @@ async def upload_file(
     content = await file.read()
     file_path.write_bytes(content)
 
-    extracted_text = _read_extracted(file_path)
+    extracted_text = await _extract_upload(file_path)
     content_type = file.content_type or mimetypes.guess_type(safe_name)[0] or ""
 
     if not extracted_text:
+        # Honest fallback. The image wording used to be "[Image: x.png — no
+        # text layer]", which applied the PDF concept of a text layer to a PNG
+        # and read as a successful extraction of nothing.
         if _classify(safe_name, content_type) == "image":
-            extracted_text = f"[Image: {safe_name} — no text layer]"
+            extracted_text = f"[No text found in image: {safe_name}]"
         else:
             extracted_text = f"[{safe_name} — no extractable text]"
 
