@@ -289,9 +289,12 @@ Counting: `utils/tokenizer.py:17-156` (tiktoken w/ estimate fallback); `session/
     `app/workspace/manager.py` 83%. `app/main.py` 86% (17 miss incl. `main()` bind/auth warning :254-266).
   - `app/api/` has no unit test (only contract `tests/contract/test_api_contract.py:1-103`).
   - `app/db/`, `app/backend/providers/`, `app/evals/` have no sources AND no tests (empty packages).
-  - Env-gated skips: `test_postgres_checkpointer.py:243` (`JARVIS_TEST_DATABASE_URL`),
-    live-server skips (`test_chat_model_shapes.py:60`, `test_memory_api_temporal.py:36/46`),
-    `test_security.py:370` git skip.
+  - Env-gated skips: `test_postgres_checkpointer.py:248` (`JARVIS_TEST_DATABASE_URL`),
+    `test_tokenizer.py:49` (`tiktoken` is pinned in `requirements.txt` but not installed),
+    `test_security.py:370` git skip. **No test needs a live server.** The two that did
+    (`test_chat_model_shapes.py:60`, `test_memory_api_temporal.py:36/46`) skipped in every
+    clean checkout and in CI; both now drive `app.main:app` in-process via
+    `fastapi.testclient.TestClient` and run everywhere.
 
 ---
 

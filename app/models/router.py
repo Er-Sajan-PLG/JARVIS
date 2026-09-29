@@ -1,15 +1,43 @@
 """Model Router & Provider Failover Pool for Multi-Provider Inference.
 
-Routes task requests dynamically to healthy LLM providers and handles circuit breaker failover on 429/503 errors.
+Routes task requests dynamically to healthy LLM providers and handles
+circuit breaker failover on 429/503 errors.
 """
 
 import logging
 from enum import Enum
 
+from app.models.exceptions import ModelRateLimitError, ModelResponseError
 from app.models.interface import BaseLLMProvider, LLMResponse
 from app.resources import ResourceManager
 
 logger = logging.getLogger(__name__)
+
+
+def _classify_provider_failure(err: BaseException) -> int | None:
+    """Map a provider failure to the health code the circuit breaker records.
+
+    Type first, then message. The type check is the load-bearing one: every
+    provider client maps the SDK's RateLimitError through `map_openai_error`,
+    which builds the message "Model '<name>' is rate-limited or over quota."
+    That string contains neither "429" nor the substring "rate limit" -- the
+    HYPHEN in "rate-limited" defeats the substring match -- so the message
+    heuristic alone classified a genuine rate limit as `None`, and the circuit
+    breaker could not distinguish it from an unknown failure.
+
+    The string fallback is kept for providers that bypass `map_openai_error` and
+    raise a raw SDK error whose message carries the status code.
+    """
+    if isinstance(err, ModelRateLimitError):
+        return 429
+    if isinstance(err, ModelResponseError):
+        cause = getattr(err, "cause", None)
+        if cause is not None and getattr(cause, "status_code", None) == 429:
+            return 429
+    err_str = str(err)
+    if "429" in err_str or "rate limit" in err_str.lower() or "rate-limit" in err_str.lower():
+        return 429
+    return 503 if "503" in err_str else None
 
 
 class TaskType(str, Enum):
@@ -24,7 +52,7 @@ class TaskType(str, Enum):
 
 
 class ModelRouter:
-    """Routes prompt requests across registered LLM providers with automatic circuit breaker failover."""
+    """Route prompts across registered providers with circuit-breaker failover."""
 
     KEYWORDS: dict[TaskType, list[str]] = {
         TaskType.CODE: [
@@ -100,14 +128,20 @@ class ModelRouter:
             RuntimeError: If no healthy providers are available.
         """
         # 1. Check preferred provider
-        if preferred_provider and preferred_provider in self.providers:
-            if self.resource_manager.health.is_available(preferred_provider):
-                return self.providers[preferred_provider]
+        if (
+            preferred_provider
+            and preferred_provider in self.providers
+            and self.resource_manager.health.is_available(preferred_provider)
+        ):
+            return self.providers[preferred_provider]
 
         # 2. Check default provider
-        if self.default_provider_name and self.default_provider_name in self.providers:
-            if self.resource_manager.health.is_available(self.default_provider_name):
-                return self.providers[self.default_provider_name]
+        if (
+            self.default_provider_name
+            and self.default_provider_name in self.providers
+            and self.resource_manager.health.is_available(self.default_provider_name)
+        ):
+            return self.providers[self.default_provider_name]
 
         # 3. Failover pool check
         for name, provider in self.providers.items():
@@ -144,12 +178,7 @@ class ModelRouter:
             self.resource_manager.rate_limits.record_request(provider_name, res.total_tokens)
             return res
         except Exception as err:
-            err_str = str(err)
-            code = (
-                429
-                if "429" in err_str or "rate limit" in err_str.lower()
-                else (503 if "503" in err_str else None)
-            )
+            code = _classify_provider_failure(err)
             self.resource_manager.health.record_failure(provider_name, code)
             logger.warning(
                 "Provider '%s' failed (%s). Retrying with failover...", provider_name, err

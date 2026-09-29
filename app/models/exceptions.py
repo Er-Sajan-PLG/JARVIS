@@ -59,7 +59,10 @@ class ModelResponseError(ModelError):
 try:
     import httpx
 except ImportError:  # pragma: no cover - httpx always ships with ollama
-    httpx = None
+    # mypy infers `httpx` as a module from the successful branch, so the
+    # sentinel assignment needs an explicit ignore. The `is None` guard in
+    # `ollama_transport_errors` is what makes this safe at runtime.
+    httpx = None  # type: ignore[assignment]
 
 
 def ollama_transport_errors() -> tuple[type[BaseException], ...]:
