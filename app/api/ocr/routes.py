@@ -18,18 +18,21 @@ from fastapi import (
 )
 
 from app.adapters.security import is_authorized
-from app.integrations.ocr.config import get_ocr_settings
+from app.config.settings import get_settings
 from app.integrations.ocr.schemas import (
     HealthResponse,
     OCRBackend,
     OCRRequest,
     OCRResult,
-    PaddleMode,
-    UnlimitedOCRMode,
 )
 from app.integrations.ocr.service import OCRService, OCRServiceError, get_ocr_service
 
 log = structlog.get_logger()
+
+# "The engine is not installed / cannot run" is an availability problem, not a
+# client error and not a gateway error. The previous code returned 500 with the
+# internal exception text in the body, while docs/API_CONTRACT.md promised 502.
+_ENGINE_UNAVAILABLE = 503
 
 
 def _validate_api_key(request: Request) -> bool:
@@ -69,10 +72,48 @@ def get_service() -> OCRService:
     return get_ocr_service()
 
 
+def _check_extension(filename: str) -> str:
+    """Return the lowercased extension, or raise 400 if the name is unusable.
+
+    A NUL byte is rejected explicitly. It passes the suffix check (``Path``
+    treats it as an ordinary character, so ``"a\\x00.png"`` has suffix ``.png``)
+    and then reaches ``open()``, where the OS raises ``ValueError: embedded null
+    byte``. That is a malformed request, so it must be a 400 -- previously it
+    surfaced as a 500 because a route-wide ``except Exception`` swallowed it.
+    """
+    if "\x00" in filename:
+        raise HTTPException(status_code=400, detail="Filename contains a null byte")
+
+    settings = get_settings().ocr
+    ext = Path(filename).suffix.lower()
+    if ext not in settings.allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {ext}. Allowed: {settings.allowed_extensions}",
+        )
+    return ext
+
+
 @ocr_router.get("/health", response_model=HealthResponse)
-async def health_check(service: OCRService = Depends(get_service)):
-    """Check OCR service and model health."""
-    health = await service.health_check()
+async def health_check(service: OCRService = Depends(get_service)) -> HealthResponse:
+    """Report whether OCR can serve a request.
+
+    Truthful by construction: the engine is probed, so this answers ``degraded``
+    with a reason rather than claiming health while every request fails. It must
+    never itself return 500 -- a health endpoint that fails instead of reporting
+    unhealth is worse than no health endpoint.
+    """
+    try:
+        health = await service.health_check()
+    except Exception as e:  # defensive: health must always answer
+        log.exception("ocr_health_check_failed")
+        health = {
+            "status": "degraded",
+            "backend": None,
+            "model_loaded": False,
+            "device": "unknown",
+            "error": f"{type(e).__name__}: {e}",
+        }
     return HealthResponse(**health)
 
 
@@ -80,54 +121,31 @@ async def health_check(service: OCRService = Depends(get_service)):
 async def process_document(
     file: UploadFile = File(..., description="Image or PDF file"),
     backend: OCRBackend = Form(default=OCRBackend.AUTO, description="OCR engine"),
-    # Unlimited-OCR options
-    mode: UnlimitedOCRMode = Form(
-        default=UnlimitedOCRMode.GUNDAM, description="Unlimited-OCR mode"
-    ),
-    prompt: str = Form(default="", description="Custom prompt (optional)"),
-    ngram_window: int = Form(default=0, description="N-gram window (0=auto)"),
-    max_tokens: int = Form(default=0, description="Max tokens (0=default)"),
-    # PaddleOCR options
-    paddle_mode: PaddleMode = Form(default=PaddleMode.OCR, description="PaddleOCR mode"),
-    # Common
-    dpi: int = Form(default=300, description="PDF render DPI"),
+    dpi: int = Form(default=300, ge=50, le=600, description="PDF render DPI"),
     return_json: bool = Form(default=False, description="Return structured JSON"),
     service: OCRService = Depends(get_service),
-):
+) -> OCRResult:
+    """Extract text from an uploaded image or PDF.
+
+    **Engines:** ``auto`` (currently the same as ``tesseract``) or ``tesseract``.
+
+    **PDFs** use their embedded text layer where present and OCR only the pages
+    that lack one, so a digital PDF costs no OCR at all.
+
+    ``dpi`` is bounded to 50–600: it multiplies a full-page pixmap per page, so
+    an unbounded value was a memory-exhaustion lever.
     """
-    Process a document through OCR.
-
-    **Backends:**
-    - `auto`: Unlimited-OCR on GPU, PaddleOCR on CPU
-    - `unlimited`: Baidu Unlimited-OCR (best for complex docs, tables, formulas)
-    - `paddle`: PaddleOCR (fast, good for simple text)
-
-    **Unlimited-OCR Modes:**
-    - `gundam`: Single page, high quality (default)
-    - `base`: Multi-page / PDF
-
-    **PaddleOCR Modes:**
-    - `ocr`: Text detection + recognition
-    - `structure`: Table/layout recognition (PP-StructureV3)
-    """
-    settings = get_ocr_settings()
-
-    # Validate file
-    ext = Path(file.filename).suffix.lower()
-    if ext not in settings.allowed_extensions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type: {ext}. Allowed: {settings.allowed_extensions}",
-        )
+    _check_extension(file.filename or "")
 
     # Check file size
     file.file.seek(0, 2)
     size_mb = file.file.tell() / (1024 * 1024)
     file.file.seek(0)
-    if size_mb > settings.max_upload_size_mb:
+    max_mb = get_settings().ocr.max_upload_size_mb
+    if size_mb > max_mb:
         raise HTTPException(
             status_code=413,
-            detail=f"File too large: {size_mb:.1f}MB > {settings.max_upload_size_mb}MB",
+            detail=f"File too large: {size_mb:.1f}MB > {max_mb}MB",
         )
 
     # Save to temp file. ``file.filename`` is client-supplied and was joined
@@ -149,27 +167,14 @@ async def process_document(
             backend=backend.value,
         )
 
-        # Build request
-        request = OCRRequest(
-            backend=backend,
-            mode=mode,
-            prompt=prompt,
-            ngram_window=ngram_window,
-            max_tokens=max_tokens,
-            paddle_mode=paddle_mode,
-            dpi=dpi,
-            return_json=return_json,
-        )
-
-        # Process
+        request = OCRRequest(backend=backend, dpi=dpi, return_json=return_json)
         return await service.process_upload(temp_path, request)
 
     except OCRServiceError as e:
         log.error("ocr_service_error", error=str(e))
-        raise HTTPException(502, str(e)) from e
-    except Exception as e:
-        log.exception("processing_failed", filename=file.filename)
-        raise HTTPException(500, f"Processing failed: {e}") from e
+        # Engine unavailable is 503; anything else is a genuine gateway failure.
+        code = _ENGINE_UNAVAILABLE if "unavailable" in str(e).lower() else 502
+        raise HTTPException(code, str(e)) from e
     finally:
         # Clean up here, NOT via BackgroundTasks.
         #
@@ -187,11 +192,9 @@ async def process_document(
 async def process_server_path(
     file_path: str = Form(..., description="Server-side file path"),
     backend: OCRBackend = Form(default=OCRBackend.AUTO),
-    mode: UnlimitedOCRMode = Form(default=UnlimitedOCRMode.GUNDAM),
-    prompt: str = Form(default=""),
-    dpi: int = Form(default=300),
+    dpi: int = Form(default=300, ge=50, le=600),
     service: OCRService = Depends(get_service),
-):
+) -> OCRResult:
     """Process a file already on the server filesystem (for batch/internal use).
 
     The path is checked against ``allowed_extensions`` exactly as ``/process``
@@ -199,24 +202,20 @@ async def process_server_path(
     ``.env``, ``~/.ssh/id_rsa`` -- was handed to the OCR engine and its decoded
     text returned in the response body. That turned an unauthenticated endpoint
     into an arbitrary-file-read primitive.
+
+    Errors are mapped the same way as ``/process``. Previously this endpoint had
+    no error handling at all, so an engine failure escaped as a bare 500 with no
+    diagnostic and no documented status.
     """
-    settings = get_ocr_settings()
-    ext = Path(file_path).suffix.lower()
-    if ext not in settings.allowed_extensions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type: {ext}. Allowed: {settings.allowed_extensions}",
-        )
+    _check_extension(file_path)
 
     if not os.path.isfile(file_path):
         raise HTTPException(404, f"File not found: {file_path}")
 
-    request = OCRRequest(
-        backend=backend,
-        mode=mode,
-        prompt=prompt,
-        dpi=dpi,
-    )
-
-    result = await service.process_upload(file_path, request)
-    return result
+    request = OCRRequest(backend=backend, dpi=dpi)
+    try:
+        return await service.process_upload(file_path, request)
+    except OCRServiceError as e:
+        log.error("ocr_service_error", error=str(e), path=file_path)
+        code = _ENGINE_UNAVAILABLE if "unavailable" in str(e).lower() else 502
+        raise HTTPException(code, str(e)) from e

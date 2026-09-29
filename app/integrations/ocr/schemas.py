@@ -16,32 +16,11 @@ class OCRBackend(str, Enum):
     """
 
     TESSERACT = "tesseract"
-    UNLIMITED = "unlimited"  # Legacy: removed in a later commit
-    PADDLE = "paddle"  # Legacy: removed in a later commit
     AUTO = "auto"
-
-
-class UnlimitedOCRMode(str, Enum):
-    """Legacy: removed with the backend in a later commit."""
-
-    GUNDAM = "gundam"
-    BASE = "base"
-
-
-class PaddleMode(str, Enum):
-    """Legacy: removed with the backend in a later commit."""
-
-    OCR = "ocr"
-    STRUCTURE = "structure"
 
 
 class OCRRequest(BaseModel):
     backend: OCRBackend = Field(default=OCRBackend.AUTO, description="OCR engine")
-    mode: UnlimitedOCRMode = Field(default=UnlimitedOCRMode.GUNDAM, description="Legacy")
-    prompt: str = Field(default="", description="Legacy")
-    ngram_window: int = Field(default=0, description="Legacy")
-    max_tokens: int = Field(default=0, description="Legacy")
-    paddle_mode: PaddleMode = Field(default=PaddleMode.OCR, description="Legacy")
 
     # Common
     dpi: int = Field(default=300, ge=50, le=600, description="PDF render DPI")
@@ -117,7 +96,7 @@ class HealthResponse(BaseModel):
     and ``error`` says why.
     """
 
-    status: Literal["healthy", "loading", "unhealthy", "degraded"]
+    status: Literal["healthy", "degraded"]
     # ``None`` before any backend has been selected. Declared as plain ``str``,
     # it made ``/api/ocr/health`` raise a validation error and answer HTTP 500
     # instead of reporting that OCR was not ready -- a health endpoint that
@@ -125,5 +104,5 @@ class HealthResponse(BaseModel):
     backend: str | None = None
     model_loaded: bool
     device: str
-    version: str = "1.0.0"
     error: str | None = None
+    version: str = "1.0.0"
