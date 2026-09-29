@@ -44,7 +44,14 @@ async def main() -> int:
 
     ok = [c for c, r in results.items() if isinstance(r, dict) and r.get("success")]
     ok += [c for c, r in results.items() if r is True]
-    print(f"brief delivered: {results}")
+    # Report the outcome, not the attempt. This line previously printed
+    # "brief delivered: {...}" unconditionally, so the journal recorded success
+    # one second before the unit exited 1 -- which is why a daily failure went
+    # unnoticed. The exit code was always honest; only the log line lied.
+    if ok:
+        print(f"brief delivered via {ok}: {results}")
+    else:
+        print(f"brief NOT delivered, no channel succeeded: {results}", file=sys.stderr)
     return 0 if ok else 1
 
 

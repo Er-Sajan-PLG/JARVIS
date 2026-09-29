@@ -1134,7 +1134,7 @@ async def agy_models() -> dict[str, Any]:
 
 @web_router.post("/agy/analyze-file")
 async def agy_analyze_file(payload: dict[str, Any]) -> dict[str, Any]:
-    from app.adapters.integrations.agy import analyze_file
+    from app.adapters.integrations.agy import analyze_file, resolve_analysis_path
 
     file_path = payload.get("file_path", "")
     query = payload.get("query", "What is this file about?")
@@ -1142,6 +1142,17 @@ async def agy_analyze_file(payload: dict[str, Any]) -> dict[str, Any]:
 
     if not file_path:
         raise HTTPException(status_code=400, detail="file_path required")
+
+    # Refuse before the file is opened and before any prompt is built. This
+    # endpoint reads a server-side path and ships it to a third party, so it
+    # obeys the same read policy as the read_file tool (F-SEC-004). The check is
+    # repeated inside analyze_file for callers that are not this route; here it
+    # makes a blocked exfiltration an explicit 403 instead of an HTTP 200
+    # carrying an error string, which a probe would read as success.
+    try:
+        resolve_analysis_path(file_path)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
     try:
         return {"response": analyze_file(file_path, query, model=model)}

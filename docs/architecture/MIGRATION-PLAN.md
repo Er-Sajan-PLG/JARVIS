@@ -140,7 +140,7 @@ what changes, what could break, how to verify, and whether it is reversible.
   `tests/unit/test_intent_extensions.py` (new tests green) + `test_brain.py` green.
   STOPPED here per plan.
 
-## 5. Wire the HTTP path to actually answer (the core fix) — REVERSIBLE (flag-gated)
+## 5. Wire the HTTP path to actually answer (the core fix) — REVERSIBLE (flag-gated) — ✅ DONE 2026-09-29
 
 - What changes: behind a flag, `chat_completions` (`http/router.py:63-112`) synthesizes text via the
   existing `ModelRouter.generate` (`app/models/router.py:120-169`) + `ResponseSynthesizer`
@@ -155,6 +155,28 @@ what changes, what could break, how to verify, and whether it is reversible.
   reviewed; `pytest tests/contract/ tests/unit/test_models_router.py -q`.
 - Reverse: flag off. Do NOT remove the old shape until all HITL consumers migrate (that's the one-way part —
   not this step).
+- **Done 2026-09-29**: shipped as `app/adapters/http/synthesis.py` (`http_llm_enabled`,
+  `synthesize_answer`), wired in `app/adapters/http/router.py` behind `JARVIS_HTTP_LLM`
+  (default `0` — flag-off response is byte-identical to before, asserted by test).
+  `tests/unit/test_http_synthesis.py` (19 tests) + 3 contract tests asserting the
+  flag-off/flag-on boundary. `docs/API_CONTRACT.md` §3.2 documents both shapes;
+  `docs/CONFIG.md` + `.env.example` carry the flag.
+  **DEVIATION FROM PLAN TEXT (verified, not assumed):** the plan said to use
+  `ModelRouter.generate`. That router is constructed in `app/bootstrap.py:150` but
+  **no provider is ever registered on it outside unit tests** — `register_provider`
+  has zero non-test callers in git history, and `select_healthy_provider()` raises
+  `RuntimeError: No healthy LLM providers available in failover pool` against a
+  live boot (verified). `ResponseSynthesizer` is also stream-only
+  (`synthesize_stream`), with no synchronous entry point. Step 5 therefore reuses
+  `ApplicationContainer.create_model_client` + `adapters/web/settings.get_default()`
+  — the path the web console already exercises in production. **Wiring `ModelRouter`
+  is now an unlisted prerequisite for any future step that assumes it works; the
+  plan should not again cite it as "existing".** Synthesis failures degrade to
+  `{"synthesis_error": ...}` and never remove the plan fields.
+  Incidental fix in the same wave: `_detect_domain`'s substring matching
+  (Step 4's flagged "capital" → coding bug) is fixed with word-boundary matching
+  in `app/brain/analyzer.py` (`_keyword_hits`), which also fixed a latent
+  `"season"` → high-urgency false positive.
 
 ## 6. Short-term context behind a facade (no prompt change yet) — REVERSIBLE
 

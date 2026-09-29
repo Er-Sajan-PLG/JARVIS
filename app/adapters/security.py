@@ -71,7 +71,18 @@ def is_authorized(
         return False
 
     # Constant-time compare: a plain ``!=`` would leak the key prefix to a timing probe.
-    return hmac.compare_digest(presented, expected)
+    #
+    # Compare as *bytes*. Given ``str`` arguments, ``hmac.compare_digest`` raises
+    # ``TypeError`` for any value containing non-ASCII characters ("comparing
+    # strings with non-ASCII characters is not supported"), so a single stray
+    # byte in ``Authorization`` or ``X-API-Key`` became HTTP 500 on every surface
+    # sharing this primitive instead of a clean 401. Encoding keeps the
+    # comparison constant-time and makes any byte sequence a plain mismatch.
+    try:
+        return hmac.compare_digest(presented.encode(), expected.encode())
+    except UnicodeEncodeError:
+        # A lone surrogate cannot be encoded as UTF-8 and can never equal the key.
+        return False
 
 
 def is_authorized_for_streaming(

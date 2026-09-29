@@ -109,6 +109,58 @@ GET /api/v1/health
 
 ---
 
+### 3.1.1 Readiness Check
+
+```http
+GET /api/v1/ready
+```
+
+**Auth**: None — readiness probe, independent of `validate_api_key`
+(`app/adapters/http/router.py:64-112`).
+
+Liveness (`/health`) answers *"is the process up?"*; readiness answers *"should
+this instance receive traffic?"*. A container can be live while no model is
+resolvable, in which case a chat request fails anyway. The probe is **total**: it
+returns 200 with a per-subsystem verdict rather than a 5xx, so the caller always
+learns *which* part is down.
+
+**Response 200**:
+```json
+{
+  "ready": true,
+  "checks": {
+    "model": "ok: openrouter/qwen/qwen3-coder:free",
+    "memory_service": "ok",
+    "mode_manager": "ok"
+  },
+  "version": "v3.x.x"
+}
+```
+
+Each `checks` value is `"ok"` or `"down: <reason>"`; `ready` is true only when
+every check starts with `ok`.
+
+The `model` check follows the **request path** — whether a default model resolves
+via `adapters/web/settings.get_default()` — not `container.model_router`. That
+router has **zero `BaseLLMProvider` implementations** in the tree (verified: only
+`MagicMock` constructs one in tests); its failover intent is already served by
+`OmniModelClient` over the `ModelClient` protocol. Probing it reported a
+subsystem nothing reads as if it were load-bearing.
+
+`agy` is a CLI-backed pseudo-provider (`app/adapters/integrations/agy.py`) the
+console reaches directly and the HTTP path cannot. When it is the default, the
+check reports `"ok: agy/<model> (console path only)"` — available to the console,
+deliberately not claimed for the REST synthesis path.
+
+> **Note (2026-09-29)**: this endpoint did not previously exist. It was asserted
+> by `docs/SPRINT_1_2_COMPLETION.md:40` ("/ready + /metrics … verified live 200")
+> although no route was ever registered — git history contains no `/ready`
+> handler. `GET /metrics` remains **unimplemented**; the only metrics surface is
+> the in-process `MetricsCollector` (`app/telemetry/metrics.py`), which is not
+> exposed over HTTP.
+
+---
+
 ### 3.2 Chat Completions (Primary Interface)
 
 ```http
@@ -140,6 +192,31 @@ and any paused HITL steps:
   "awaiting_approval": []
 }
 ```
+
+The keys above are **unconditional**. With `JARVIS_HTTP_LLM=1` the response
+additionally carries synthesized answer text
+(`app/adapters/http/synthesis.py`):
+
+```json
+{
+  "response": "the model's answer",
+  "model": {"provider": "openrouter", "id": "qwen/qwen3-coder:free"},
+  "tokens_used": 123,
+  "memories_used": 2
+}
+```
+
+Or, when no default model is configured or the provider is unreachable, exactly
+one of:
+
+```json
+{ "synthesis_error": "Model request failed: ..." }
+```
+
+Synthesis is **additive**: a synthesis failure never removes the plan fields and
+never turns a successful plan into a 5xx. With the flag off (the default) no
+`response` or `synthesis_error` key appears at all, so HITL consumers are
+unaffected either way. See `docs/CONFIG.md` for the flag.
 
 **Response 401**: Auth error (see above)
 
