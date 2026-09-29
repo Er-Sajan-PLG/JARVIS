@@ -34,7 +34,7 @@ import os
 import struct
 import tempfile
 import zlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace as dc_replace
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +45,7 @@ from fastapi.testclient import TestClient
 
 from app.adapters.security import API_KEY_ENV, is_authorized
 from app.api.ocr import routes as ocr_routes
-from app.integrations.ocr.config import get_ocr_settings
+from app.config.settings import get_settings
 from app.utils.image import validate_image
 from app.utils.pdf import is_pdf
 
@@ -640,7 +640,7 @@ def test_extension_check_implies_a_single_safe_path_component() -> None:
     filename itself (``_user_safe_decode`` only decodes), so this route-level
     reduction is the only one there is.
     """
-    allowed = get_ocr_settings().allowed_extensions
+    allowed = get_settings().ocr.allowed_extensions
     scratch = "/tmp/jarvis_ocr_invariant"
     extra = ["..", ".", "", "/", "//", "a/..", "x.png/..", "a.png..", ".png", "...png"]
     accepted = 0
@@ -757,19 +757,19 @@ def test_empty_filename_is_a_client_artefact_not_a_route_gap(
 def test_null_byte_filename_cannot_escape(
     client: TestClient, service: _RecordingService, upload_root: _UploadRoot
 ) -> None:
-    """A raw NUL reaches the route, fails at ``open()`` and leaves nothing behind.
+    """A raw NUL reaches the route and is rejected as a malformed request (400).
 
     ``Path("a\\x00.png").suffix`` is ``.png`` and the name survives the basename
-    reduction, so the route does reach the write -- where the OS refuses the
-    name. The result is a 500 (not a bypass): no file, no service call, and the
-    temp directory the route created is removed by the ``finally`` cleanup even
-    though the failure happened before the service was ever called.
+    reduction, so before the fix the route reached ``open()``, where the OS
+    raised ``ValueError: embedded null byte``. A route-wide ``except Exception``
+    turned that into a 500. It is a malformed request, so the route now rejects
+    it at the extension gate with 400 -- and it never reaches the filesystem, so
+    no temp directory is created at all.
     """
     response = _raw_upload(client, b"a\x00.png")
-    assert response.status_code == 500
+    assert response.status_code == 400
     assert service.processed == []
-    assert len(upload_root.created) == 1, "expected the temp dir to be created, then removed"
-    assert not upload_root.created[0].exists()
+    assert upload_root.created == [], "the null byte must be rejected before any mkdtemp"
 
 
 def test_httpx_normalises_a_null_byte_so_the_raw_body_is_the_real_test(
@@ -1052,16 +1052,20 @@ def test_classic_secret_paths_never_reach_the_service(
 # --- D. resource bounds ---------------------------------------------------
 
 
-def test_oversized_dpi_and_token_limits_reach_the_engine_unbounded(
+def test_oversized_dpi_is_rejected_before_it_reaches_the_engine(
     client: TestClient, service: _RecordingService, tmp_path: Path
 ) -> None:
-    """NOTED, not exploited: no upper bound on ``dpi``, ``max_tokens``, ``ngram_window``.
+    """FIXED: ``dpi`` is now bounds-checked, so it cannot multiply a pixmap.
 
-    ``OCRSettings`` bounds the upload size; ``OCRRequest`` bounds nothing. ``dpi``
-    reaches ``fitz.Matrix(dpi / 72, dpi / 72)``, so it multiplies the pixmap
-    allocation for every PDF page, and ``max_tokens``/``ngram_window`` are handed
-    to the model. Whatever the engine does with them happens *after* the request
-    has been authenticated and accepted.
+    This test previously recorded the opposite behaviour -- that an unbounded
+    ``dpi`` reached ``fitz.Matrix(dpi / 72, dpi / 72)`` and the engine accepted
+    it. ``dpi`` multiplies the pixmap allocation for every PDF page, so on a
+    100 MB upload it was a memory-exhaustion lever. ``OCRRequest`` now bounds it
+    to 50-600 and the form field carries the same constraint, so the value is
+    rejected at the boundary (422) and never reaches the service.
+
+    ``max_tokens`` and ``ngram_window`` no longer exist: they were parameters of
+    the Unlimited-OCR engine, which was removed.
     """
     target = tmp_path / "document.pdf"
     target.write_bytes(b"%PDF-1.4 fake")
@@ -1069,19 +1073,17 @@ def test_oversized_dpi_and_token_limits_reach_the_engine_unbounded(
     response = client.post(
         "/api/ocr/process-path", headers=_auth(), data={"file_path": str(target), "dpi": 10**9}
     )
-    assert response.status_code == 200
-    assert service.requests[-1].dpi == 10**9
+    assert response.status_code == 422
+    assert service.requests == []
 
     response = client.post(
         "/api/ocr/process",
         headers=_auth(),
         files={"file": ("document.png", _png_bytes(), "image/png")},
-        data={"dpi": -1, "max_tokens": 10**12, "ngram_window": 10**9},
+        data={"dpi": -1},
     )
-    assert response.status_code == 200
-    assert service.requests[-1].dpi == -1
-    assert service.requests[-1].max_tokens == 10**12
-    assert service.requests[-1].ngram_window == 10**9
+    assert response.status_code == 422
+    assert service.requests == []
 
 
 def test_oversized_upload_is_rejected_before_any_filesystem_write(
@@ -1097,8 +1099,10 @@ def test_oversized_upload_is_rejected_before_any_filesystem_write(
     the connection itself. See the xfail below for the unauthenticated version
     of the same ordering problem.
     """
-    settings = get_ocr_settings().model_copy(update={"max_upload_size_mb": 1})
-    monkeypatch.setattr(ocr_routes, "get_ocr_settings", lambda: settings)
+    # The size limit now lives on Settings.ocr. Patch the accessor the route
+    # uses rather than the deleted app.integrations.ocr.config module.
+    settings = get_settings()
+    monkeypatch.setattr(settings, "ocr", dc_replace(settings.ocr, max_upload_size_mb=1))
 
     response = _upload(client, "big.png", b"x" * (2 * 1024 * 1024))
     assert response.status_code == 413
