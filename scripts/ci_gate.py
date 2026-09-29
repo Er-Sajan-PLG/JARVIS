@@ -814,7 +814,15 @@ def gate_semgrep(worktree: Path, base: str) -> Check:
     exe = _tool("semgrep")
     if exe is None:
         return _missing_tool("semgrep", "SAST", True, "not installed")
-    changed = [f for f in _changed_files(worktree, base) if f.endswith(".py")]
+    # Only scan files that still exist. ``_changed_files`` lists deletions too,
+    # and semgrep answers a deleted path by aborting the whole run with
+    # "Invalid scanning root" (exit 2). Because a non-zero exit is reported as
+    # status="skip" and ``blocking_failures`` only counts "fail", a PR that
+    # deleted any .py file silently disabled this check. Every file that still
+    # exists is still scanned.
+    changed = [
+        f for f in _changed_files(worktree, base) if f.endswith(".py") and (worktree / f).is_file()
+    ]
     if not changed:
         return Check("semgrep", "SAST", True, "pass", "no changed python files")
     res = _run(
