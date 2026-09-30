@@ -407,6 +407,12 @@ sections:
     staleness: snapshot
     owner: governance
     notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-019-model-profiles-map-to-clients.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
 
   # docs/archive/, docs/migrations/, docs/timelines/ — frozen by policy.
   - doc: docs/archive/API_SIGNATURE_HISTORY.md
