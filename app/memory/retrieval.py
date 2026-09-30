@@ -5,14 +5,21 @@ Finds candidate memories that MIGHT be relevant.
 Does NOT rank or score them - that's MemoryRanker's job.
 """
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from app.memory.schema import Memory
 from app.utils.text import STOP_WORDS, extract_keywords
 
 
+@runtime_checkable
 class CandidateRetriever(Protocol):
-    """Protocol for candidate retrieval."""
+    """Protocol for candidate retrieval.
+
+    ``@runtime_checkable`` so a caller or a test can assert that a retriever
+    actually satisfies this seam, rather than patching the class under test --
+    which always succeeds and therefore verifies nothing. Note that ``isinstance``
+    against it checks only that these five members exist, not their signatures.
+    """
 
     def find_candidates(self, query: str, limit: int = 50) -> list[Memory]: ...
 
