@@ -226,20 +226,20 @@ def test_replace_convenience_method(manager):
         {
             "category": "location",
             "type": "city",
-            "value": "Kathmandu",
+            "value": "Springfield",
         }
     )
-    assert mem.value == "Kathmandu"
+    assert mem.value == "Springfield"
 
     replaced = manager.replace(
         {
             "category": "location",
             "type": "city",
-            "value": "Pokhara",
+            "value": "Shelbyville",
         }
     )
     assert replaced.id == mem.id
-    assert replaced.value == "Pokhara"
+    assert replaced.value == "Shelbyville"
 
 
 # ===== Retrieve Tests =====

@@ -12,22 +12,20 @@ These are pure behavioral/unit tests that exercise the public APIs of:
 All stores use temp-file paths so the real data/ directory is never touched.
 """
 
-import os
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
-from app.models.router import ModelRouter, TaskType
-from app.memory.store import MemoryStore
-from app.memory.manager import MemoryManager
-from app.memory.schema import Memory
-from app.conversation.manager import ConversationManager
 from app.config.settings import ConversationConfig
 from app.context.manager import ContextWindowManager
-
-
+from app.conversation.manager import ConversationManager
+from app.memory.manager import MemoryManager
+from app.memory.schema import Memory
+from app.memory.store import MemoryStore
 from app.models.interface import BaseLLMProvider, LLMResponse
+from app.models.router import ModelRouter, TaskType
+
 
 class _StubClient(BaseLLMProvider):
     """Minimal stand-in for a BaseLLMProvider."""
@@ -42,10 +40,28 @@ class _StubClient(BaseLLMProvider):
     async def is_available(self, api_key: str | None = None) -> bool:
         return self._available
 
-    async def generate_text(self, prompt, model, system_prompt=None, temperature=0.7, max_tokens=4096, api_key=None, extra_headers=None):
+    async def generate_text(
+        self,
+        prompt,
+        model,
+        system_prompt=None,
+        temperature=0.7,
+        max_tokens=4096,
+        api_key=None,
+        extra_headers=None,
+    ):
         return LLMResponse(content=f"from {self._name}", model=model, provider=self._name)
 
-    async def stream_text(self, prompt, model, system_prompt=None, temperature=0.7, max_tokens=4096, api_key=None, extra_headers=None):
+    async def stream_text(
+        self,
+        prompt,
+        model,
+        system_prompt=None,
+        temperature=0.7,
+        max_tokens=4096,
+        api_key=None,
+        extra_headers=None,
+    ):
         yield f"from {self._name}"
 
 
@@ -113,7 +129,7 @@ class TestMemoryStore(unittest.TestCase):
     def _store(self):
         return MemoryStore(path=self._path)
 
-    def _make(self, value="Sajan likes Python", category="preference", mtype="like"):
+    def _make(self, value="Jane likes Python", category="preference", mtype="like"):
         return Memory(category=category, memory_type=mtype, value=value)
 
     def test_add_and_get_by_id(self):
@@ -125,8 +141,8 @@ class TestMemoryStore(unittest.TestCase):
     def test_update_fields_valid(self):
         s = self._store()
         m = s.add(self._make())
-        s.update_fields(m.id, {"value": "Sajan likes Rust", "confidence": 0.9})
-        self.assertEqual(m.value, "Sajan likes Rust")
+        s.update_fields(m.id, {"value": "Jane likes Rust", "confidence": 0.9})
+        self.assertEqual(m.value, "Jane likes Rust")
         self.assertAlmostEqual(m.confidence, 0.9)
 
     def test_update_fields_rejects_immutable_id(self):
@@ -140,7 +156,7 @@ class TestMemoryStore(unittest.TestCase):
         s = self._store()
         m = s.add(self._make())
         s.update_fields(m.id, {"bogus_field": 123})
-        self.assertEqual(m.value, "Sajan likes Python")
+        self.assertEqual(m.value, "Jane likes Python")
 
     def test_update_fields_rejects_out_of_range_confidence(self):
         s = self._store()
@@ -158,8 +174,8 @@ class TestMemoryStore(unittest.TestCase):
 
     def test_find_by_category_and_type(self):
         s = self._store()
-        s.add(Memory(category="identity", memory_type="name", value="Sajan"))
-        s.add(Memory(category="identity", memory_type="name", value="Also Sajan"))
+        s.add(Memory(category="identity", memory_type="name", value="Jane"))
+        s.add(Memory(category="identity", memory_type="name", value="Also Jane"))
         s.add(Memory(category="preference", memory_type="like", value="Python"))
         found = s.find_by_category_and_type("identity", "name")
         self.assertEqual(len(found), 2)
@@ -196,32 +212,32 @@ class TestMemoryManager(unittest.TestCase):
 
     def test_store_and_get(self):
         mm = self._manager()
-        mem = mm.store({"category": "identity", "type": "name", "value": "Sajan"})
+        mem = mm.store({"category": "identity", "type": "name", "value": "Jane"})
         self.assertIsNotNone(mem)
         self.assertEqual(mm.count(), 1)
-        self.assertEqual(mm.get_by_id(mem.id).value, "Sajan")
+        self.assertEqual(mm.get_by_id(mem.id).value, "Jane")
 
     def test_update(self):
         mm = self._manager()
-        mem = mm.store({"category": "identity", "type": "name", "value": "Sajan"})
-        mm.update(mem.id, {"value": "Sajan K"})
-        self.assertEqual(mm.get_by_id(mem.id).value, "Sajan K")
+        mem = mm.store({"category": "identity", "type": "name", "value": "Jane"})
+        mm.update(mem.id, {"value": "Jane K"})
+        self.assertEqual(mm.get_by_id(mem.id).value, "Jane K")
 
     def test_delete(self):
         mm = self._manager()
-        mem = mm.store({"category": "identity", "type": "name", "value": "Sajan"})
+        mem = mm.store({"category": "identity", "type": "name", "value": "Jane"})
         self.assertTrue(mm.delete(mem.id))
         self.assertIsNone(mm.get_by_id(mem.id))
         self.assertEqual(mm.count(), 0)
 
     def test_persistence_roundtrip(self):
         mm = self._manager()
-        mem = mm.store({"category": "identity", "type": "name", "value": "Sajan"})
+        mem = mm.store({"category": "identity", "type": "name", "value": "Jane"})
         mm.save()
         mm2 = self._manager()
         loaded = mm2.get_by_id(mem.id)
         self.assertIsNotNone(loaded)
-        self.assertEqual(loaded.value, "Sajan")
+        self.assertEqual(loaded.value, "Jane")
 
 
 class TestConversationManager(unittest.TestCase):

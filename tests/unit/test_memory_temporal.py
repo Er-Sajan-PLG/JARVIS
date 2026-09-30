@@ -4,13 +4,19 @@ Design is ADR-015. The behaviours under test are the ones whose absence caused
 real data loss on 2026-09-15: corrections overwrote prior facts, so the store
 could not answer "what did we believe before the correction" and a mistaken
 correction was unrecoverable.
+
+Every case here is constructed, not read from a store, so the suite runs
+anywhere. Two tests that asserted the contents of the developer's live
+``data/memories.json`` used to sit at the end of this file; they skipped
+whenever that file was absent (i.e. in every fresh clone and in CI), so they
+measured nothing there. Their behaviour — a closed interval reads as not
+current, and a store record parses through ``TemporalFact.from_dict`` — is
+covered by the cases below.
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
-
-import pytest
 
 from app.memory.temporal import (
     TemporalFact,
@@ -29,7 +35,7 @@ def _epoch(y: int, m: int, d: int = 1) -> float:
 # The real case: a job that ended must not read as current.
 def test_ended_employment_is_not_current() -> None:
     ru = TemporalFact(
-        record_id="ruchi",
+        record_id="acme",
         valid_at=_epoch(2025, 8),
         invalid_at=_epoch(2025, 11),
         created_at=_epoch(2026, 9, 15),
@@ -59,7 +65,7 @@ def test_world_time_and_system_time_answer_different_questions() -> None:
     learn about it until Sep 2026. A single clock cannot express both.
     """
     f = TemporalFact(
-        record_id="ruchi",
+        record_id="acme",
         valid_at=_epoch(2025, 8),
         invalid_at=_epoch(2025, 11),
         created_at=_epoch(2026, 9, 15),
@@ -201,36 +207,3 @@ def test_from_dict_reads_iso_timestamps_and_epochs() -> None:
     assert epoch.valid_at == 1700000000.0
     assert TemporalFact.from_dict({"id": "z"}).valid_at is None
     assert TemporalFact.from_dict({"id": "z", "valid_at": "not-a-date"}).valid_at is None
-
-
-def test_real_store_facts_carry_both_clocks() -> None:
-    """Every record in the live store must expose the ADR-015 fields."""
-    import json
-    from pathlib import Path
-
-    store = Path(__file__).resolve().parents[2] / "data" / "memories.json"
-    if not store.exists():
-        pytest.skip("memory store not present")
-
-    for m in json.loads(store.read_text())["memories"]:
-        assert "created_at" in m, f"missing system clock on {m.get('value')!r}"
-        assert "valid_at" in m, f"missing event clock on {m.get('value')!r}"
-        # Reading each one through the temporal model must not raise.
-        TemporalFact.from_dict(m)
-
-
-def test_ended_employment_in_real_store_reads_as_not_current() -> None:
-    """Regression for the actual data: both CV jobs ended in Nov 2025."""
-    import json
-    from pathlib import Path
-
-    store = Path(__file__).resolve().parents[2] / "data" / "memories.json"
-    if not store.exists():
-        pytest.skip("memory store not present")
-
-    facts = [TemporalFact.from_dict(m) for m in json.loads(store.read_text())["memories"]]
-    closed = [f for f in facts if f.valid_at and f.invalid_at]
-    assert closed, "no facts carry a closed validity window"
-    # All five derived intervals are past events and must read as not current.
-    for f in closed:
-        assert not f.is_current(), f"{f.record_id} still reads as current"

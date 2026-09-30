@@ -5,14 +5,17 @@ field added to the dataclass but not to that method was silently dropped on the
 next save. The ADR-015 temporal fields (valid_at, invalid_at, expired_at,
 occurs_at, superseded_by, supersedes) would have vanished the first time the
 server wrote the store — the same class of bug as the API dropping ``type``.
+
+The round-trip is exercised against a store in ``tmp_path``, so the suite writes
+nothing outside pytest's temporary directory. A test that read the developer's
+live ``data/memories.json`` used to sit at the end of this file; it skipped
+whenever that file was absent, so it measured nothing in a fresh clone or in CI.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-
-import pytest
 
 from app.memory.schema import Memory
 from app.memory.store import MemoryStore
@@ -22,7 +25,7 @@ def _temporal() -> Memory:
     return Memory(
         category="profession",
         memory_type="work_period",
-        value="RUCHI Developer — Civil Engineer, Aug 2025 to Nov 2025",
+        value="Civil Engineer — ACME Corporation, Aug 2025 to Nov 2025",
         valid_at=1754006400.0,
         invalid_at=1761955200.0,
         expired_at=1789000000.0,
@@ -103,14 +106,3 @@ def test_absent_temporal_fields_load_as_none() -> None:
     assert m.occurs_at is None
     assert m.superseded_by is None
     assert m.value == "Likes pizza"
-
-
-def test_live_store_records_expose_temporal_fields() -> None:
-    """Every record in the real store must carry the ADR-015 keys."""
-    store_path = Path(__file__).resolve().parents[2] / "data" / "memories.json"
-    if not store_path.exists():
-        pytest.skip("memory store not present")
-
-    for rec in json.loads(store_path.read_text())["memories"]:
-        for key in ("valid_at", "invalid_at", "expired_at", "occurs_at"):
-            assert key in rec, f"{key!r} missing from {rec.get('value')!r}"

@@ -106,7 +106,7 @@ async def test_synthesize_returns_answer_shape(_default_model: None) -> None:
 
 @pytest.mark.asyncio
 async def test_memories_are_folded_in_as_data(_default_model: None) -> None:
-    memory = _FakeMemoryService(memories=["user prefers tea", "user is in Kathmandu"])
+    memory = _FakeMemoryService(memories=["user prefers tea", "user is in Freedonia"])
     container = _FakeContainer(memory)
     result = await synthesis.synthesize_answer(container, "what should I drink?", "sess-1")
 

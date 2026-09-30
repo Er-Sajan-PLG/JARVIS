@@ -59,7 +59,7 @@ class TestWorkdirPolicy:
 
     def test_home_refused(self):
         with pytest.raises(PermissionError):
-            _resolve_workdir("/home/sajan/secret")
+            _resolve_workdir("/home/testuser/secret")
 
     def test_etc_refused(self):
         with pytest.raises(PermissionError):

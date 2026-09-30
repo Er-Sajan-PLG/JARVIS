@@ -51,7 +51,7 @@ class TestAgyWhich:
 
         with (
             patch("shutil.which", return_value=None),
-            patch("pathlib.Path.home", return_value=Path("/home/sajan")),
+            patch("pathlib.Path.home", return_value=Path("/home/testuser")),
             patch("os.access", return_value=True),
             patch.object(Path, "is_file", return_value=True),
         ):
@@ -136,9 +136,11 @@ class TestGetModels:
 
 class TestChat:
     def test_chat_raises_when_no_exe(self):
-        with patch("app.adapters.integrations.agy._agy_which", return_value=None):
-            with pytest.raises(RuntimeError, match="AGY CLI not found"):
-                chat([{"role": "user", "content": "hello"}])
+        with (
+            patch("app.adapters.integrations.agy._agy_which", return_value=None),
+            pytest.raises(RuntimeError, match="AGY CLI not found"),
+        ):
+            chat([{"role": "user", "content": "hello"}])
 
     def test_chat_builds_correct_command(self):
         expected_response = {"response": "Hello from AGY"}
@@ -231,34 +233,34 @@ class TestChat:
         with (
             patch("app.adapters.integrations.agy._agy_which", return_value="/usr/bin/agy"),
             patch("subprocess.run", return_value=proc),
+            pytest.raises(RuntimeError, match="AGY CLI returned 1"),
         ):
-            with pytest.raises(RuntimeError, match="AGY CLI returned 1"):
-                chat([{"role": "user", "content": "hi"}])
+            chat([{"role": "user", "content": "hi"}])
 
     def test_chat_raises_on_empty_output(self):
         proc = _make_proc(returncode=0, stdout="")
         with (
             patch("app.adapters.integrations.agy._agy_which", return_value="/usr/bin/agy"),
             patch("subprocess.run", return_value=proc),
+            pytest.raises(RuntimeError, match="no response"),
         ):
-            with pytest.raises(RuntimeError, match="no response"):
-                chat([{"role": "user", "content": "hi"}])
+            chat([{"role": "user", "content": "hi"}])
 
     def test_chat_raises_on_timeout(self):
         with (
             patch("app.adapters.integrations.agy._agy_which", return_value="/usr/bin/agy"),
             patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="agy", timeout=300)),
+            pytest.raises(RuntimeError, match="timed out"),
         ):
-            with pytest.raises(RuntimeError, match="timed out"):
-                chat([{"role": "user", "content": "hi"}])
+            chat([{"role": "user", "content": "hi"}])
 
     def test_chat_raises_on_os_error(self):
         with (
             patch("app.adapters.integrations.agy._agy_which", return_value="/usr/bin/agy"),
             patch("subprocess.run", side_effect=OSError("exec failed")),
+            pytest.raises(RuntimeError, match="failed to start"),
         ):
-            with pytest.raises(RuntimeError, match="failed to start"):
-                chat([{"role": "user", "content": "hi"}])
+            chat([{"role": "user", "content": "hi"}])
 
     def test_chat_includes_all_message_roles(self):
         """Verify system, assistant, and user messages are all included."""
@@ -345,9 +347,11 @@ class TestAnalyzeFile:
         test_file = tmp_path / "test.txt"
         test_file.write_text("content")
 
-        with patch("app.adapters.integrations.agy._agy_which", return_value=None):
-            with pytest.raises(RuntimeError, match="File analysis failed"):
-                analyze_file(file_path=str(test_file), query="what?")
+        with (
+            patch("app.adapters.integrations.agy._agy_which", return_value=None),
+            pytest.raises(RuntimeError, match="File analysis failed"),
+        ):
+            analyze_file(file_path=str(test_file), query="what?")
 
     def test_analyze_file_uses_custom_mime_type(self, tmp_path: Path):
         """mime_type param is accepted (even if not sent to CLI currently)."""

@@ -1,6 +1,6 @@
 """occurs_at: an event's moment, distinct from a fact's validity interval.
 
-The store could represent "worked at RUCHI from Aug to Nov 2025" (a span) but
+The store could represent "worked at ACME from Aug to Nov 2025" (a span) but
 not "dentist at 5pm on 5 October" (an instant). A reminder was therefore
 indistinguishable from a preference.
 
@@ -137,7 +137,7 @@ def test_upcoming_sorted_and_excludes_past_and_undated() -> None:
 
 
 def test_format_uses_owner_timezone() -> None:
-    """Nepal is +05:45 — a stored UTC instant must display shifted."""
+    """The configured zone is +05:45 — a stored UTC instant must display shifted."""
     ts = parse_occurs_at("2026-10-05T12:00", REF)
     assert ts is not None
     assert "17:45" in format_occurs_at(ts)

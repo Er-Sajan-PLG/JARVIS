@@ -2,8 +2,8 @@
 
 Storing valid_at/invalid_at is worthless if the prompt renders an ended job and
 a current job identically. These tests pin the rendered suffix, because that
-string is what actually determines whether JARVIS says "I work at RUCHI" or
-"I left RUCHI".
+string is what actually determines whether JARVIS says "I work at ACME" or
+"I left ACME".
 
 They use the real ``MemoryRecord`` domain type rather than a stand-in, so a
 field renamed on the domain object breaks these tests instead of silently
@@ -29,7 +29,7 @@ def _ts(y: int, m: int, d: int, hh: int = 0) -> float:
 
 
 def test_ended_fact_is_marked_ended() -> None:
-    """The RUCHI/Roadshow case: a finished job must not read as current."""
+    """A finished job must not read as current."""
     rec = _rec(valid_at=_ts(2025, 8, 1), invalid_at=_ts(2025, 11, 30))
     assert _temporal_suffix(rec) == " [ended 2025-11-30]"
 
