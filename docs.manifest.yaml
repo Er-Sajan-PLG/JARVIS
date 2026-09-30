@@ -292,6 +292,11 @@ sections:
     kind: hand
     staleness: content
     owner: models
+  - doc: docs/architecture/DEAD-CODE-REGISTER.md
+    covers: [tests/unit/test_dead_code_register.py]
+    kind: hand
+    staleness: content
+    owner: governance
   - doc: docs/architecture/startup_flow.md
     covers: [app/bootstrap.py, app/main.py]
     kind: hand
