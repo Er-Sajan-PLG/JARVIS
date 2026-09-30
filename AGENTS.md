@@ -104,8 +104,25 @@ coverage target or CI cadence is defined for them here.
 | Contract | 100% of endpoints | ✅ Every PR | in force |
 | E2E | Critical paths | — | **NOT IMPLEMENTED** — no suite, no Playwright dependency |
 
-Coverage is measured line-only. `scripts/ci_gate.py` does not pass `--cov-branch`,
-so a branch that is never taken is invisible to the target in the first row.
+Coverage is measured with `--cov-branch` (added 2026-09-30, closing F-TEST-001),
+so a branch that is never taken is visible to the target in the first row. The
+gate reports **86%** line+branch against the 80% floor (statement-only: 87% in
+the gate's worktree, 88% locally).
+
+Two caveats on that number, both deliberate:
+
+- **It is opt-in.** `gate_coverage` only runs under `ci_gate.py --with-coverage`;
+  the default gate does not measure coverage at all. The floor is therefore not
+  enforced on an ordinary run.
+- **It is non-blocking** (`blocking=False`), so a breach is reported, not fatal.
+  A gate that is opt-in *and* non-blocking never fails anything by itself — treat
+  the figure as a measurement, not a ratchet.
+
+The number is re-derived by `tests/unit/test_coverage_gate.py`, which asserts the
+gate passes `--cov-branch`, keeps `--cov=app`, and compares the parsed value to
+the 80% floor rather than to a literal. It also refuses a docstring percentage
+that does not say how it was measured: this one claimed **98%** for an unknown
+period while the live command reported 87%.
 
 ### 3.3 Test Quality Rules
 - **No hand-built literals** → Use factories/fixtures
