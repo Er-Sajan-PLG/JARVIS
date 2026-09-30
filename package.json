@@ -71,7 +71,7 @@
     "dayjs": "^1.11.21",
     "delaunator": "^5.1.0",
     "devtools-protocol": "^0.0.1638949",
-    "dompurify": "3.4.13",
+    "dompurify": "3.4.16",
     "elkjs": "^0.9.3",
     "emoji-regex": "^10.6.0",
     "es-toolkit": "^1.49.0",
