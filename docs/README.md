@@ -93,6 +93,7 @@ the code wins — and the document is a bug.
 | Directory | Content |
 |---|---|
 | [`architecture/`](architecture/) | System topology docs + Mermaid diagrams (components, cognitive brain, model routing, memory, data flow, startup) + migration audit, gap analysis, and plan |
+| [`architecture/DEAD-CODE-REGISTER.md`](architecture/DEAD-CODE-REGISTER.md) | Subsystems in `app/` with no production call site, each re-derived by `tests/unit/test_dead_code_register.py` |
 | [`modules/`](modules/) | Per-subsystem guides: domain, brain, models, memory, guardrails, adapters, integrations |
 | [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-017) |
 | [`migrations/`](migrations/) | v2→v3 migration notes and symbol tombstones |

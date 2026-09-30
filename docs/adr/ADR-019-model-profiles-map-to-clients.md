@@ -106,6 +106,10 @@ construct `ModelRouter`.**
 
 - A user with an Ollama model configured now gets a working switcher instead of
   a silently empty one. `active_profile` resolves to `default` or `omni`.
+  **Scoped honestly:** this is true of the component, not of the running
+  application, because nothing in `app/` constructs `ModelSwitcher` — see
+  "Reachability" below. The fix removes a trap for whoever wires it up; it does
+  not change any behaviour a user can presently reach.
 - `mypy --strict app/` fell **521 → 504**. The abandoned abstraction was itself
   generating type debt, because every call into it was checked against methods
   the class does not define. `.governance/mypy_baseline.txt` is lowered to lock
@@ -128,6 +132,43 @@ construct `ModelRouter`.**
   (an ADR records the decision of its date); this ADR records the divergence.
 - `_routers` holding clients rather than routers is a misleading name that this
   change keeps for compatibility. Renaming it to `_profiles` is a follow-up.
+
+## Reachability: this subsystem is not wired into the application
+
+Verified 2026-09-30 at HEAD, after the fix. Recording it here because ADR-019
+would otherwise read as though a running code path was repaired.
+
+- **`ModelSwitcher` is constructed zero times in `app/`.** The only non-test
+  constructions are `legacy/server.py:107,409` and
+  `legacy/web_api_server.py:111,448`. `legacy/` is retired: `app/` does not
+  import it, and `tests/sprint3/test_langgraph_engine_contract.py::test_legacy_server_import_blocked`
+  asserts that importing the old `app.api.server` is blocked.
+- **`_startup_model_select` (`app/utils/model_selector.py:84`) is called from
+  nowhere.** Only its own definition matches in `app/`, `scripts/` and `legacy/`.
+- **`app/utils/model_selector.py` references `ModelSwitcher` only in a
+  docstring** (line 6). It does not import it. The two modules form a closed
+  loop with no entry point.
+- The live path is `app/adapters/web/router.py`, which calls
+  `container.create_model_client(config)` for chat. Profile switching is not
+  part of it.
+
+So `ModelRouter`, `DocumentationAgent` (see `docs/AGENTS.md`) and this
+switcher/selector pair are three components with no production call site. All
+three were exercised only by direct construction in tests, and all three stayed
+green while being unreachable — the switcher's tests by mocking the class under
+test, the doc agent's by constructing it by hand.
+
+**What that does and does not change about this ADR.** The decision stands: a
+profile maps to a client, and `ModelRouter` must not be constructed here. That is
+correct code regardless of whether it runs, and it is the precondition for wiring
+the switcher up safely rather than the thing that makes it live. What it does not
+support is any claim that a user-visible failure was repaired.
+
+**Open question, not decided here:** whether to wire the switcher/selector into
+the app, or delete them alongside `legacy/`. That is a product decision with a
+migration, and it is deliberately not taken in this ADR.
+
+---
 
 ## Related
 
