@@ -600,11 +600,18 @@ def gate_evals(worktree: Path) -> Check:
 
 
 def gate_coverage(worktree: Path) -> Check:
-    """REPORTED ONLY — measured 98% on 2026-09-13 against the 80% floor (RISK-004 closed).
+    """REPORTED ONLY — the gate reports 86% against the 80% floor (RISK-004 closed).
+
+    Measured by running this gate with `--with-coverage` at HEAD on 2026-09-30:
+    `coverage 86% (floor 80%)`. Branch measurement was added in the same change,
+    so that figure is line+branch. For comparison, on the same tree: statement-only
+    in the gate's worktree was 87%, and locally 88% statement-only / 86-87%
+    line+branch. Quote a figure from a gate run, not from memory — this docstring
+    previously claimed 98% and had drifted 11 points from the live command.
 
     Historically this reported ~36% and was tracked as RISK-004. That figure was
-    stale; the gate's own command now yields TOTAL 98%, so the floor is exceeded.
-    Still non-blocking on purpose: coverage moves as new code lands, and a floor
+    stale; RISK-004 now carries the same 88% the gate measures. Still
+    non-blocking on purpose: coverage moves as new code lands, and a floor
     breach should surface as a reported failure, not a build break.
     """
     res = _run(
@@ -616,6 +623,7 @@ def gate_coverage(worktree: Path) -> Check:
             "-q",
             "--no-header",
             "--cov=app",
+            "--cov-branch",
             "--cov-report=term",
         ],
         cwd=worktree,
