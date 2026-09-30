@@ -15,13 +15,14 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from app.domain import DraftStatus, MemoryItem, MemoryKind, MemoryScope
 
 logger = logging.getLogger(__name__)
 
 
+@runtime_checkable
 class ChatModel(Protocol):
     """Minimal structural interface the extractor needs from an LLM client.
 
@@ -29,6 +30,10 @@ class ChatModel(Protocol):
     ``app.models.client.ModelClient``, so ``app.memory`` stays within its
     governance boundary (``app.memory -> app.integrations``). Any object with a
     compatible ``generate`` satisfies this protocol.
+
+    ``@runtime_checkable`` so that compatibility can be asserted rather than
+    assumed. It checks only that ``generate`` exists -- an object whose
+    ``generate`` takes no arguments still passes, and fails at the call.
     """
 
     def generate(self, messages: list[dict[str, str]], **kwargs: Any) -> Any:
