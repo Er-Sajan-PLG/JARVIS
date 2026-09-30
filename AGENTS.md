@@ -178,6 +178,23 @@ Enforcement is *process, not policy*: the gate publishes statuses, the pipeline
 stops on red, and a human does not press merge. See `docs/ACCEPTED_RISKS.md`
 (RISK-012, RISK-011) and `docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md`.
 
+### 4.3.1 The pre-push hook runs the same suite as the gate
+
+`githooks/pre-push` **exits 1** on a test failure, so it is the mechanism that
+actually stops a bad commit reaching the remote. It must collect the same tree
+`scripts/ci_gate.py` collects: **`tests/`**.
+
+It ran `pytest tests/unit` until 2026-09-30 while its own comment called that "the
+full unit test suite". That was **2011 of 2128** tests — it omitted `tests/contract`
+(50), `tests/performance` (48), `tests/integration` (12) and `tests/sprint3` (7).
+Those 117 run in about 14 seconds and need no database, so a commit that broke an
+API contract or a timing assertion pushed cleanly and was caught only by the gate,
+after the push had already landed.
+
+`tests/unit/test_pre_push_runs_the_whole_suite.py` holds the hook and the gate to
+the same tree, and covers every directory under `tests/` so an added suite cannot
+sit outside enforcement.
+
 ### 4.4 Versioning
 - **Scheme**: Semantic Versioning (MAJOR.MINOR.PATCH)
 - **Source**: **git tags** — the version is *derived* from them at import time
