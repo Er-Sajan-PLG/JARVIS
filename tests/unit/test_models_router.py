@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.models.exceptions import ModelRateLimitError
 from app.models.interface import BaseLLMProvider, LLMResponse
 from app.models.router import ModelRouter, TaskType
 
@@ -160,6 +161,54 @@ async def test_generate_failover_on_429_rate_limit():
     assert res.content == "fallback answer"
     rm.health.record_failure.assert_called_once_with("p1", 429)
     rm.health.record_success.assert_called_once_with("p2")
+
+
+@pytest.mark.asyncio
+async def test_generate_failover_on_the_real_rate_limit_exception():
+    """The rate-limit path must work for the exception production actually raises.
+
+    This test exists because the one above it passes for the wrong reason. It
+    raises a hand-written `Exception("429 Too Many Requests: Rate limit
+    exceeded")`, and `ModelRouter` classifies the failure by STRING-MATCHING the
+    message (`router.py`: `"429" in err_str or "rate limit" in err_str.lower()`).
+    The wording therefore satisfies the heuristic by construction.
+
+    But no client raises that. All 11 provider clients map the provider's
+    RateLimitError through `map_openai_error`, which builds the message
+    `"Model '<name>' is rate-limited or over quota."` (exceptions.py). That
+    string contains neither "429" nor "rate limit" -- the HYPHEN in
+    "rate-limited" defeats the substring -- so the real exception was recorded
+    with `code=None`, and the circuit breaker could not tell a rate limit from an
+    unclassified failure. Verified by execution before this fix.
+
+    A fake that satisfies a string heuristic proves the heuristic works on that
+    fake's spelling, not that it works on production's.
+    """
+    rm = MagicMock()
+    health_status = {"p1": True, "p2": True}
+    rm.health.is_available.side_effect = lambda name: health_status.get(name, False)
+
+    def record_failure(name, code):
+        health_status[name] = False
+
+    rm.health.record_failure.side_effect = record_failure
+
+    router = ModelRouter(resource_manager=rm)
+    p1 = make_mock_provider("p1")
+    p2 = make_mock_provider("p2")
+
+    # The exact message map_openai_error builds, via the real exception class.
+    p1.generate_text.side_effect = ModelRateLimitError("Model 'm1' is rate-limited or over quota.")
+    p2.generate_text.return_value = LLMResponse(
+        content="fallback answer", model="m1", provider="p2"
+    )
+
+    router.register_provider(p1)
+    router.register_provider(p2)
+
+    res = await router.generate("prompt", "m1", preferred_provider="p1")
+    assert res.content == "fallback answer"
+    rm.health.record_failure.assert_called_once_with("p1", 429)
 
 
 @pytest.mark.asyncio

@@ -1,17 +1,10 @@
 """Base OCR Backend Interface."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any
 
+from app.integrations.ocr.schemas import BackendInfo, OCRResult
 
-@dataclass
-class OCRResult:
-    markdown: str
-    json_data: Any | None = None
-    pages_processed: int = 1
-    backend: str = ""
-    model_info: str = ""
+__all__ = ["OCRBackend", "OCRResult"]
 
 
 class OCRBackend(ABC):
@@ -21,23 +14,34 @@ class OCRBackend(ABC):
 
     @abstractmethod
     def load(self) -> None:
-        """Load model into memory."""
+        """Prepare the engine for use.
+
+        Must raise ``RuntimeError`` with an actionable message when the engine is
+        unusable. It must NOT raise ``AttributeError``: the previous backends
+        read a settings attribute that did not exist, and every ``load()`` died
+        there.
+        """
 
     @abstractmethod
     def unload(self) -> None:
-        """Free model memory."""
+        """Release engine resources."""
 
     @abstractmethod
     def is_loaded(self) -> bool:
-        """Check if model is loaded."""
+        """Report whether the engine is ready to serve requests."""
 
     @abstractmethod
-    def process(self, image_paths: list[str], **kwargs) -> OCRResult:
-        """
-        Process images and return OCR result.
-        Blocking call - should be run in thread pool.
+    def process(self, image_paths: list[str], **kwargs: object) -> OCRResult:
+        """OCR the given images and return the combined result.
+
+        Blocking; callers must run this in a thread pool, never on the event
+        loop.
         """
 
     @abstractmethod
-    def get_info(self) -> dict:
-        """Return model/device info for health checks."""
+    def get_info(self) -> BackendInfo:
+        """Return engine/device information for health checks.
+
+        Must never raise. A ``get_info()`` that raised is what turned
+        ``/api/ocr/health`` into a permanent HTTP 500.
+        """

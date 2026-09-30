@@ -38,10 +38,8 @@ def _d(ts: float | None) -> str | None:
 
 
 def test_slash_period_end_is_month_end(mig) -> None:
-    """The exact REV 7.0 shape that was wrong."""
-    s, e = mig._derive_event_time(
-        "Civil Engineer — RUCHI DEVELOPER PVT. LTD. (08/2025 - 11/2025)"
-    )
+    """The shape that was wrong: a slash-form range must end on the last day."""
+    s, e = mig._derive_event_time("Civil Engineer — ACME Corporation (08/2025 - 11/2025)")
     assert _d(s) == "2025-08-01"
     assert _d(e) == "2025-11-30", "end must be the last day of November"
 
@@ -58,7 +56,7 @@ def test_slash_period_end_handles_leap_february(mig) -> None:
 
 
 def test_word_month_period_end_is_month_end(mig) -> None:
-    _, e = mig._derive_event_time("Roadshow, Aug 2024 to Nov 2025")
+    _, e = mig._derive_event_time("Widget Ltd., Aug 2024 to Nov 2025")
     assert _d(e) == "2025-11-30"
 
 
@@ -85,20 +83,3 @@ def test_month_end_helper_is_calendar_correct(mig) -> None:
 
 def test_no_date_returns_none(mig) -> None:
     assert mig._derive_event_time("Likes pizza") == (None, None)
-
-
-def test_live_store_employment_dates_match_the_cv() -> None:
-    """The owner-visible consequence: stored end dates must equal CV REV 7.0."""
-    store = Path(__file__).resolve().parents[2] / "data" / "memories.json"
-    if not store.exists():
-        pytest.skip("memory store not present")
-
-    import json
-
-    ms = json.loads(store.read_text())["memories"]
-    employment = [m for m in ms if m.get("invalid_at") and "RUCHI" in m["value"]]
-    assert employment, "no RUCHI record found to check"
-    for m in employment:
-        assert _d(m["invalid_at"]) == "2025-11-30", (
-            f"{m['value'][:50]!r} ended {_d(m['invalid_at'])}, CV says Nov 2025"
-        )

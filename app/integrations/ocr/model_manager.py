@@ -1,69 +1,94 @@
-"""OCR Model Manager - Lazy loading, switching, cleanup."""
+"""OCR Model Manager — backend registry and health.
 
-from contextlib import asynccontextmanager
+What changed and why
+--------------------
+This module used to import ``torch`` at module scope and hold a
+``threading.Lock`` across ``backend.load()``, which loaded a multi-GB model on
+the event loop. Three defects followed from that design:
+
+1. **A failed load was cached forever.** The backend was inserted into
+   ``_backends`` *before* ``load()`` was called, so a raising load stayed
+   registered permanently; ``get_status()`` then called ``get_info()`` on it and
+   raised, turning ``/api/ocr/health`` into a permanent HTTP 500 after one bad
+   request.
+2. **Loading blocked the whole server.** The lock was held across a multi-minute
+   load on the event loop, freezing every HTTP and WebSocket request.
+3. **A state that could not exist was reported.** ``_current_name`` was set only
+   *after* a successful load, so "selected but not loaded" was unreachable —
+   yet health called ``loaded=False`` "loading".
+
+The engine is now ``tesseract``, a system binary with no weights, so there is
+nothing to load. That removes defects 1–3 structurally rather than by patching:
+the registry only ever holds *usable* backends, ``load()`` is cheap enough to run
+inline, and there is no "loading" state to misreport.
+
+``torch`` is no longer imported here. It cost ~774 MB RSS on ``app.main``'s
+import path for an engine that is not used.
+"""
+
+from __future__ import annotations
+
 from threading import Lock
 
 import structlog
-import torch
 
-from app.integrations.ocr.backends import OCRBackend, PaddleOCRBackend, UnlimitedOCRBackend
-from app.integrations.ocr.config import get_ocr_settings
-from app.integrations.ocr.schemas import OCRBackend as OCRBackendEnum
+from app.integrations.ocr.backends import OCRBackend, TesseractBackend
+from app.integrations.ocr.schemas import (
+    BackendInfo,
+    ModelManagerStatus,
+    OCRBackend as OCRBackendEnum,
+)
 
 log = structlog.get_logger()
 
 
 class ModelManager:
-    """Manages OCR backend lifecycle: lazy loading, switching, cleanup."""
+    """Registry of usable OCR backends, with lazy load and honest status."""
 
-    def __init__(self):
-        self.settings = get_ocr_settings()
+    def __init__(self) -> None:
+        from app.config.settings import get_settings
+
+        self.settings = get_settings().ocr
         self._backends: dict[str, OCRBackend] = {}
-        self._current_backend: OCRBackend | None = None
         self._current_name: str | None = None
+        self._load_error: str | None = None
         self._lock = Lock()
 
     def _create_backend(self, name: str) -> OCRBackend:
-        if name == "unlimited":
-            return UnlimitedOCRBackend()
-        elif name == "paddle":
-            return PaddleOCRBackend()
-        else:
-            raise ValueError(f"Unknown backend: {name}")
+        if name in ("tesseract", "auto"):
+            return TesseractBackend(self.settings)
+        raise ValueError(f"Unknown backend: {name}")
 
     def get_backend(self, requested: OCRBackendEnum) -> OCRBackend:
-        """Get or create backend, loading if needed."""
+        """Return a loaded backend, creating and loading it if needed.
+
+        The lock is held only for registry mutation. With tesseract there is no
+        expensive load to serialise; if a future engine needs one, that load must
+        happen outside the lock and off the event loop.
+        """
         with self._lock:
-            # Determine which backend to use
-            if requested == OCRBackendEnum.AUTO:
-                backend_name = "unlimited" if torch.cuda.is_available() else "paddle"
-            else:
-                backend_name = requested.value
+            backend_name = (
+                self.settings.engine if requested == OCRBackendEnum.AUTO else requested.value
+            )
 
-            # Return current if matches and loaded
-            if self._current_name == backend_name and self._current_backend:
-                if self._current_backend.is_loaded():
-                    return self._current_backend
+            cached = self._backends.get(backend_name)
+            if cached is not None and cached.is_loaded():
+                self._current_name = backend_name
+                return cached
 
-            # Get or create backend
-            if backend_name not in self._backends:
-                self._backends[backend_name] = self._create_backend(backend_name)
-
-            backend = self._backends[backend_name]
-
-            # Load if needed
-            if not backend.is_loaded():
-                log.info("loading_backend", backend=backend_name)
+            backend = cached or self._create_backend(backend_name)
+            try:
                 backend.load()
-                log.info("backend_loaded", backend=backend_name)
+            except Exception as e:
+                # Do NOT register a backend that failed to load. Registering it
+                # is what made /health return 500 permanently.
+                self._load_error = f"{type(e).__name__}: {e}"
+                log.error("ocr_backend_load_failed", backend=backend_name, error=str(e))
+                raise
 
-            # Unload previous if different (save VRAM)
-            if self._current_backend and self._current_backend != backend:
-                log.info("unloading_previous_backend", backend=self._current_name)
-                self._current_backend.unload()
-
-            self._current_backend = backend
+            self._backends[backend_name] = backend
             self._current_name = backend_name
+            self._load_error = None
             return backend
 
     def unload_all(self) -> None:
@@ -72,14 +97,27 @@ class ModelManager:
                 if backend.is_loaded():
                     log.info("unloading_backend", backend=name)
                     backend.unload()
-            self._current_backend = None
+            self._backends.clear()
             self._current_name = None
 
-    def get_status(self) -> dict:
+    def get_status(self) -> ModelManagerStatus:
+        """Health snapshot. Must never raise.
+
+        Only successfully-loaded backends are registered, so ``get_info()``
+        cannot raise the way it used to.
+        """
         with self._lock:
+            backends: dict[str, BackendInfo] = {}
+            for name, backend in self._backends.items():
+                try:
+                    backends[name] = backend.get_info()
+                except Exception as e:  # defensive: health must not 500
+                    log.error("ocr_backend_info_failed", backend=name, error=str(e))
+                    backends[name] = BackendInfo(loaded=False, error=f"{type(e).__name__}: {e}")
             return {
                 "current_backend": self._current_name,
-                "backends": {name: backend.get_info() for name, backend in self._backends.items()},
+                "backends": backends,
+                "load_error": self._load_error,
             }
 
 
@@ -91,13 +129,3 @@ def get_model_manager() -> ModelManager:
     if _model_manager is None:
         _model_manager = ModelManager()
     return _model_manager
-
-
-@asynccontextmanager
-async def model_lifespan(app):
-    """FastAPI lifespan handler."""
-    manager = get_model_manager()
-    # Optional: pre-warm default backend
-    # manager.get_backend(OCRBackendEnum.AUTO)
-    yield
-    manager.unload_all()

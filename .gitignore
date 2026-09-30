@@ -120,7 +120,12 @@ credentials.*
 # AI / LLM
 ###############################################################################
 
-models/
+# Anchored: an unanchored `models/` also matched `docs/modules/models/`, so a
+# real documentation directory was invisible to git and missing from every fresh
+# clone and worktree -- `check_docs` and the doc-link test failed there while
+# passing in the author's checkout. `!app/models/` was masking the same
+# collision for the Python package. Weights only ever live at the repo root.
+/models/
 !app/models/
 checkpoints/
 weights/

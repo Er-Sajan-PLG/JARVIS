@@ -72,9 +72,47 @@ demand (the `docs` command), not on every user turn.
 
 ---
 
+## ⚠️ Reachability: this agent is not wired into the application
+
+**Verified 2026-09-30 at HEAD. Read this before the lifecycle section below,
+which describes a construction path that does not exist.**
+
+- `DocumentationAgent` is **never constructed in production**. Every occurrence
+  of `DocumentationAgent(` in the repository is in `tests/`:
+  `tests/unit/test_agents.py`, `tests/unit/test_issues.py`,
+  `tests/performance/test_security.py`. There is no call site under `app/`.
+- **`app.agents` is not imported by `app/` at all.** The only mention of the
+  package in production code is a prose reference inside a docstring in
+  `app/tools/workspace_tools.py`.
+- **`run_interactive` is never called in production.** Its only callers are
+  `tests/unit/test_agents.py`.
+- **`main.py` has no `docs` command**, and therefore no REPL branch that could
+  invoke the agent. The lifecycle section below claims the agent is constructed
+  in `main.main()` and started by typing `docs`; neither is true at HEAD.
+- The code block below cites `switcher.router.default_model`. That expression
+  appears **nowhere** in `app/` — and it could not work if it did: `ModelSwitcher.router`
+  returns a `ModelClient`, which has no `default_model` attribute (see
+  [ADR-019](adr/ADR-019-model-profiles-map-to-clients.md)).
+
+**What this means:** the agent, its tool registry, its allowlist and its
+iteration cap are real, tested code — but they are a library with no caller, not
+a running subsystem. Tests exercise it by constructing it directly, so a green
+suite here does **not** mean the `docs` command works. Treat this document as a
+description of `app/agents/doc_agent.py` as a module, and do not cite it as
+evidence that documentation generation runs.
+
+**Related:** this is the same shape as the `ModelRouter` defect recorded in
+ADR-019 — a component with no production call site, exercised only through
+direct construction in tests.
+
+---
+
 ## Agent lifecycle
 
-**Construction** (inside `main.main()`, before the main REPL loop):
+**Construction** — ⚠️ **the code below does not exist at HEAD.** It is retained
+to document the intended wiring, not observed behaviour. There is no
+`DocumentationAgent` call site in `app/`, and `switcher.router.default_model`
+appears nowhere in the tree. See the reachability note above.
 
 ```python
 doc_agent = DocumentationAgent(
@@ -343,10 +381,17 @@ task:
   `DIFF_MAX_CHARS = 8000`. (`app/tools/executor.py`, `git_tools.py`.)
 - `ToolExecutor.format_result` injects `<tool_result name=... status=...>`
   blocks as a single `user` message.
-- Invocation path in `main.py`: `doc_agent` is constructed inside `main()` from
-  `switcher.get_client(profiles[active_profile]["docs"]) or
-  switcher.router.default_model`; `run_interactive(doc_agent)` runs on the
-  `docs` command; `doc_agent` is recreated on a `model <name>` switch.
+- ~~Invocation path in `main.py`: `doc_agent` is constructed inside `main()`
+  from `switcher.get_client(...) or switcher.router.default_model`;
+  `run_interactive(doc_agent)` runs on the `docs` command; `doc_agent` is
+  recreated on a `model <name>` switch.~~ **WITHDRAWN 2026-09-30 as FALSE and
+  previously mislabelled "Verified".** `main.py` contains no
+  `DocumentationAgent` construction and no `docs` command;
+  `switcher.router.default_model` appears nowhere in `app/`. See the
+  reachability section above. The method's own scope note says "only the code
+  under `app/agents/` and the modules it directly imports/invokes were
+  inspected" — `main.py` was evidently not opened, and the claim was inferred
+  from the docstring's intent.
 - `ModelClient` is a Protocol with
   `generate(messages, stream=False, on_token=None, **kwargs) -> ModelResponse`
   and `model_name` / `role` properties; `ModelResponse` has `content`,

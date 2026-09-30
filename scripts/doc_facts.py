@@ -161,7 +161,16 @@ def collect_expensive(run_tests: bool = False, allow_cache: bool = False) -> dic
     recursion (the test runs pytest which runs the test which runs pytest...).
     Collection is deterministic and fast; execution is neither.
     """
+    # Prefer the repository interpreter, else the one running this script.
+    # REPO_ROOT is a *worktree* whenever ci_gate.py measures a commit, and a
+    # worktree has no .venv -- so testing REPO_ROOT/.venv made this skip
+    # collection entirely there and report "unknown", which failed
+    # test_real_repository_has_no_doc_drift under the gate while passing in a
+    # developer's checkout. The guard was reporting "cannot verify" in exactly
+    # the environment that is supposed to verify.
     venv_py = REPO_ROOT / ".venv" / "bin" / "python"
+    if not venv_py.is_file():
+        venv_py = Path(sys.executable)
     if run_tests and venv_py.is_file():
         # Detect if we're inside a running pytest session to avoid recursion.
         inside_pytest = "pytest" in sys.modules

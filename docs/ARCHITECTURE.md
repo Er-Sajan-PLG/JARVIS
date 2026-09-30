@@ -43,7 +43,7 @@ JARVIS is a **single-tenant personal AI platform** built on a **Pragmatic Hybrid
 │  │    brain: IntentAnalyzer, TaskPlanner, ExecutionRunner,            │  │
 │  │           ResponseSynthesizer         ← Cognitive Engine Loop      │  │
 │  │    events: InMemoryAsyncBus                                     ←  │  │
-│  │    models: ModelRouter + ResourceManager (circuit breakers)      ←  │  │
+│  │    models: ModelClient + ResourceManager (circuit breakers)      ←  │  │
 │  │    memory: MemoryService (ChromaDB + BM25 hybrid)                ←  │  │
 │  │    guardrails: ToolSafetyPolicy @safety_gate (SAFE/SENSITIVE/      │  │
 │  │                DESTRUCTIVE)                                      ←  │  │
@@ -89,7 +89,7 @@ graph TD
     subgraph "Services & Subsystems"
         Runner -->|Evaluate Policy| Safety[app/guardrails/ Safety Policy]
         Brain -->|Assemble Context| Context[app/context/ ContextBuilder]
-        Brain -->|Route LLM Calls| Models[app/models/ ModelRouter]
+        Brain -->|Route LLM Calls| Models[app/models/ ModelClient]
         Brain -->|Memory Queries| Memory[app/memory/ MemoryService]
         Brain -->|Session Lookup| Session[app/session/ SessionManager]
         Brain -->|Workspace Scan| Workspace[app/workspace/ WorkspaceManager]
@@ -236,7 +236,7 @@ TaskPlanner.create_plan(prompt, analysis)
      ▼
 ExecutionRunner.execute_plan(plan)
      │  ├─ @safety_gate check per tool
-     │  ├─ ModelRouter.generate() with circuit breaker failover
+     │  ├─ ModelClient.generate() with circuit breaker failover
      │  ├─ MemoryService.search_memories() for context
      │  └─ InMemoryAsyncBus.publish(StepExecutionEvent)
      │
@@ -278,6 +278,20 @@ Streamed Response (SSE/WS) or JSON (REST)
 ---
 
 ## 8. LLM Provider Pool & Failover
+
+> **Observed status (2026-09-30).** The diagram in this section describes
+> `ModelRouter`, which is **not on the request path**. It is imported by exactly
+> one module, `app/models/__init__.py`, as a re-export; nothing else in `app/`
+> references it, and `_is_usable`-style callers reach `ModelClient.generate`
+> instead. `ModelRouter` cannot be populated at all: its only registration path
+> is `register_provider(provider)`, which requires a `BaseLLMProvider`, and
+> **zero** classes in `app/` subclass that ABC. The failover that runs is
+> `OmniModelClient`, which holds ordered `ModelClient`s and iterates on failure.
+> Verified call sites, all on `ModelClient`: `app/adapters/http/synthesis.py`,
+> `app/adapters/web/router.py`, `app/memory/llm_extractor.py`,
+> `app/agents/doc_agent.py`, `app/models/omni_client.py`. See
+> [`ADR-019`](adr/ADR-019-model-profiles-map-to-clients.md). The diagram below is
+> retained as the design intent of ADR-009, not as a description of HEAD.
 
 ```
 ModelRouter

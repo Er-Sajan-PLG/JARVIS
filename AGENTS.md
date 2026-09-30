@@ -69,21 +69,43 @@ app.events        → (standalone)
 ## 3. Testing Standards (Enforced by CI)
 
 ### 3.1 Test Organization
+
+Measured against `git ls-files tests/`. The counts are here because this section
+previously described a layout that did not exist: it listed `tests/e2e/` as a
+suite while no such file had ever been committed, and it omitted
+`tests/performance/` and `tests/sprint3/`, which do exist.
+
 ```
 tests/
-├── unit/           # Pure unit tests (fast, no external deps)
-├── integration/    # Real DB, real providers, containers
-├── contract/       # API contract tests
-└── e2e/            # Full user journeys (Playwright)
+├── unit/           # Pure unit tests (fast, no external deps)      154 files
+├── integration/    # Real DB, real providers, containers             1 file
+├── contract/       # API contract tests                              4 files
+├── performance/    # Timing/throughput assertions                    1 file
+└── sprint3/        # Sprint-scoped suites, kept for history          3 files
 ```
 
+**`tests/e2e/` does not exist.** This section claimed it held "Full user journeys
+(Playwright)". There is no Playwright config, no `playwright` dependency, and no
+committed e2e test — three orphan `.pyc` files were the only trace, and they were
+removed. The E2E row in §3.2 is therefore an **unmet commitment, not a current
+practice**: nothing runs weekly because nothing exists to run. It is left in the
+table deliberately, so the gap stays visible rather than being deleted into
+silence. Do not cite §3.2 as evidence that E2E coverage exists.
+
+**`tests/sprint3/` and `tests/performance/` are not covered by the sections
+below.** They are collected and run by the gate like any other suite, but no
+coverage target or CI cadence is defined for them here.
+
 ### 3.2 Test Requirements
-| Type | Coverage Target | Run In CI |
-|------|-----------------|-----------|
-| Unit | ≥ 90% on new code | ✅ Every PR |
-| Integration | ≥ 70% | ✅ Every PR |
-| Contract | 100% of endpoints | ✅ Every PR |
-| E2E | Critical paths | 🔵 Weekly |
+| Type | Coverage Target | Run In CI | Status |
+|------|-----------------|-----------|--------|
+| Unit | ≥ 90% on new code | ✅ Every PR | in force |
+| Integration | ≥ 70% | ✅ Every PR | in force |
+| Contract | 100% of endpoints | ✅ Every PR | in force |
+| E2E | Critical paths | — | **NOT IMPLEMENTED** — no suite, no Playwright dependency |
+
+Coverage is measured line-only. `scripts/ci_gate.py` does not pass `--cov-branch`,
+so a branch that is never taken is invisible to the target in the first row.
 
 ### 3.3 Test Quality Rules
 - **No hand-built literals** → Use factories/fixtures
@@ -198,6 +220,8 @@ What did we decide?
 | ADR-015 | Memory facts are bi-temporal, invalidated not deleted | ✅ Accepted |
 | ADR-016 | Documentation coverage blocks the push | ✅ Accepted |
 | ADR-017 | JARVIS orchestrates subagents; OpenCode first | ✅ Accepted |
+| ADR-018 | OCR engine is Tesseract; two dead backends removed | ✅ Accepted |
+| ADR-019 | Model profiles map to clients; ModelRouter is not on the request path | ✅ Accepted |
 
 ---
 

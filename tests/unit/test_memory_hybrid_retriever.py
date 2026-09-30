@@ -18,7 +18,7 @@ def sample_memories():
         id="mem-1",
         category="identity",
         memory_type="name",
-        value="Sajan",
+        value="Jane",
     )
     m2 = Memory(
         id="mem-2",
@@ -30,7 +30,7 @@ def sample_memories():
         id="mem-3",
         category="location",
         memory_type="residence",
-        value="Nepal",
+        value="Freedonia",
     )
     m4 = Memory(
         id="mem-4",
@@ -140,7 +140,7 @@ def test_hybrid_retriever_ranking_with_stubbed_vector_store(sample_memories):
     """Verify hybrid retriever candidate gathering and subsequent ranking with MemoryRanker."""
     # Real keyword retriever
     kw = KeywordRetriever()
-    m_exact = sample_memories["m1"]  # value: "Sajan", type: "name"
+    m_exact = sample_memories["m1"]  # value: "Jane", type: "name"
     kw.on_memory_added(m_exact)
 
     # Stubbed vector retriever that found a candidate

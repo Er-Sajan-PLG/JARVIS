@@ -85,9 +85,9 @@ def test_pipeline_log_text_is_not_storable():
 
 
 @pytest.mark.parametrize("value", [
-    "Sajan Gurung",
+    "Jane Doe",
     "User likes pizza",
-    "a civil engineering student at pokhara university in nepal",
+    "a history student at Example University in Freedonia",
     "first-principles explanations over surface-level tutorials",
     "Solid-state batteries replace the liquid electrolyte.",
 ])
@@ -141,10 +141,10 @@ async def test_discovered_name_is_persisted_at_most_once():
     """Minimal end-to-end: a name asserted on many turns yields one record."""
     svc = MemoryService(manager=_FakeManager())
     for _ in range(5):
-        await svc.store_memory(key="name", value="Sajan Gurung", category="identity")
+        await svc.store_memory(key="name", value="Jane Doe", category="identity")
     rows = svc._manager._store.get_all()
     assert len(rows) == 1
-    assert getattr(rows[0], "value", "") == "Sajan Gurung"
+    assert getattr(rows[0], "value", "") == "Jane Doe"
 
 
 @pytest.mark.asyncio

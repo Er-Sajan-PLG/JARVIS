@@ -20,7 +20,21 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
-addopts = "-v --tb=short"
+# ``--strict-markers``: an undeclared marker is an ERROR, not a typo that is
+# silently accepted. Without it ``@pytest.mark.asincio`` selects nothing and
+# ``-m asyncio`` silently matches nothing, so a mis-spelled marker reads as
+# "no tests to run" instead of "you are wrong".
+addopts = "-v --tb=short --strict-markers"
+# Every marker this suite uses. One is not pytest core (``asyncio``, registered by
+# pytest-asyncio); the rest are pytest core builtins, pinned here so this list is
+# a complete inventory of the marker vocabulary the suite is allowed to use and a
+# typo'd name is rejected rather than silently selecting nothing.
+markers = [
+    "asyncio: an async test, driven by pytest-asyncio (asyncio_mode = auto).",
+    "parametrize: pytest core builtin — run one test over several inputs.",
+    "skipif: pytest core builtin — a conditional skip with a stated condition.",
+    "xfail: pytest core builtin — a known failure that must keep failing.",
+]
 
 [tool.ruff]
 target-version = "py311"

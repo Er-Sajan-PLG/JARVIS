@@ -851,7 +851,6 @@ def check_dep_drift() -> tuple[bool, list[str]]:
         "tiktoken",
         "asyncpg",
         "mcp",
-        "paddleocr",
         "psycopg",
         "psycopg2",
         "langgraph",

@@ -814,7 +814,15 @@ def gate_semgrep(worktree: Path, base: str) -> Check:
     exe = _tool("semgrep")
     if exe is None:
         return _missing_tool("semgrep", "SAST", True, "not installed")
-    changed = [f for f in _changed_files(worktree, base) if f.endswith(".py")]
+    # Only scan files that still exist. ``_changed_files`` lists deletions too,
+    # and semgrep answers a deleted path by aborting the whole run with
+    # "Invalid scanning root" (exit 2). Because a non-zero exit is reported as
+    # status="skip" and ``blocking_failures`` only counts "fail", a PR that
+    # deleted any .py file silently disabled this check. Every file that still
+    # exists is still scanned.
+    changed = [
+        f for f in _changed_files(worktree, base) if f.endswith(".py") and (worktree / f).is_file()
+    ]
     if not changed:
         return Check("semgrep", "SAST", True, "pass", "no changed python files")
     res = _run(
@@ -827,6 +835,15 @@ def gate_semgrep(worktree: Path, base: str) -> Check:
             "--json",
             "--quiet",
             "--timeout=60",
+            # Cap parallelism. semgrep-core uses Eio over io_uring, and each
+            # worker allocates an io_uring queue that counts against RLIMIT_MEMLOCK
+            # -- which is 8 MB here and cannot be raised without privilege. With
+            # the default (= one worker per core, 20 on this machine) the
+            # allocation fails with "Unix_error: Cannot allocate memory
+            # io_uring_queue_init" and the whole scan aborts, which is what made
+            # this check report "did not complete" on every run. Measured on the
+            # 11-file changed set: default 1/5 runs completed, --jobs=4 3/3.
+            "--jobs=4",
             *changed,
         ],
         cwd=worktree,
@@ -866,7 +883,22 @@ def gate_semgrep(worktree: Path, base: str) -> Check:
     detail = _tail(res.stderr, 500) or f"exit {res.returncode}"
     if errors:
         detail += f"\nrule errors: {len(errors)}"
-    return Check("semgrep", "SAST", True, "skip", f"semgrep did not complete — {detail}")
+    # A blocking check that CANNOT RUN is a failure, not a skip. A skip is not
+    # "failed", and Report.blocking_failures only counts failed checks, so
+    # returning "skip" here meant a broken scanner silently disabled the gate:
+    # this check reported PASS on origin/main with the reason "no changed python
+    # files", and whenever it did find files it aborted with the io_uring error
+    # and skipped instead of failing. Nothing is enforced by a gate that can
+    # decide it did not run. The scanner is now capped at --jobs=4 so it
+    # completes; if it still cannot, the run must stop here.
+    return Check(
+        "semgrep",
+        "SAST",
+        True,
+        "fail",
+        f"semgrep did not complete and cannot be skipped — {detail}",
+        exit_code=res.returncode,
+    )
 
 
 def gate_trivy_fs(worktree: Path) -> Check:

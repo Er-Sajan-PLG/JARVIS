@@ -58,14 +58,14 @@ def test_extract_value_boundaries():
     assert _extract_value("i want to travel", "i want ") == "travel"
 
     # Trailing punctuation
-    assert _extract_value("i live in kathmandu.", "i live in ") == "kathmandu"
+    assert _extract_value("i live in freedonia.", "i live in ") == "freedonia"
 
 
 def test_extract_facts_representative_message_list():
     """Verify fact extraction across all categories from representative messages."""
     messages_and_expectations = [
         # Identity
-        ("My name is Sajan.", "identity", "name", "sajan"),
+        ("My name is Jane Doe.", "identity", "name", "jane doe"),
         ("I identify as a creator.", "identity", "self_identification", "a creator"),
         # Preferences
         ("I love artificial intelligence.", "preference", "like", "artificial intelligence"),
@@ -87,8 +87,8 @@ def test_extract_facts_representative_message_list():
         ("I have to fix the bug.", "tasks", "obligation", "fix the bug"),
         ("My task is writing documentation.", "tasks", "action_item", "writing documentation"),
         # Location
-        ("I am in Kathmandu.", "location", "current_position", "kathmandu"),
-        ("I live in Nepal.", "location", "residence", "nepal"),
+        ("I am in Freedonia.", "location", "current_position", "freedonia"),
+        ("I live in Sylvania.", "location", "residence", "sylvania"),
         ("I am located at the laboratory.", "location", "geographical", "the laboratory"),
         # Profession
         ("I work as a software architect.", "profession", "role", "a software architect"),
@@ -107,7 +107,7 @@ def test_extract_facts_representative_message_list():
 
 def test_extract_facts_multi_sentence_and_multiple_facts():
     """Verify multiple facts extracted from multiple sentences in a single message."""
-    text = "My name is Sajan. I live in Nepal and I like python. I want to build Jarvis."
+    text = "My name is Jane Doe. I live in Sylvania and I like python. I want to build Jarvis."
     facts = extract_facts(text, source=SOURCE_USER)
     assert len(facts) >= 3
 

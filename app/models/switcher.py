@@ -9,7 +9,6 @@ import re
 from app.models.client import ModelClient
 from app.models.factory import create_client
 from app.models.omni_client import OmniModelClient
-from app.models.router import ModelRouter, TaskType
 from app.models.utils import resolve_env_key
 from app.utils.logging_setup import get_logger
 
@@ -18,7 +17,18 @@ logger = get_logger(__name__)
 
 class ModelSwitcher:
     """
-    Manages active profile and builds routers on demand.
+    Manages the active profile and the clients it resolves to.
+
+    A "profile" is a name mapped to the ``ModelClient`` it selects. The switcher
+    does not build ``ModelRouter`` objects: that class is an abandoned
+    abstraction with **zero** ``BaseLLMProvider`` implementations in this tree,
+    and its failover intent is served by ``OmniModelClient`` over the
+    ``ModelClient`` protocol that actually shipped (see the note in
+    ``app/adapters/http/router.py``). Earlier revisions registered into it here,
+    which could not work -- ``ModelRouter`` has no ``register`` or ``set_default``
+    method -- and the resulting ``AttributeError`` was swallowed by a blanket
+    ``except Exception`` at construction, silently degrading the switcher to an
+    empty profile. ``_routers`` therefore holds clients, not routers.
 
     Commands:
         model           → show current profile and active models
@@ -29,13 +39,13 @@ class ModelSwitcher:
     """
 
     def __init__(self, settings):
-        # New behavior: no hardcoded profiles. Build clients and create a
-        # single automatic "omni" router that contains all available clients
-        # grouped by role. Default active profile is "omni" and the router's
-        # default model prefers a local Ollama client when present.
+        # No hardcoded profiles. Build one client per configured model, group
+        # them by role, and expose a single "omni" profile that fans out across
+        # every role. "default" prefers a local Ollama client when present.
         self._settings = settings
-        self._routers: dict[str, ModelRouter] = {}
+        self._routers: dict[str, ModelClient] = {}
         self._clients: dict[str, ModelClient] = {}
+        self._active_profile = ""
 
         # Pre-build clients for all configured models.
         for key, model_cfg in settings.models.items():
@@ -44,69 +54,49 @@ class ModelSwitcher:
             except Exception as e:
                 logger.warning("Could not load '%s': %s", key, e)
 
-        # Build an "omni" router from all successfully created clients.
-        try:
-            role_clients: dict[str, list] = {}
-            for key, client in self._clients.items():
-                try:
-                    role = getattr(client, "role", "general") or "general"
-                except Exception:
-                    role = "general"
-                role_clients.setdefault(role, []).append(client)
+        # Build the "omni" profile: an OmniModelClient fanning out across the
+        # clients of every role. This is the profile that actually fails over.
+        role_clients: dict[str, list[ModelClient]] = {}
+        for client in self._clients.values():
+            try:
+                role = getattr(client, "role", None) or "general"
+            except Exception:
+                # `role` is a property on some providers, and a raising property
+                # must not take the whole switcher down. `getattr`'s default does
+                # not cover this: it only handles a MISSING attribute, not one
+                # whose accessor raises.
+                logger.warning("Client %r raised on .role; treating as 'general'", client)
+                role = "general"
+            role_clients.setdefault(role, []).append(client)
 
-            omni_router = ModelRouter()
-            for role, clients in role_clients.items():
-                try:
-                    omni = OmniModelClient(clients)
-                    omni_router.register(TaskType(role), omni)
-                except Exception:
-                    logger.warning("Could not register omni role %s", role)
+        if role_clients:
+            omni = OmniModelClient([c for group in role_clients.values() for c in group])
+            self._routers["omni"] = omni
+        else:
+            logger.warning("No usable models found for the omni profile")
 
-            default_local = self._build_default_local_router(settings)
-            if default_local is not None:
-                self._routers["default"] = default_local
-                omni_router.set_default(default_local.default_model)
+        default_local = self._build_default_local_router(settings)
+        if default_local is not None:
+            self._routers["default"] = default_local
 
-            if self._is_usable(omni_router):
-                self._routers["omni"] = omni_router
-            else:
-                logger.warning("No usable models found for omni router")
-
-            requested = getattr(settings, "active_profile", "")
-            if requested in self._routers and self._is_usable(self._routers[requested]):
-                self._active_profile = requested
-            elif "default" in self._routers:
-                self._active_profile = "default"
-            elif "omni" in self._routers:
-                self._active_profile = "omni"
-            elif self._routers:
-                self._active_profile = next(iter(self._routers))
-            else:
-                self._active_profile = ""
-        except Exception:
-            logger.exception("Failed to build omni router")
+        requested = getattr(settings, "active_profile", "")
+        if requested in self._routers and self._is_usable(self._routers[requested]):
+            self._active_profile = requested
+        elif "default" in self._routers:
+            self._active_profile = "default"
+        elif "omni" in self._routers:
+            self._active_profile = "omni"
+        elif self._routers:
+            self._active_profile = next(iter(self._routers))
+        else:
             self._active_profile = ""
 
-    def _build_router(self, mapping: dict) -> ModelRouter:
-        router = ModelRouter()
-        for role, model_key in mapping.items():
-            client = self._clients.get(model_key)
-            if not client:
-                continue
-            try:
-                task_type = TaskType(role)
-                router.register(task_type, client)
-            except ValueError:
-                pass  # unknown role — skip
+    def _build_default_local_router(self, settings) -> ModelClient | None:
+        """The client the "default" profile should select, or None.
 
-        # Set default
-        default_key = mapping.get("general")
-        if default_key and default_key in self._clients:
-            router.set_default(self._clients[default_key])
-
-        return router
-
-    def _build_default_local_router(self, settings) -> ModelRouter | None:
+        Prefers the smallest local Ollama model, measured by parameter count in
+        the model name, so a laptop picks the model it can actually run.
+        """
         candidates = [
             key
             for key, model_cfg in settings.models.items()
@@ -119,15 +109,7 @@ class ModelSwitcher:
             candidates,
             key=lambda key: self._ollama_model_size(settings.models[key].name),
         )
-        client = self._clients[default_key]
-        router = ModelRouter()
-        for role in ["general", "code", "reasoning", "docs", "stem", "autocomplete"]:
-            try:
-                router.register(TaskType(role), client)
-            except ValueError:
-                pass
-        router.set_default(client)
-        return router
+        return self._clients[default_key]
 
     def _ollama_model_size(self, name: str) -> float:
         if not isinstance(name, str):
@@ -159,7 +141,12 @@ class ModelSwitcher:
         return True
 
     @property
-    def router(self) -> ModelRouter:
+    def router(self) -> ModelClient:
+        """The client the active profile selects.
+
+        Named ``router`` for callers that predate this change, but it is a
+        ``ModelClient``: the abandoned ``ModelRouter`` was never populated.
+        """
         return self._routers[self._active_profile]
 
     @property
@@ -188,15 +175,8 @@ class ModelSwitcher:
         client = self._clients.get(model_key)
         if not client:
             return False
-        router = ModelRouter()
-        for role in ["general", "code", "reasoning", "docs", "stem", "autocomplete"]:
-            try:
-                router.register(TaskType(role), client)
-            except ValueError:
-                pass
-        router.set_default(client)
         key = f"model:{model_key}"
-        self._routers[key] = router
+        self._routers[key] = client
         self._active_profile = key
         return True
 
@@ -226,15 +206,8 @@ class ModelSwitcher:
         except Exception as e:
             logger.warning("Could not build dynamic %s client for '%s': %s", backend, model_id, e)
             return False
-        router = ModelRouter()
-        for role in ["general", "code", "reasoning", "docs", "stem", "autocomplete"]:
-            try:
-                router.register(TaskType(role), client)
-            except ValueError:
-                pass
-        router.set_default(client)
         key = f"dyn:{backend}:{model_id}"
-        self._routers[key] = router
+        self._routers[key] = client
         self._active_profile = key
         return True
 
@@ -242,9 +215,14 @@ class ModelSwitcher:
         return self.status()
 
     @staticmethod
-    def _is_usable(router) -> bool:
-        """True if a router can resolve *some* model: it must have at least
-        one registered task model or a configured default."""
-        if router is None:
+    def _is_usable(client: ModelClient | None) -> bool:
+        """True if a profile can resolve to a client that can generate.
+
+        This previously tested ``router.default_model``, an attribute the
+        abandoned ``ModelRouter`` does not define, so it raised
+        ``AttributeError`` on the real object and returned truthy only for
+        ``MagicMock`` -- which is what every test supplied.
+        """
+        if client is None:
             return False
-        return bool(getattr(router, "models", None)) or router.default_model is not None
+        return callable(getattr(client, "generate", None))

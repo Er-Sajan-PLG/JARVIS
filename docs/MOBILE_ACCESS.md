@@ -152,8 +152,9 @@ npm run build-apk
 # then ./android/gradlew -p android assembleDebug builds the APK
 ```
 
-Install the artifact (`mobile/android/app/build/outputs/apk/debug/app-debug.apk`)
-on the phone (sideload / `adb install`), open it, then set the target once:
+Install the APK that build produced — `app-debug.apk` under
+`mobile/android/app/build/outputs/apk/debug/` — on the phone (sideload /
+`adb install`), open it, then set the target once:
 
 1. *Settings → Access → Server URL* — enter the exact server origin,
    e.g. `http://<host-tailnet-name>:8000`. The APK's WebView origin is

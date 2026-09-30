@@ -289,9 +289,12 @@ Counting: `utils/tokenizer.py:17-156` (tiktoken w/ estimate fallback); `session/
     `app/workspace/manager.py` 83%. `app/main.py` 86% (17 miss incl. `main()` bind/auth warning :254-266).
   - `app/api/` has no unit test (only contract `tests/contract/test_api_contract.py:1-103`).
   - `app/db/`, `app/backend/providers/`, `app/evals/` have no sources AND no tests (empty packages).
-  - Env-gated skips: `test_postgres_checkpointer.py:243` (`JARVIS_TEST_DATABASE_URL`),
-    live-server skips (`test_chat_model_shapes.py:60`, `test_memory_api_temporal.py:36/46`),
-    `test_security.py:370` git skip.
+  - Env-gated skips: `test_postgres_checkpointer.py:248` (`JARVIS_TEST_DATABASE_URL`),
+    `test_tokenizer.py:49` (`tiktoken` is pinned in `requirements.txt` but not installed),
+    `test_security.py:370` git skip. **No test needs a live server.** The two that did
+    (`test_chat_model_shapes.py:60`, `test_memory_api_temporal.py:36/46`) skipped in every
+    clean checkout and in CI; both now drive `app.main:app` in-process via
+    `fastapi.testclient.TestClient` and run everywhere.
 
 ---
 
@@ -341,9 +344,12 @@ Counting: `utils/tokenizer.py:17-156` (tiktoken w/ estimate fallback); `session/
   `tests/integration` (2 files), `tests/performance/stress_test.*` — `.pyc` without `.py`.
 - **Committed build/vendor/scratch:** `frontend/out/`, `frontend/.next/`, `frontend/_next/`,
   `frontend/node_modules/`, `mobile/www/` (committed build output), `mobile/node_modules/`,
-  `tgcall/node_modules/`, `external/Unlimited-OCR/` (+ 1 `.whl`), `tmp/lib_code.js`/`styles_append.css`,
+  `tgcall/node_modules/`, `external/Unlimited-OCR/` (+ 1 `.whl`),
   `artifacts/` (174 committed provenance/SBOM outputs), `.archaeology/` (research notes),
   `node_modules/` at root. `frontend`/`mobile`/`tgcall` have `"test": "echo ...no test..."` — no JS tests.
+  Root scratch (`tmp/`, e.g. `lib_code.js`, `styles_append.css`) is **gitignored and untracked**, so it is
+  absent from a fresh clone and is not listed as committed. (Corrected: this line previously named those
+  two scratch files as committed; `git ls-files tmp/` returns nothing.)
 - **`pass`-only stubs (21 hits):** `models/llamacpp_client.py:40`, `switcher.py:128/196/234`,
   `cohere_client.py:117`, `memory/vector_retriever.py:47/61`, `memory/store.py:214`,
   `session/postgres_checkpointer.py:37/43/49`, `tokenizer.py:107`, `model_selector.py:73`,

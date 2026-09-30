@@ -345,3 +345,96 @@ def test_type_contract_covers_every_documented_type(cd):
     gov = (REPO_ROOT / "docs" / "DOC-GOVERNANCE.md").read_text(encoding="utf-8")
     for name in TYPES:
         assert f"`{name}`" in gov, f"type '{name}' is not documented in §10"
+
+
+# ── The gate covers NEW work, not just changed work ──────────────────────────
+#
+# These three tests exist because the gate's coverage of new documents was an
+# assumption, not a measured fact. check_docs walks the tree with rglob, so it
+# should catch a document the moment it exists — but "should" is what let the
+# pre-commit hook be documented as running the checker for months while it did
+# not. Each test plants a real file in the real repository and asserts the real
+# command notices, then removes it.
+
+
+def _run_check_docs() -> tuple[int, str]:
+    import subprocess
+
+    res = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "check_docs.py"), "--strict"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    return res.returncode, res.stdout + res.stderr
+
+
+def test_new_document_without_a_type_fails_the_gate():
+    """A NEW file missing `**Type**` must fail, not just a modified one."""
+    planted = REPO_ROOT / "docs" / "ZZ-TEST-GATE-NEW-DOC.md"
+    planted.write_text("# Planted\n\n**Status**: ACTIVE\n\nNo type declared.\n")
+    try:
+        code, out = _run_check_docs()
+    finally:
+        planted.unlink(missing_ok=True)
+    assert code != 0, "the gate accepted a brand-new document with no type"
+    assert "ZZ-TEST-GATE-NEW-DOC.md" in out
+    assert "Type" in out
+
+
+def test_new_document_unreachable_from_the_index_fails_the_gate():
+    """A new doc that is valid but that nothing links to must still fail.
+
+    docs/README.md is the only map, so an unlinked document is one no reader can
+    find. This is the rule that catches "the agent wrote a doc and told nobody".
+    """
+    planted = REPO_ROOT / "docs" / "ZZ-TEST-GATE-ORPHAN-DOC.md"
+    planted.write_text(
+        "# Planted Orphan\n\n"
+        "**Status**: ACTIVE\n"
+        "**Type**: guide\n"
+        "**Last Updated**: 2026-09-30\n\n"
+        "Nothing links here.\n"
+    )
+    try:
+        code, out = _run_check_docs()
+    finally:
+        planted.unlink(missing_ok=True)
+    assert code != 0, "the gate accepted an orphan document"
+    assert "ZZ-TEST-GATE-ORPHAN-DOC.md" in out
+    assert "not reachable from the index" in out
+
+
+def test_the_pre_commit_hook_runs_the_documentation_gate():
+    """Pin the wiring itself, because the wiring is what was missing.
+
+    docs/DOC-GOVERNANCE.md §10.1 step 5 claims this hook enforces the checker.
+    Before 2026-09-30 it did not — the hook ran the fact sync and the type-table
+    sync but never check_docs, so a document violating its type contract could
+    be committed and was only rejected at push. A claim in a governance document
+    is not enforcement; this test is.
+    """
+    hook = (REPO_ROOT / "githooks" / "pre-commit").read_text(encoding="utf-8")
+    assert "check_docs.py" in hook, (
+        "githooks/pre-commit no longer runs check_docs.py, so "
+        "docs/DOC-GOVERNANCE.md §10.1 step 5 is false again"
+    )
+    # Not merely mentioned: the INVOCATION must exist, and it must be able to
+    # stop the commit. Matching the raw text is not enough -- the first mention
+    # of "check_docs.py" in the hook is inside the explanatory comment, so a
+    # substring search passes even if the command line is deleted.
+    lines = hook.splitlines()
+    invocations = [
+        i for i, ln in enumerate(lines) if "check_docs.py" in ln and not ln.lstrip().startswith("#")
+    ]
+    assert invocations, "check_docs.py appears only in comments; the hook does not actually run it"
+    for i in invocations:
+        following = "\n".join(lines[i : i + 8])
+        if "--strict" in lines[i] or "--strict" in following:
+            assert "exit 1" in following, (
+                "the hook runs check_docs.py but does not refuse the commit when "
+                "it fails, so the gate reports without enforcing"
+            )
+            break
+    else:
+        raise AssertionError("check_docs.py is invoked without --strict")

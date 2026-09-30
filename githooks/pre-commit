@@ -78,6 +78,32 @@ if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/doc_type_tab
   fi
 fi
 
+# 3c) The documentation gate, at COMMIT time.
+#
+#     docs/DOC-GOVERNANCE.md §10.1 step 5 already states that check_docs
+#     "is enforced again by githooks/pre-commit". It was not: this hook ran the
+#     fact sync and the type-table sync, but never the checker itself, so a
+#     document that violates its type contract could be committed and was only
+#     rejected at push. The governance document named a process that did not
+#     exist -- the exact drift trap its own `governance` type warns about.
+#
+#     Wiring it here is what makes that sentence true. It costs ~0.5s because
+#     check_docs walks the tree with rglob, so it covers NEW and untracked
+#     documents as well as modified ones: a document added without a `**Type**`
+#     header, or one no other document links to, now fails at commit instead of
+#     surviving until a reader notices the gap in docs/README.md. Manifest
+#     classification is enforced by
+#     tests/unit/test_docs_system.py::test_manifest_covers_whole_tree, which the
+#     pre-push hook runs in its documentation stage.
+if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/check_docs.py" ]; then
+  echo "📖 Checking documentation structure and type contract…"
+  if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/check_docs.py" --strict; then
+    echo "❌ Commit refused: documentation gate. See docs/DOC-GOVERNANCE.md §10."
+    exit 1
+  fi
+  echo "✅ doc gate ok."
+fi
+
 # 4) Run the pre-commit framework on STAGED files (ratchet): new/changed code must
 #    be clean even while legacy debt is burned down. mypy is excluded here until the
 #    legacy type backlog is cleared — tracked as RISK-005 in docs/ACCEPTED_RISKS.md.

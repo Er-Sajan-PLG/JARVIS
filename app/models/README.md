@@ -24,7 +24,7 @@
 | `omni_client.py` | OmniModelClient — routes requests across multiple underlying ModelClient | `OmniModelClient` |
 | `openai_client.py` | OpenAI model client for JARVIS. | `OpenAIClient` |
 | `openrouter_client.py` | OpenRouter model client for JARVIS. | `OpenRouterClient` |
-| `router.py` | Model Router & Provider Failover Pool for Multi-Provider Inference. | `ModelRouter`, `TaskType` |
+| `router.py` | Model Router & Provider Failover Pool for Multi-Provider Inference. | `ModelRouter`, `TaskType`, `_classify_provider_failure()` |
 | `switcher.py` | Runtime model profile switcher. | `ModelSwitcher` |
 | `together_client.py` | Together AI model client for JARVIS. | `TogetherClient` |
 | `utils.py` | (no module docstring) | `resolve_env_key()` |

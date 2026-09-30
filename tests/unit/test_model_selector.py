@@ -1,13 +1,57 @@
-"""Unit tests for app/utils/model_selector.py."""
+"""Unit tests for app/utils/model_selector.py.
+
+``_build_ollama_router`` no longer builds a ``ModelRouter`` -- see
+``tests/unit/test_router_call_sites.py`` -- it maps the chosen Ollama model to a
+real ``ModelClient`` profile on the switcher. The rest of these tests drive the
+startup menu, whose "default" entry renders the client that profile holds. That
+read was ``.default_model.model_name`` -- an attribute no client has -- until
+2026-09-30; ``test_startup_model_select_renders_a_real_default_profile`` drives
+the real path so a regression to it raises instead of hiding behind a mock.
+"""
+
+from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from app.models.client import ModelClient
+from app.models.switcher import ModelSwitcher
 from app.utils.model_selector import (
     _build_ollama_router,
     _categorize_cloud_models,
     _startup_model_select,
 )
+
+
+def _stub_client(model_name: str = "llama3", role: str = "general") -> MagicMock:
+    """A stand-in that actually satisfies the ModelClient protocol."""
+    client = MagicMock(spec=ModelClient)
+    client.model_name = model_name
+    client.role = role
+    return client
+
+
+def _make_settings(models: dict | None = None) -> MagicMock:
+    settings = MagicMock()
+    settings.models = models if models is not None else {}
+    settings.active_profile = ""
+    return settings
+
+
+def _make_config(
+    key: str, backend: str = "ollama", name: str | None = None, role: str = "general"
+) -> MagicMock:
+    cfg = MagicMock()
+    cfg.key = key
+    cfg.backend = backend
+    cfg.name = name or key
+    cfg.role = role
+    return cfg
+
+
+def _real_switcher(models: dict | None = None) -> ModelSwitcher:
+    """A switcher over the given models; construction contacts no provider."""
+    return ModelSwitcher(_make_settings(models))
 
 
 def test_categorize_cloud_models_groups_by_host_map():
@@ -78,86 +122,36 @@ def test_categorize_cloud_models_multiple_per_provider():
 
 
 def test_build_ollama_router_success():
-    """Test _build_ollama_router returns True on success."""
-    mock_switcher = MagicMock()
-    mock_switcher._routers = {}
-    mock_switcher._active_profile = None
+    """The chosen Ollama model becomes the active profile, mapped to its client."""
+    switcher = _real_switcher()
+    client = _stub_client("llama3", "general")
 
-    with (
-        patch("app.models.ollama_client.OllamaClient") as mock_ollama_class,
-        patch("app.models.router.ModelRouter") as mock_router_class,
-        patch("app.models.router.TaskType") as mock_task_type,
-    ):
-        mock_client = MagicMock()
-        mock_ollama_class.return_value = mock_client
+    with patch("app.models.ollama_client.OllamaClient", return_value=client) as ollama_class:
+        result = _build_ollama_router(switcher, "llama3", "http://localhost:11434")
 
-        mock_router = MagicMock()
-        mock_router_class.return_value = mock_router
-
-        # TaskType constructor for role strings
-        mock_task_type.side_effect = lambda r: r
-
-        result = _build_ollama_router(mock_switcher, "llama3", "http://localhost:11434")
-
-        assert result is True
-        mock_ollama_class.assert_called_once_with(
-            model="llama3", base_url="http://localhost:11434", role="general"
-        )
-
-        # Should register for all 6 roles
-        assert mock_router.register.call_count == 6
-        called_roles = [call[0][0] for call in mock_router.register.call_args_list]
-        assert set(called_roles) == {"general", "code", "reasoning", "docs", "stem", "autocomplete"}
-
-        mock_router.set_default.assert_called_once_with(mock_client)
-        assert "ollama:llama3" in mock_switcher._routers
-        assert mock_switcher._active_profile == "ollama:llama3"
+    assert result is True
+    ollama_class.assert_called_once_with(
+        model="llama3", base_url="http://localhost:11434", role="general"
+    )
+    assert isinstance(client, ModelClient)
+    assert switcher._routers["ollama:llama3"] is client
+    assert switcher.active_profile == "ollama:llama3"
+    assert switcher.router is client
+    assert switcher.switch("ollama:llama3") is True
 
 
 def test_build_ollama_router_failure():
     """Test _build_ollama_router returns False on client creation failure."""
-    mock_switcher = MagicMock()
-    mock_switcher._routers = {}
+    switcher = _real_switcher()
 
     with patch(
         "app.models.ollama_client.OllamaClient", side_effect=RuntimeError("connection refused")
     ):
-        result = _build_ollama_router(mock_switcher, "llama3", "http://localhost:11434")
+        result = _build_ollama_router(switcher, "llama3", "http://localhost:11434")
 
-        assert result is False
-        assert "ollama:llama3" not in mock_switcher._routers
-
-
-def test_build_ollama_router_register_failure_continues():
-    """Test that registration failures for some roles don't break the whole thing."""
-    mock_switcher = MagicMock()
-    mock_switcher._routers = {}
-    mock_switcher._active_profile = None
-
-    with (
-        patch("app.models.ollama_client.OllamaClient") as mock_ollama_class,
-        patch("app.models.router.ModelRouter") as mock_router_class,
-        patch("app.models.router.TaskType") as mock_task_type,
-    ):
-        mock_client = MagicMock()
-        mock_ollama_class.return_value = mock_client
-
-        mock_router = MagicMock()
-        mock_router_class.return_value = mock_router
-
-        # Make one role fail
-        def task_type_side_effect(role):
-            if role == "code":
-                raise ValueError("bad role")
-            return role
-
-        mock_task_type.side_effect = task_type_side_effect
-
-        result = _build_ollama_router(mock_switcher, "llama3", "http://localhost:11434")
-
-        assert result is True
-        # Should still have registered 5 of 6 roles
-        assert mock_router.register.call_count == 5
+    assert result is False
+    assert "ollama:llama3" not in switcher._routers
+    assert switcher.active_profile == ""
 
 
 def test_startup_model_select_no_entries(capsys):
@@ -253,8 +247,8 @@ def test_startup_model_select_invalid_backend_selection(capsys):
 
 def test_startup_model_select_default_router_success_and_failure(capsys):
     """Test selecting default local router option with both usable and unusable outcomes."""
-    mock_default_router = MagicMock()
-    mock_default_router.default_model.model_name = "llama3-small"
+    # The "default" profile holds a ModelClient; the menu renders its model_name.
+    mock_default_router = _stub_client("llama3-small")
     mock_switcher = MagicMock()
     mock_switcher._routers = {"default": mock_default_router}
     mock_switcher.active_profile = "default"
@@ -289,6 +283,32 @@ def test_startup_model_select_default_router_success_and_failure(capsys):
 
     captured = capsys.readouterr().out
     assert "⚠️ Default local router is not usable." in captured
+
+
+def test_startup_model_select_renders_a_real_default_profile(capsys):
+    """The "default" entry renders the client the switcher actually holds.
+
+    ``_startup_model_select`` reads ``switcher._routers["default"]``, which is a
+    ``ModelClient`` since the switcher stopped building ``ModelRouter``s. It read
+    ``.default_model.model_name`` until 2026-09-30 -- an attribute no client has,
+    which the mock in the sibling test above answered for it. This test drives
+    the real path, so a regression to that read raises AttributeError here.
+    """
+    settings = _make_settings({"local": _make_config("local", "ollama", "Small-1.5B")})
+    with patch("app.models.switcher.create_client", return_value=_stub_client("Small-1.5B")):
+        switcher = ModelSwitcher(settings)
+    assert "default" in switcher._routers  # precondition: the entry is built
+
+    with (
+        patch("app.utils.model_selector.ollama_model_names", return_value=[]),
+        patch("app.utils.model_selector.llamacpp_live_models", return_value=[]),
+        patch("app.utils.model_selector._categorize_cloud_models", return_value={}),
+        patch.dict("os.environ", {}, clear=True),
+        patch("builtins.input", side_effect=[""]),
+    ):
+        _startup_model_select(switcher, settings)
+
+    assert "Small-1.5B — local default" in capsys.readouterr().out
 
 
 def test_startup_model_select_omni_router_success_and_failure(capsys):

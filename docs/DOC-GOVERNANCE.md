@@ -362,8 +362,14 @@ This is a blocking rule, not advice.
    `**Source**` while you write. A document written from memory is the single most
    common origin of drift.
 5. **Run the checker before committing:** `scripts/check_docs.py --strict`. This is
-   enforced again by `githooks/pre-commit` and by the `gate_docs` CI check, so
-   skipping it locally only moves the failure later.
+   enforced again by `githooks/pre-commit` (stage 3c) and by the `gate_docs` CI
+   check, so skipping it locally only moves the failure later. The hook walks the
+   tree, so it covers **new and untracked** documents as well as modified ones;
+   manifest classification is enforced by
+   `tests/unit/test_docs_system.py::test_manifest_covers_whole_tree` in the
+   pre-push documentation stage. (Stage 3c was added 2026-09-30. Before that this
+   sentence named a hook that did not run the checker — the `governance` type's
+   own drift trap: it promised a process that did not exist.)
 
 **For agents:** the same gate applies. Before writing or editing any document, read
 this section, declare the type, and run `scripts/new_doc.py`. An agent that writes
