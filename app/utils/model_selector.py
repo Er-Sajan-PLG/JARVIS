@@ -17,6 +17,11 @@ from urllib.parse import urlparse
 from app.utils.server_manager import llamacpp_live_models, ollama_model_names
 
 
+def _key_state(has_key: bool, env_var: str) -> str:
+    """The "✓ key set" / "✗ VAR missing" tag shown under a cloud provider."""
+    return "✓ key set" if has_key else f"✗ {env_var} missing"
+
+
 def _categorize_cloud_models(settings) -> dict:
     """
     Group cloud model KEYS by provider.
@@ -49,15 +54,20 @@ def _categorize_cloud_models(settings) -> dict:
 
 
 def _build_ollama_router(switcher, model_name: str, base_url: str) -> bool:
-    """Build an ad-hoc single-model router backed by a live Ollama model.
+    """Register a live Ollama model as a switchable profile.
 
-    Unlike the predefined profiles, Ollama models pulled at runtime aren't
-    keys in ``settings.models``. This constructs an :class:`OllamaClient`
-    directly and registers it for every role so ``route()`` resolves to it.
+    Ollama models pulled at runtime aren't keys in ``settings.models``, so this
+    builds an :class:`OllamaClient` directly and maps a profile name to it.
     Returns True on success, False if the client could not be created.
+
+    This used to construct a ``ModelRouter`` and call ``router.register(...)``
+    and ``router.set_default(...)``. ``ModelRouter`` defines neither method, and
+    its only registration path (``register_provider``) needs a
+    ``BaseLLMProvider``, of which this tree has zero implementations -- so the
+    call raised ``AttributeError``, right where a user picks a local model. The
+    switcher now maps profile names straight to clients.
     """
     from app.models.ollama_client import OllamaClient
-    from app.models.router import ModelRouter, TaskType
 
     try:
         client = OllamaClient(model=model_name, base_url=base_url, role="general")
@@ -65,15 +75,8 @@ def _build_ollama_router(switcher, model_name: str, base_url: str) -> bool:
         print(f"  ⚠️ Could not create Ollama client for '{model_name}': {e}")
         return False
 
-    router = ModelRouter()
-    for role in ["general", "code", "reasoning", "docs", "stem", "autocomplete"]:
-        try:
-            router.register(TaskType(role), client)
-        except ValueError:
-            pass
-    router.set_default(client)
     key = f"ollama:{model_name}"
-    switcher._routers[key] = router  # type: ignore[attr-defined]
+    switcher._routers[key] = client  # type: ignore[attr-defined]
     switcher._active_profile = key  # type: ignore[attr-defined]
     return True
 
@@ -112,13 +115,13 @@ def _startup_model_select(switcher, settings) -> None:
     # Entry index -> resolver
     entries: list[dict] = []
 
-    # [0] Default local router
+    # [0] Default local profile
     if "default" in switcher._routers:
-        default_router = switcher._routers["default"]
+        default_client = switcher._routers["default"]
         entries.append(
             {
                 "label": "Default local (smallest Ollama model)",
-                "detail": f"{default_router.default_model.model_name} — local default",
+                "detail": f"{default_client.model_name} — local default",
                 "kind": "default",
             }
         )
@@ -168,7 +171,7 @@ def _startup_model_select(switcher, settings) -> None:
         entries.append(
             {
                 "label": f"{pretty} (free API)",
-                "detail": f"{model_desc} — {'✓ key set' if has_key else '✗ ' + env_var + ' missing'}",
+                "detail": f"{model_desc} — {_key_state(has_key, env_var)}",
                 "kind": "cloud",
                 "provider": provider,
                 "env_var": env_var,
@@ -209,7 +212,7 @@ def _startup_model_select(switcher, settings) -> None:
         print(f"  {i}. {marker} {e['label']}")
         print(f"       ↳ {e['detail']}")
 
-    print("  [Enter] keep current ('%s')" % switcher.active_profile)
+    print(f"  [Enter] keep current ('{switcher.active_profile}')")
     choice = input("Backend (number, or Enter to skip): ").strip()
     if not choice:
         print(f"  Keeping '{switcher.active_profile}'.\n")

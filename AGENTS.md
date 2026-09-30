@@ -221,6 +221,7 @@ What did we decide?
 | ADR-016 | Documentation coverage blocks the push | ✅ Accepted |
 | ADR-017 | JARVIS orchestrates subagents; OpenCode first | ✅ Accepted |
 | ADR-018 | OCR engine is Tesseract; two dead backends removed | ✅ Accepted |
+| ADR-019 | Model profiles map to clients; ModelRouter is not on the request path | ✅ Accepted |
 
 ---
 

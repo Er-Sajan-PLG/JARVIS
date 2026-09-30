@@ -17,7 +17,7 @@
 | `image.py` | Image Utilities. | `get_image_info()`, `is_supported_image()`, `validate_image()` |
 | `logging_setup.py` | Centralized logging setup for JARVIS. | `get_logger()`, `setup_logging()` |
 | `mistral_catalog.py` | Live Mistral AI model catalog. | `_resolve_key()`, `fetch_mistral_models()`, `search_mistral_models()` |
-| `model_selector.py` | Startup model selector for JARVIS. | `_build_ollama_router()`, `_categorize_cloud_models()`, `_startup_model_select()` |
+| `model_selector.py` | Startup model selector for JARVIS. | `_build_ollama_router()`, `_categorize_cloud_models()`, `_key_state()`, `_startup_model_select()` |
 | `nvidia_nim_catalog.py` | Live NVIDIA NIM model catalog. | `_resolve_key()`, `fetch_nvidia_models()`, `search_nvidia_models()` |
 | `openai_catalog.py` | Live OpenAI model catalog. | `fetch_openai_models()`, `is_free_model()`, `search_openai_models()` |
 | `openrouter_catalog.py` | Live OpenRouter model catalog. | `_resolve_key()`, `fetch_openrouter_models()`, `is_free_model()`, `search_openrouter_models()` |

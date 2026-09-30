@@ -1,4 +1,4 @@
-521
+504
 # mypy --strict app/ error CEILING. Enforced by gate_mypy in scripts/ci_gate.py.
 # This number may only go DOWN. Raising it is a reviewed decision that must be
 # recorded in docs/ACCEPTED_RISKS.md (RISK-005), not a silent edit.
@@ -14,3 +14,12 @@
 # debt. 521 is the measured count on this commit; the same commit is also 60
 # errors BETTER than origin/main (581 -> 521) because the OCR rewrite deleted
 # the two dead backends. From here the ratchet works: any new error fails.
+#
+# Lowered 521 -> 504 on 2026-09-30, locking the gain from removing the
+# ModelRouter call sites in app/models/switcher.py and
+# app/utils/model_selector.py. The 17-error drop is not incidental: the
+# abandoned abstraction was itself generating mypy debt, because every call
+# into it was typed against a class that does not define the methods being
+# called. `_routers` is now `dict[str, ModelClient]` instead of
+# `dict[str, ModelRouter]`, the never-called `_build_router` is deleted, and
+# `_build_default_local_router` returns `ModelClient | None`.
