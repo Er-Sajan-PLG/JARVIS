@@ -133,18 +133,24 @@ echo "— documentation gates…"
 [ "$FAIL" -ne 0 ] && { echo "❌ push refused: documentation gates failed."; exit 1; }
 echo "✅ doc gates passed."
 
-# Stage 5: full unit test suite (slow by policy — broken code never reaches remote).
-echo "— unit tests (full suite, ~2-3 min)…"
+# Stage 5: the whole suite (slow by policy — broken code never reaches remote).
+# This runs tests/, not tests/unit. It ran tests/unit until 2026-09-30 while the
+# comment called that "the full unit test suite": 2011 of 2128 tests, omitting
+# contract (50), performance (48), integration (12) and sprint3 (7). Those 117
+# run in ~14s and need no database, so a broken API contract or timing assertion
+# could be pushed and was caught only by the CI gate, after the push landed.
+# tests/unit/test_pre_push_runs_the_whole_suite.py keeps hook and gate aligned.
+echo "— full test suite (tests/, ~2-3 min)…"
 TESTLOG="$(mktemp)"
-if (cd "$REPO_ROOT" && .venv/bin/pytest tests/unit -q -p no:cacheprovider >"$TESTLOG" 2>&1); then
+if (cd "$REPO_ROOT" && .venv/bin/pytest tests/ -q -p no:cacheprovider >"$TESTLOG" 2>&1); then
   tail -2 "$TESTLOG"
 else
   tail -15 "$TESTLOG"
   FAIL=1
 fi
 rm -f "$TESTLOG"
-[ "$FAIL" -ne 0 ] && { echo "❌ push refused: unit tests failed."; exit 1; }
-echo "✅ unit tests passed."
+[ "$FAIL" -ne 0 ] && { echo "❌ push refused: tests failed."; exit 1; }
+echo "✅ tests passed."
 
 # ── Release tagging (original behaviour, runs only after all gates pass) ──
 DEFAULT_BRANCH="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
