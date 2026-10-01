@@ -47,7 +47,7 @@
 ### Doc Facts (machine-derivable)
 - `scripts/sync_doc_facts.py --sync` computes facts once, applies markers, verifies
 - 70 markdown files checked
-**<!--fact:test_count-->2132<!--/fact--> tests collected**
+**<!--fact:test_count-->2147<!--/fact--> tests collected**
 **41+ tests in new Sprint 3/4 code**:
 - `test_cognitive_graph.py` — 6 tests (graph flow, HITL, streaming, tracer)
 - `test_memory_pipeline.py` — 7 tests (extract, dedup, store, retrieve)
@@ -80,16 +80,22 @@
 - **Auto-tag**: `githooks/pre-push` creates tags on conventional commits
 - **Pre-commit**: runs `sync_doc_facts.py --sync` (fast path via cached facts)
 - **Pre-push**: auto-tags version + publishes GitHub release
-- **CI gate**: `scripts/ci_gate.py` runs <!--fact:gate_count-->28<!--/fact--> gates against a detached worktree at target SHA
+- **CI gate**: `scripts/ci_gate.py` runs <!--fact:gate_count-->29<!--/fact--> gates against a detached worktree at target SHA
 - **Branch protection**: ⛔ BLOCKED (GitHub 403 free-tier) — RISK-012 accepted
 
 ---
 
 ## 8. DEPLOY
 
-- **Cloudflare Pages**: `.github/workflows/deploy.yml` auto-deploys on tag push
+- **Cloudflare Pages**: ⚠️ **NOT operational.** `.github/workflows/deploy.yml` exists and is
+  now correct, but it has **never deployed**: the repo holds no `CLOUDFLARE_API_TOKEN` or
+  `CLOUDFLARE_ACCOUNT_ID` secret (`gh secret list` shows only `JULES_API_KEY`), and it
+  referenced `cloudflare/pages-action@v1`, which no longer exists (HTTP 404) — replaced by
+  `cloudflare/wrangler-action`. It no longer fires on tag push, so it cannot fail a release.
 - **Dockerfile**: multi-stage, non-root user, healthcheck
-- **CI**: local plane (`scripts/ci_bridge.py` → `scripts/ci_gate.py`) — Actions billing-blocked
+- **CI**: GitHub Actions (`.github/workflows/ci-gate.yml` → `scripts/ci_gate.py`), required
+  by the `main` ruleset. The n8n plane (`scripts/ci_bridge.py`) still exists and drives the
+  same script. Actions was billing-blocked while the repo was private; it is public now.
 - **Release**: `scripts/publish_release.py` publishes via `gh` CLI (Actions-independent)
 
 ---
@@ -100,7 +106,7 @@
 |------|--------------|------|
 | `githooks/pre-commit` | Version guard, doc facts sync, doc type table, pre-commit framework | Every commit |
 | `githooks/pre-push` | Auto-tag version, publish GitHub release | Every push |
-| `scripts/ci_gate.py` | <!--fact:gate_count-->28<!--/fact--> gates against target SHA (idempotent) | CI / manual |
+| `scripts/ci_gate.py` | <!--fact:gate_count-->29<!--/fact--> gates against target SHA (idempotent) | CI / manual |
 | `scripts/sync_doc_facts.py --sync` | Compute facts, apply markers, verify | Pre-commit / CI |
 | `scripts/doc_review_due.py` | Semantic staleness check | Monthly cron |
 | `scripts/doc_type_table.py` | Regenerate §10 type tables from code | Pre-commit |

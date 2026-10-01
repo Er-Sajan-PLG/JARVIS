@@ -3,7 +3,7 @@
 **Status**: ACTIVE
 **Type**: policy
 **Last Updated**: 2026-09-19
-**Source**: `githooks/pre-push`, `scripts/verify-push.sh`, `.pre-commit-config.yaml`, `.github/workflows/ci.yml`, `scripts/board/review.py` at HEAD
+**Source**: `githooks/pre-push`, `scripts/verify-push.sh`, `.pre-commit-config.yaml`, `.github/workflows/ci-gate.yml`, `scripts/board/review.py` at HEAD
 
 ## Supported Versions
 

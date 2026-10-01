@@ -50,6 +50,8 @@ _Regenerated from `argparse` declarations in `scripts/*.py`. Run `<script> --hel
 | `--with-mutation` | add the (non-blocking, slow) mutation gate |
 | `--with-evals` | add the eval suite gate |
 | `--init-signing` | create the local cosign keypair |
+| `--keyless` | sign provenance keylessly via the ambient OIDC token (Fulcio + Rekor) instead of the local cosign ke |
+| `--require-tools` | a BLOCKING gate whose scanner is absent fails instead of skipping; used by CI so a missing tool cann |
 
 ## `scripts/deliver_brief.py`
 
@@ -142,6 +144,12 @@ _Regenerated from `argparse` declarations in `scripts/*.py`. Run `<script> --hel
 | Flags | Help |
 |---|---|
 | `--check-only` | dry run, do not open issues |
+
+## `scripts/setup_branch_protection.py`
+
+| Flags | Help |
+|---|---|
+| `--dry-run` | print the payload, change nothing |
 
 ## `scripts/sync_doc_facts.py`
 
