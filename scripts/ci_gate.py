@@ -61,6 +61,26 @@ TOOLS_HOME = Path.home() / ".local" / "share" / "jarvis-ci-tools"
 # honest "skip"; CI passes --require-tools, because a required status check that
 # goes green while enforcing nothing is worse than no check at all.
 REQUIRE_TOOLS = False
+
+# When True, provenance is signed keylessly via the ambient OIDC token (Fulcio
+# certificate + Rekor transparency-log entry) instead of the local keypair. Set by
+# --keyless or JARVIS_COSIGN_KEYLESS=1, which CI does: a runner cannot hold the
+# developer's signing key, and pasting it into a repo secret would put a
+# long-lived signing key next to a public repository. Keyless also lifts
+# provenance from SLSA L1 to L2/L3, since the record becomes publicly auditable.
+KEYLESS = False
+
+# Identity a keyless signature must carry to be accepted. The default is this
+# repository's own workflow, so verifying a bundle proves "this repo's CI signed
+# it" rather than "some Fulcio certificate signed it" -- any GitHub workflow in
+# any repository can obtain one of those.
+KEYLESS_ISSUER = os.environ.get(
+    "JARVIS_COSIGN_OIDC_ISSUER", "https://token.actions.githubusercontent.com"
+)
+KEYLESS_IDENTITY = os.environ.get(
+    "JARVIS_COSIGN_IDENTITY",
+    "https://github.com/Er-Sajan-PLG/JARVIS/.github/workflows/ci-gate.yml@refs/heads/main",
+)
 TOOLS_VENV_BIN = TOOLS_HOME / "venv" / "bin"
 ARTIFACT_DIR = REPO_ROOT / "artifacts"
 
@@ -1197,13 +1217,13 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
     key = TOOLS_HOME / "cosign.key"
     pub = TOOLS_HOME / "cosign.pub"
     pw = _signing_password()
-    if not key.exists() or not pub.exists():
+    if not KEYLESS and (not key.exists() or not pub.exists()):
         return Check(
             "provenance",
             "Supply Chain",
             False,
             "skip",
-            "no cosign keypair — run scripts/ci_gate.py --init-signing",
+            "no cosign keypair — run scripts/ci_gate.py --init-signing, or pass --keyless",
         )
     statement = {
         "_type": "https://in-toto.io/Statement/v1",
@@ -1227,13 +1247,17 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
 
     # cosign v3 requires --bundle (the detached --output-signature form is deprecated
     # and now hard-fails); fall back to the detached form for older cosign builds.
+    # Keyless: cosign reads ACTIONS_ID_TOKEN_REQUEST_URL/_TOKEN from the ambient
+    # environment, exchanges it for a Fulcio certificate, and records the entry in
+    # the Rekor transparency log. No --key is passed -- that is what "keyless"
+    # means, and passing one would defeat the identity binding.
+    key_args = [] if KEYLESS else ["--key", str(key)]
     sign_res = _run(
         [
             cosign,
             "sign-blob",
             "--yes",
-            "--key",
-            str(key),
+            *key_args,
             "--bundle",
             str(bundle_path),
             str(stmt_path),
@@ -1251,8 +1275,7 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
                 cosign,
                 "sign-blob",
                 "--yes",
-                "--key",
-                str(key),
+                *key_args,
                 "--output-signature",
                 str(sig_path),
                 str(stmt_path),
@@ -1272,8 +1295,22 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
             f"cosign sign-blob failed — {_tail(sign_res.stderr, 300)}",
             exit_code=sign_res.returncode,
         )
+    # Keyless verification must pin BOTH the issuer and the workflow identity.
+    # A bundle verified without --certificate-identity proves only that some
+    # Fulcio certificate signed it, and any workflow in any repository can get
+    # one. Pinning is what ties the provenance to this repository's CI.
+    verify_auth = (
+        [
+            "--certificate-identity",
+            KEYLESS_IDENTITY,
+            "--certificate-oidc-issuer",
+            KEYLESS_ISSUER,
+        ]
+        if KEYLESS
+        else ["--key", str(pub)]
+    )
     verify_res = _run(
-        [cosign, "verify-blob", "--key", str(pub), *verify_args, str(stmt_path)],
+        [cosign, "verify-blob", *verify_auth, *verify_args, str(stmt_path)],
         cwd=worktree,
         timeout=300,
     )
@@ -1862,6 +1899,12 @@ def main() -> int:
         "--init-signing", action="store_true", help="create the local cosign keypair"
     )
     parser.add_argument(
+        "--keyless",
+        action="store_true",
+        help="sign provenance keylessly via the ambient OIDC token (Fulcio + "
+        "Rekor) instead of the local cosign keypair; used by CI",
+    )
+    parser.add_argument(
         "--require-tools",
         action="store_true",
         help="a BLOCKING gate whose scanner is absent fails instead of skipping; "
@@ -1880,8 +1923,11 @@ def main() -> int:
         print(f"FATAL: {PYTHON} missing", file=sys.stderr)
         return 2
 
-    global REQUIRE_TOOLS
+    global REQUIRE_TOOLS, KEYLESS
     REQUIRE_TOOLS = args.require_tools
+    # An env var is accepted too: the workflow sets it once for every step, so a
+    # future step that forgets --keyless cannot silently fall back to keyed mode.
+    KEYLESS = args.keyless or os.environ.get("JARVIS_COSIGN_KEYLESS") == "1"
 
     report = run_gates(
         args.sha,
