@@ -127,6 +127,41 @@ re-applying the three features one commit at a time, so the split lost nothing.
 `15:18` [PROGRESS] `state/` preparation for shutdown. B-001 cleared; DASHBOARD §5
 rewritten; session log and commit table added.
 
+`15:20` [PROGRESS] Section 3 validation, first pass. Full suite 2143 passed; docs
+clean; board 11/11. But the **gate itself FAILED with 2 blocking failures**:
+`ruff_ratchet` and `trivy`.
+
+`15:22` [DISCOVERY] `ruff_ratchet` reported "**12** changed file(s) with lint
+errors". Only **1** file actually had errors (`tests/unit/test_issues.py`, 13
+pre-existing violations). The summary used `len(changed)` -- the list of files
+*passed to ruff* -- not the files that failed. Eleven clean files were named as
+violation sites. Fixed in `59fd80c`, test-first, with a helper that parses ruff's
+diagnostics and deduplicates by filename.
+
+`15:24` [DISCOVERY] `tests/unit/test_issues.py` had **14 ruff errors at the base
+commit** and 13 after my change, so I did not introduce them. But the ratchet
+enforces *changed* files, so touching it made them blocking. Consolidated the
+scattered imports in `fd76cbb`. I briefly added an import I had invented
+(`app.workspace.git_state`); caught it on the next command and removed it before
+it reached a commit.
+
+`15:26` [SECURITY] `trivy` reported two HIGH findings against `urllib3==2.7.0`:
+CVE-2026-97687 and CVE-2026-97689, **both fixed in 2.8.0**. `requirements.txt` was
+not touched by this session, so these are newly-published advisories rather than
+introduced regressions.
+
+`15:28` [DECISION] Bumped urllib3 to 2.8.0 (`0ec6128`) rather than exempting it.
+The user's standing rule is that a gate failure needs a *genuine* exception, and an
+available fix is not one -- exempting a patchable HIGH advisory would leave the
+hole open behind a green gate. Verified safe: 2147 passed, 3 skipped, 1 xfailed.
+
+`15:30` [SCOPE EXPANSION] The urllib3 bump is a dependency change in a session
+scoped to CI/CD enforcement. Justification: it blocked the merge, the fix is a
+transitive patch bump with no API change, and the alternative (an ACCEPTED_RISKS
+entry) would be dishonest. Logged rather than done silently.
+
+`15:32` [PROGRESS] Gate re-run in flight to confirm both blocking failures cleared.
+
 ---
 
 ## Commits
@@ -143,6 +178,10 @@ All on `test/assertion-defects`, from base `629810d`:
 | `e5570ea` | fix(ci): install a ruleset instead of requiring six phantom checks |
 | `ccb685f` | docs: correct every claim that enforcement is impossible |
 | `fbcbbdd` | chore(external): untrack the broken Unlimited-OCR gitlink |
+| `fc00b61` | chore(state): bootstrap MACP protocol with repository audit |
+| `59fd80c` | fix(ci): name the files that fail the ruff ratchet, not the files it checked |
+| `fd76cbb` | style(test): consolidate test_issues.py imports so the ratchet passes |
+| `0ec6128` | fix(deps): bump urllib3 2.7.0 -> 2.8.0 for CVE-2026-97687 and CVE-2026-97689 |
 
 ---
 

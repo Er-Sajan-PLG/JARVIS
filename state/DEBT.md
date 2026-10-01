@@ -36,6 +36,8 @@ acting on a number; the counts were verified 2026-10-01 and may have moved.
 | D-R4 | Two security guards passed when the guarded code was deleted | PR #140 |
 | D-R5 | Missing blocking scanner reported `skip` → gate green while enforcing nothing | `--require-tools` (ADR-002) |
 | D-R6 | Actions pinned to mutable tags (SUP-010) | `gate_action_pinning` (ADR-004) |
+| D-R7 | `urllib3==2.7.0` carried CVE-2026-97687 / CVE-2026-97689 (both fixed in 2.8.0) | `0ec6128` |
+| D-R8 | The ruff ratchet reported *checked* files as *failing* files | `59fd80c` |
 
 ---
 
