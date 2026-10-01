@@ -11,13 +11,20 @@ Why this exists
 GitHub Actions is unavailable for this private repo on the free tier: every
 run dies in ~5s with an account-level billing block
 ("The job was not started because recent account payments have failed or your
-spending limit needs to be increased"). Branch protection is also 403
-("Upgrade to GitHub Pro or make this repository public"). Local n8n (Community,
-which HAS the Execute Command node) is the automation control plane; this
-script is the execution plane it invokes.
+spending limit needs to be increased"). Local n8n (Community, which HAS the
+Execute Command node) is the automation control plane; this script is the
+execution plane it invokes.
 
-Blocking policy mirrors the intended GitHub branch-protection contexts
-(see .github/workflows/ci.yml and docs/ACCEPTED_RISKS.md):
+That history is now history. The repository is public, so Actions minutes are
+unlimited and branch protection/rulesets became available (both returned HTTP
+403 while private -- RISK-011, RISK-012). `.github/workflows/ci-gate.yml` runs
+THIS script with `--require-tools --keyless`, so CI and a local run share one
+definition of green. The six-job `ci.yml` was deleted rather than re-enabled:
+bandit and pip-audit there ended in `|| true`, mypy was `continue-on-error`, and
+it measured line coverage only -- requiring it would have enforced a weaker gate
+than this one, which is worse than enforcing nothing.
+
+Blocking policy (see .github/workflows/ci-gate.yml and docs/ACCEPTED_RISKS.md):
   BLOCKING      ruff ratchet, pytest, gitleaks, board governance, compileall
   REPORTED ONLY mypy (RISK-005), coverage floor (RISK-004), bandit, pip-audit
 A non-blocking gate that fails does NOT fail the run — but it is still reported
