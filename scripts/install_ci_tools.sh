@@ -21,6 +21,11 @@ TOOLS="${JARVIS_CI_TOOLS_HOME:-$HOME/.local/share/jarvis-ci-tools}"
 VENV="$TOOLS/venv"
 BIN="${JARVIS_CI_TOOLS_BIN:-$HOME/.local/bin}"
 mkdir -p "$TOOLS" "$BIN"
+# The gate resolves tools from the project venv, then an isolated scanner venv,
+# then PATH. semgrep/checkov/cyclonedx live in the tools venv, so this script's
+# own verification must look there too -- checking only $BIN reported semgrep and
+# cyclonedx-bom MISSING while both were installed.
+export PATH="$VENV/bin:$BIN:$PATH"
 
 # Checks the gate marks blocking=True. Each MUST be present or this exits 1.
 REQUIRED_BINARIES=(trivy syft cosign hadolint trufflehog gitleaks semgrep)
@@ -94,9 +99,13 @@ fetch_asset aquasecurity/trivy "Linux-64bit.tar.gz$" trivy trivy
 fetch_asset anchore/syft "linux_${GOARCH}.tar.gz$" syft syft
 fetch_asset sigstore/cosign "cosign-linux-${GOARCH}$" cosign
 fetch_asset trufflesecurity/trufflehog "linux_${GOARCH}.tar.gz$" trufflehog trufflehog
-fetch_asset gitleaks/gitleaks "linux_${GOARCH}.tar.gz$" gitleaks gitleaks
+# gitleaks names its assets _linux_x64 / _linux_arm64 (not amd64):
+GITLEAKS_ARCH="x64"
+[ "$GOARCH" = "arm64" ] && GITLEAKS_ARCH="arm64"
+fetch_asset gitleaks/gitleaks "linux_${GITLEAKS_ARCH}.tar.gz$" gitleaks gitleaks
 if [ "$GOARCH" = "amd64" ]; then
-  fetch_asset hadolint/hadolint "Linux-x86_64$" hadolint hadolint-Linux-x86_64
+  # hadolint names its asset hadolint-linux-x86_64:
+  fetch_asset hadolint/hadolint "linux-x86_64$" hadolint hadolint-linux-x86_64
 fi
 
 echo "=== [3/3] verify — this is the part CI depends on ==="
@@ -112,7 +121,8 @@ for t in "${REQUIRED_BINARIES[@]}"; do
   fi
 done
 
-for t in semgrep pip-licenses cyclonedx-bom checkov; do
+# cyclonedx-bom installs a binary named `cyclonedx-py`.
+for t in semgrep pip-licenses cyclonedx-py checkov; do
   if [ -x "$VENV/bin/$t" ]; then
     printf '  %-14s OK   (tools venv)\n' "$t"
   else
