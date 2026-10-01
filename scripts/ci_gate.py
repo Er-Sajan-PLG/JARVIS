@@ -55,6 +55,12 @@ OUTPUT_CAP = 4000
 # SOTA scanners live in an ISOLATED venv/bin so the project's pinned .venv is never
 # disturbed by their (heavy) dependency trees. Evidence artifacts land in artifacts/.
 TOOLS_HOME = Path.home() / ".local" / "share" / "jarvis-ci-tools"
+
+# When True, a BLOCKING gate whose scanner is absent is a failure instead of a
+# skip. Off by default so a developer machine missing one tool still gets an
+# honest "skip"; CI passes --require-tools, because a required status check that
+# goes green while enforcing nothing is worse than no check at all.
+REQUIRE_TOOLS = False
 TOOLS_VENV_BIN = TOOLS_HOME / "venv" / "bin"
 ARTIFACT_DIR = REPO_ROOT / "artifacts"
 
@@ -813,7 +819,23 @@ def _accepted_risk_tokens(worktree: Path) -> set[str]:
 
 
 def _missing_tool(tool: str, context: str, blocking: bool, why: str) -> Check:
-    """A gate whose scanner is absent reports SKIP — never a silent pass."""
+    """A gate whose scanner is absent reports SKIP — never a silent pass.
+
+    Except under ``--require-tools``, where a missing tool that the gate marked
+    ``blocking=True`` becomes a FAILURE. ``Check.failed`` is
+    ``status in ("fail", "error")``, so a skip contributes nothing to
+    ``blocking_failures``: the run concluded ``success`` while the check made no
+    claim. In CI that turns a required status check green while enforcing
+    nothing, which is indistinguishable from a real pass.
+    """
+    if blocking and REQUIRE_TOOLS:
+        return Check(
+            tool,
+            context,
+            True,
+            "fail",
+            f"{tool} unavailable and --require-tools is set — {why}",
+        )
     return Check(tool, context, blocking, "skip", f"{tool} unavailable — {why}")
 
 
@@ -1839,6 +1861,12 @@ def main() -> int:
     parser.add_argument(
         "--init-signing", action="store_true", help="create the local cosign keypair"
     )
+    parser.add_argument(
+        "--require-tools",
+        action="store_true",
+        help="a BLOCKING gate whose scanner is absent fails instead of skipping; "
+        "used by CI so a missing tool cannot turn a required check green",
+    )
 
     args = parser.parse_args()
 
@@ -1851,6 +1879,9 @@ def main() -> int:
     if not PYTHON.exists():
         print(f"FATAL: {PYTHON} missing", file=sys.stderr)
         return 2
+
+    global REQUIRE_TOOLS
+    REQUIRE_TOOLS = args.require_tools
 
     report = run_gates(
         args.sha,
