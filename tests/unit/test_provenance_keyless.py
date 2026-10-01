@@ -110,7 +110,10 @@ def test_keyless_verification_pins_the_workflow_identity(ci_gate, fake_cosign, t
     assert verify_calls, f"no verify-blob call was made; cosign saw: {calls}"
     for call in verify_calls:
         assert "--certificate-oidc-issuer" in call
-        assert "--certificate-identity" in call
+        # A regexp, not a literal: the literal form embeds the ref, so it
+        # matched @refs/heads/main and failed every pull request with
+        # "no matching CertificateIdentity found".
+        assert "--certificate-identity-regexp" in call
         assert "--key" not in call
 
 

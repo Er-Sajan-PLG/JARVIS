@@ -84,9 +84,15 @@ KEYLESS = False
 KEYLESS_ISSUER = os.environ.get(
     "JARVIS_COSIGN_OIDC_ISSUER", "https://token.actions.githubusercontent.com"
 )
-KEYLESS_IDENTITY = os.environ.get(
-    "JARVIS_COSIGN_IDENTITY",
-    "https://github.com/Er-Sajan-PLG/JARVIS/.github/workflows/ci-gate.yml@refs/heads/main",
+# A REGEXP, not a literal. An OIDC identity embeds the ref that triggered the
+# run: `@refs/heads/main` on a push, but `@refs/pull/142/merge` on a pull request.
+# Pinning the literal worked on main and failed every PR with "no matching
+# CertificateIdentity found" -- verified against a real run. The pattern still
+# names this repository's ci-gate workflow specifically, so it is not a wildcard:
+# any other repository or workflow is still rejected.
+KEYLESS_IDENTITY_REGEXP = os.environ.get(
+    "JARVIS_COSIGN_IDENTITY_REGEXP",
+    r"https://github\.com/Er-Sajan-PLG/JARVIS/\.github/workflows/ci-gate\.yml@.*",
 )
 TOOLS_VENV_BIN = TOOLS_HOME / "venv" / "bin"
 ARTIFACT_DIR = REPO_ROOT / "artifacts"
@@ -1335,8 +1341,8 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
     # one. Pinning is what ties the provenance to this repository's CI.
     verify_auth = (
         [
-            "--certificate-identity",
-            KEYLESS_IDENTITY,
+            "--certificate-identity-regexp",
+            KEYLESS_IDENTITY_REGEXP,
             "--certificate-oidc-issuer",
             KEYLESS_ISSUER,
         ]
