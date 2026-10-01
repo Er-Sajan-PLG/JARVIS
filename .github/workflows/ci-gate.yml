@@ -51,6 +51,18 @@ jobs:
           # the full history is required -- a shallow clone silently empties them.
           fetch-depth: 0
 
+      - name: Install system dependencies
+        # The suite exercises the real OCR and PDF paths, not mocks:
+        # tests/unit/test_web_upload_extraction.py rasterises a scanned PDF with
+        # PyMuPDF and OCRs it with the `tesseract` BINARY. On a runner without it
+        # those tests fail with "a scanned PDF was not OCR'd", which reads like a
+        # logic bug but is a missing package. requirements.txt cannot express a
+        # system dependency, so it is installed here.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends tesseract-ocr poppler-utils
+          tesseract --version | head -1
+
       - name: Set up Python environment
         uses: ./.github/actions/setup-env
         with:
