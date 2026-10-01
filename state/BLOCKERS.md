@@ -75,6 +75,58 @@ ever committed is now public. This raises the urgency of the rotation batch.
 
 ---
 
+## B-005 — `requirements.txt` was unsatisfiable and 36 versions adrift
+
+**Severity**: HIGH · **Status**: `CLEARED 2026-10-01` (`7ba4b19`) · **Blocks**: every clean install, including CI
+
+**What**: The dependency file did not resolve. Four independent defects:
+
+| Defect | Evidence |
+|---|---|
+| `asyncpg==0.30.1` | PyPI returns **HTTP 404** — the version does not exist |
+| `opentelemetry==1.44.0` | No bare `opentelemetry` package exists on PyPI at all |
+| duplicated OpenTelemetry block | lines 165–168 repeated 81–84 |
+| `pydantic_core==2.49.0` | `pydantic==2.13.5` requires `pydantic-core==2.46.5` |
+
+Behind those: **36 versions disagreed with the environment the suite passes in**
+(`mypy` 2.3.1 vs installed 1.11.2, `ruff` 0.16.8 vs 0.8.0, `numpy` 2.4.6 vs
+1.26.4, `openai` 3.16.2 vs 3.11.0).
+
+**Why it went unnoticed**: `pyproject.toml` declares **no dependencies**, so this
+file was the only record — and nothing ever installed it. Dependabot bumped it for
+months. A dependency file that is never installed cannot be wrong in any
+observable way, which is exactly why it drifted this far. The local gate reuses an
+existing `.venv` and never installs.
+
+**Discovered by**: the `ci-gate` workflow's first run, which failed at
+`pip install -r requirements.txt` after 16 seconds.
+
+**Resolution**: regenerated from the working `.venv` via
+`pip freeze --exclude-editable`, merged with the four optional dependencies that
+environment lacked but the code uses (`tiktoken`, `psycopg`, `psycopg2-binary`,
+`asyncpg`). 221 pins, verified with `pip install --dry-run`.
+
+---
+
+## B-006 — `osv-scanner` never installs in CI
+
+**Severity**: LOW · **Status**: `ACTIVE` · **Blocks**: nothing (the check is non-blocking)
+
+**What**: In CI the gate reports `osv  osv unavailable — not installed`, so the
+OSV advisory scan is a *skip*. `install_ci_tools.sh` attempts
+`pip install osv-scanner` into the tools venv as a final, non-fatal step; on the
+runner it does not succeed.
+
+**Why it matters anyway**: this is the same "skip looks like a pass" shape that
+`--require-tools` was built to close — except OSV is deliberately non-blocking, so
+the degradation is invisible rather than dangerous. It is still a check that does
+nothing while appearing in the report.
+
+**Remediation**: make the install fatal or use the `google/osv-scanner` binary
+release, then decide whether the check should be blocking.
+
+---
+
 ## B-004 — `setup-env` composite action is untested end-to-end
 
 **Severity**: LOW · **Status**: `ACTIVE` · **Blocks**: nothing yet
@@ -98,6 +150,7 @@ error.
 |---|---|---|---|
 | B-000 | Branch protection/rulesets returned HTTP 403 on a private Free repo (RISK-011, RISK-012) | 2026-10-01 | Repo made public; `GET /rulesets` → `200`, `GET /branches/main/protection` → `404 not protected`. Ruleset installed by `scripts/setup_branch_protection.py`. |
 | B-001 | `external/Unlimited-OCR` broken gitlink (no `.gitmodules`), permanently dirty tree, 181 MB | 2026-10-01 | Untracked and gitignored in `fbcbbdd`. `git status` is now clean; local copy preserved. |
+| B-005 | `requirements.txt` unsatisfiable: `asyncpg==0.30.1` (404), a phantom `opentelemetry` package, a duplicated OTel block, and 36 versions adrift | 2026-10-01 | Regenerated from the verified venv in `7ba4b19`; `pip install --dry-run` resolves. |
 
 ---
 

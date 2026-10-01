@@ -162,6 +162,81 @@ entry) would be dishonest. Logged rather than done silently.
 
 `15:32` [PROGRESS] Gate re-run in flight to confirm both blocking failures cleared.
 
+`15:36` [PROGRESS] PR #142 opened. The `ci-gate` workflow ran on it and **FAILED in
+22 seconds** -- far too fast to be the gate, so it was a setup failure.
+
+`15:38` [DISCOVERY] **`requirements.txt` does not install.** `pip install -r
+requirements.txt` fails with `No matching distribution found for asyncpg==0.30.1`.
+Verified independently: PyPI returns **HTTP 404** for that version. The local gate
+never caught this because it reuses an existing `.venv` and never installs.
+
+`15:40` [DISCOVERY] Chasing that revealed three more defects and then the real
+problem. A bare `opentelemetry==1.44.0` **is not a package on PyPI at all**; the
+OpenTelemetry block was **duplicated**; `pydantic_core==2.49.0` conflicts with
+`pydantic==2.13.5`, which requires `2.46.5`. And behind all of it: **36 pins
+disagreed with the environment the suite passes in** -- `mypy` 2.3.1 vs 1.11.2,
+`ruff` 0.16.8 vs 0.8.0, `numpy` 2.4.6 vs 1.26.4.
+
+`15:42` [DECISION] The root cause is structural, so the fix had to be too.
+`pyproject.toml` declares **no dependencies**; `requirements.txt` was the only
+record and **nothing ever installed it**. Dependabot bumped it for months against
+no feedback loop. Regenerated from the verified `.venv`
+(`pip freeze --exclude-editable`), merged with the four optional deps that
+environment lacked but the code uses (`tiktoken`, `psycopg`, `psycopg2-binary`,
+`asyncpg`) -- a pure freeze would have silently dropped them. 221 pins; verified
+by `pip install --dry-run`.
+
+`15:44` [SCOPE EXPANSION] Regenerating the dependency file is well outside a CI/CD
+enforcement session. Justification: the workflow cannot install without it, so
+without this the entire PR fails at its purpose; the fix is mechanical and
+verified; and the alternative -- exempting a HIGH-severity finding -- was not
+genuine.
+
+`15:46` [PROGRESS] Pushed `7ba4b19`; the workflow re-triggered. Watching.
+
+`15:50` [PROGRESS] CI iteration 1: failed at `pip install` (asyncpg 0.30.1). Fixed by
+regenerating requirements.txt.
+
+`15:55` [PROGRESS] CI iteration 2: failed in "Install gate scanners" -- 4 of 11 tools
+missing. All four were bugs in `scripts/install_ci_tools.sh`: gitleaks assets are
+`_linux_x64` not `_linux_amd64`; hadolint's is `hadolint-linux-x86_64` not
+`Linux-x86_64`; semgrep and cyclonedx live in the tools venv which was not on
+PATH; and cyclonedx's binary is `cyclonedx-py`. The failure itself was the system
+working -- `--require-tools` turned 4 missing blocking scanners into a hard
+failure instead of 4 silent skips.
+
+`16:00` [PROGRESS] CI iteration 3: the gate ran end to end for the first time.
+**22 pytest failures**, plus trivy 3, plus provenance. 0 failures locally, which
+was the point: the runner is a clean environment and the local venv is not.
+
+`16:05` [DISCOVERY] Root cause of most of the 22: installing `tiktoken` -- which
+`requirements.txt` pins and the venv lacked -- broke three tests that asserted
+`_try_tiktoken(...) is None` and a fallback token count. They asserted an
+ENVIRONMENT property. One docstring even said so: "tiktoken is pinned in
+requirements.txt but is NOT installed in this environment". Absence is now forced
+by patching `__import__`; the truncation test uses a history large enough to
+exceed the floor under either counter. Verified both ways: 42 passed with and
+without tiktoken.
+
+`16:10` [DISCOVERY] `test_subagent_tools.py` (3 tests) failed for a different
+environmental reason: `OPENCODE_BIN` is resolved with `shutil.which` at MODULE
+IMPORT, so a runner without the `opencode` CLI raises before the patched
+subprocess is reached. The developer machine has opencode.
+
+`16:12` [DISCOVERY] `test_chat_uses_default_model.py` called `/api/chat` for real
+and accepted "either the real call succeeds, or it fails for a reason unrelated to
+an empty model id". On CI the handler returned 503 "AGY CLI not found on PATH"
+before the model id was used. A test that passes for two unrelated reasons asserts
+neither. Now stubbed at the provider boundary; verified by mutation -- ignoring the
+saved default fails it.
+
+`16:15` [PROGRESS] CI iteration 4: pytest **1 failed** (down from 22), trivy PASS,
+provenance PASS (keyless works, identity regexp correct). The one failure was
+`test_doc_facts` -- my own staging error: I ran `sync_doc_facts` but staged only
+the test files, leaving the synced doc changes uncommitted.
+
+`16:18` [PROGRESS] CI iteration 5 in flight.
+
 ---
 
 ## Commits
@@ -182,6 +257,14 @@ All on `test/assertion-defects`, from base `629810d`:
 | `59fd80c` | fix(ci): name the files that fail the ruff ratchet, not the files it checked |
 | `fd76cbb` | style(test): consolidate test_issues.py imports so the ratchet passes |
 | `0ec6128` | fix(deps): bump urllib3 2.7.0 -> 2.8.0 for CVE-2026-97687 and CVE-2026-97689 |
+| `b85ee5d` | chore(state): record the verification round and its three fixes |
+| `7ba4b19` | fix(deps): regenerate requirements.txt so it actually installs |
+| `9829b61` | fix(ci): correct the scanner installer's asset names and verify path |
+| `5e74103` | test: stop three tests depending on which token counter is installed |
+| `a924a5d` | fix(ci): pin the keyless provenance identity by regexp, not by literal |
+| `f17640e` | fix(ci): install tesseract and poppler on the runner |
+| `44526db` | test: stop two more tests depending on the machine they run on |
+| `8d9397b` | fix(deps): bump virtualenv 21.7.9 -> 21.7.13 |
 
 ---
 

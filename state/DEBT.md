@@ -23,6 +23,7 @@ acting on a number; the counts were verified 2026-10-01 and may have moved.
 | D-008 | S3 | **`tests/e2e/` does not exist** though `AGENTS.md` §3.2 once implied it did | `tests/` | No end-to-end coverage of a real user journey | Either build it or remove the row (currently kept deliberately as a visible gap) |
 | D-009 | S2 | **PyYAML settings deprecation warnings** in `pyproject.toml` on every ruff run | `pyproject.toml` | Noise that hides real findings | Move `select`/`ignore` under `[tool.ruff.lint]` |
 | D-010 | S3 | **`artifacts/AUDIT-NOW.md` and `_audit/` carry stale prose** describing superseded state | `artifacts/`, `_audit/` | Agents reading them as current will re-derive findings that are already fixed | Mark as snapshots with a date, or regenerate |
+| D-011 | S2 | **`pyproject.toml` declares no dependencies; `requirements.txt` was never installed by anything** | `pyproject.toml`, `requirements.txt` | The pinned file had no feedback loop, so it drifted 36 versions and became unsatisfiable without anyone noticing. A dependency list nothing installs is documentation, not a lockfile | Install it in CI (done) so drift fails loudly; consider `pip-compile` or declaring deps in `pyproject.toml` |
 
 ---
 
