@@ -1,27 +1,38 @@
 """Tests for the JARVIS MCP server."""
 
-import asyncio
-
 import pytest
 
 from app.integrations.mcp.server import (
     _dispatch,
-    _workspace_git_state,
     create_server,
     get_global_policy,
 )
 
 
 class TestMCPServer:
-    def test_create_server(self):
-        """Server instantiates with a name."""
-        server = create_server()
-        assert server is not None
+    def test_create_server_is_the_capability_server(self):
+        """The server carries JARVIS's identity, not merely a truthy value.
 
-    def test_get_global_policy(self):
-        """Global policy is available."""
-        policy = get_global_policy()
-        assert policy is not None
+        ``assert server is not None`` could never fail -- ``create_server()``
+        constructs a ``Server`` unconditionally -- so it asserted nothing about
+        the thing it named (F-TEST-010). The name is the observable contract the
+        MCP handshake advertises.
+        """
+        server = create_server()
+        assert server.name == "jarvis-capability-server"
+
+    def test_get_global_policy_returns_a_policy_and_reuses_it(self):
+        """The policy is a ``ToolSafetyPolicy``, and the singleton is stable.
+
+        ``assert policy is not None`` was the same unsatisfiable form. The
+        function's actual contract is in its body: it creates a default only when
+        none is set, then returns the global. Pinning identity is what makes a
+        regression from "reuse" to "new object each call" visible.
+        """
+        first = get_global_policy()
+        second = get_global_policy()
+        assert type(first).__name__ == "ToolSafetyPolicy"
+        assert first is second, "get_global_policy() stopped returning the shared policy"
 
     async def test_dispatch_workspace_git_state(self):
         """workspace_git_state returns real git state."""

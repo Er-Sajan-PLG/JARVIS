@@ -198,21 +198,126 @@ class TestActiveProfile(unittest.TestCase):
             path = self._write_config(td, {})
             self.assertEqual(Settings.load(path=path).active_profile, "default")
 
-    def test_active_profile_invalid_falls_back(self):
-        with tempfile.TemporaryDirectory() as td:
-            path = self._write_config(td, {
-                "active_profile": "cloud",
-            })
-            self.assertEqual(Settings.load(path=path).active_profile, "cloud")
+    def test_active_profile_valid_string_is_kept_verbatim(self):
+        """A string profile is stored as-is, with no validation against profiles.
 
-    def test_active_profile_propagates_to_switcher(self):
-        from app.models.switcher import ModelSwitcher
+        This replaces ``test_active_profile_invalid_falls_back``, which wrote the
+        *valid* profile ``"cloud"`` and asserted it equalled ``"cloud"`` -- no
+        invalid input and no fallback, so the name described behaviour the body
+        never exercised (F-TEST-010).
+
+        Recording the real behaviour, which is looser than the old name implied:
+        ``Settings.load`` accepts any string. An unrecognised profile is not
+        rejected and does not fall back.
+        """
         with tempfile.TemporaryDirectory() as td:
             path = self._write_config(td, {
-                "active_profile": "cloud",
+                "active_profile": "no-such-profile",
+                "profiles": {"local": {}, "cloud": {}},
             })
-            settings = Settings.load(path=path)
-            self.assertEqual(settings.active_profile, "cloud")
+            self.assertEqual(Settings.load(path=path).active_profile, "no-such-profile")
+
+    def test_active_profile_non_string_falls_back_to_default(self):
+        """The one fallback that exists: a non-string reverts to ``"default"``.
+
+        ``settings.py`` guards the assignment with ``isinstance(..., str)``, so
+        ``null`` and numbers take the default. This is the boundary the old
+        mis-named test was reaching for.
+        """
+        for value in (None, 42, ["cloud"], {"name": "cloud"}):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as td:
+                path = self._write_config(td, {"active_profile": value})
+                self.assertEqual(Settings.load(path=path).active_profile, "default")
+
+    def test_active_profile_propagates_to_a_real_switcher(self):
+        """A configured model becomes a client, and a real profile resolves.
+
+        The old version imported ``ModelSwitcher`` and then asserted
+        ``settings.active_profile`` a second time -- the import was unused and the
+        assertion duplicated ``test_active_profile_loaded_from_config``
+        (F-TEST-010).
+
+        Building it corrects a false assumption too. ``ModelSwitcher._routers``
+        holds profiles, and profiles are ``"omni"`` and ``"default"`` -- the keys
+        under ``models`` are *clients*, not profiles (``switcher.py:41-92``). So
+        ``active_profile: cloud`` is not honoured, and asserting it would be
+        wrong. What the profile does propagate is this: the configured model is
+        loaded, and the resolved profile is one that exists.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from app.models.switcher import ModelSwitcher
+
+        config = MagicMock()
+        config.backend = "openrouter"
+        config.model_name = "meta-llama/llama-3.3-70b-instruct"
+        config.role = "general"
+
+        settings = MagicMock()
+        settings.models = {"cloud": config}
+        settings.active_profile = "cloud"
+
+        with patch("app.models.switcher.create_client") as create_client:
+            client = MagicMock()
+            client.model_name = "meta-llama/llama-3.3-70b-instruct"
+            client.generate = MagicMock()
+            create_client.return_value = client
+            switcher = ModelSwitcher(settings)
+
+        # The configured model was loaded under its own key.
+        self.assertIn("cloud", switcher._clients)
+        # The resolved profile is real, and the accessor returns it.
+        self.assertTrue(switcher.active_profile)
+        self.assertIn(switcher.active_profile, switcher._routers)
+
+    def test_switcher_falls_back_when_the_requested_profile_is_absent(self):
+        """A requested profile that was never built is not honoured.
+
+        This is the fallback the old ``..._invalid_falls_back`` name claimed but
+        never exercised. It lives in ``ModelSwitcher``, not in ``Settings.load``.
+
+        Two models are configured on purpose. With only one router built, the
+        ``omni`` branch and the final ``elif self._routers`` branch are equivalent
+        and removing either is invisible -- verified. A local plus a cloud model
+        builds both ``omni`` and ``default``, and ``_routers`` is inserted omni
+        first (``switcher.py:74`` before ``:80``), so the resolver must reach the
+        ``"default"`` branch rather than fall through to ``next(iter(...))``. That
+        makes the local-first preference observable.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from app.models.switcher import ModelSwitcher
+
+        cloud = MagicMock()
+        cloud.backend = "openrouter"
+        cloud.name = "cloud-model"
+        cloud.model_name = "some/cloud-model"
+        cloud.role = "general"
+
+        local = MagicMock()
+        local.backend = "ollama"
+        local.name = "llama3.1:8b"
+        local.model_name = "llama3.1:8b"
+        local.role = "general"
+
+        settings = MagicMock()
+        settings.models = {"cloud": cloud, "local": local}
+        settings.active_profile = "no-such-profile"
+
+        def _fake_client(cfg):
+            client = MagicMock()
+            client.model_name = cfg.model_name
+            client.role = cfg.role
+            client.generate = MagicMock()
+            return client
+
+        with patch("app.models.switcher.create_client", side_effect=_fake_client):
+            switcher = ModelSwitcher(settings)
+
+        # A wrong profile is not honoured...
+        self.assertNotEqual(switcher.active_profile, "no-such-profile")
+        # ...and the chain prefers the local "default" over "omni".
+        self.assertEqual(switcher.active_profile, "default")
 
 
 # ============================================================================
