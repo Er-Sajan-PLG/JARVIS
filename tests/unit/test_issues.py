@@ -9,20 +9,24 @@ Run individual issue groups, e.g.:
 Each Test* class maps to one issue from the triage list.
 """
 
-import sys
-import os
+import inspect
 import json
-import unittest
-import tempfile
+import os
 import shutil
+import tempfile
+import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
+import yaml
 
-from app.tools.base import ToolRegistry, ToolDefinition
-from app.tools.executor import ToolExecutor, ParsedCall
+from app.config.settings import Settings
+from app.memory.schema import Memory
+from app.memory.vector_retriever import VectorRetriever
 from app.models.client import ModelResponse
+from app.tools.base import ToolDefinition, ToolRegistry
+from app.tools.executor import ParsedCall, ToolExecutor
+from app.tools.file_tools import FILE_TOOLS, append_file
+from app.tools.git_tools import GIT_TOOLS
 
 
 def make_call(name: str, args: dict) -> str:
@@ -35,8 +39,6 @@ def make_call(name: str, args: dict) -> str:
 #   Verify append_file is registered, callable, and wired into the doc agent
 #   (so the "Use append_file to add entries" instruction is executable).
 # ============================================================================
-
-from app.tools.file_tools import FILE_TOOLS, append_file
 
 
 class TestAppendFile(unittest.TestCase):
@@ -65,11 +67,13 @@ class TestAppendFile(unittest.TestCase):
         reg = ToolRegistry()
         reg.register_many(FILE_TOOLS)
         ex = ToolExecutor(reg, require_confirmation=False)
-        result = ex.run(ParsedCall(
-            name="append_file",
-            args={"path": self.allowed, "content": "appended\n"},
-            raw="",
-        ))
+        result = ex.run(
+            ParsedCall(
+                name="append_file",
+                args={"path": self.allowed, "content": "appended\n"},
+                raw="",
+            )
+        )
         self.assertTrue(result.success, result.error)
         self.assertIn("appended", Path(self.allowed).read_text())
 
@@ -79,10 +83,14 @@ class TestAppendFile(unittest.TestCase):
         class DummyModel:
             def generate(self, messages, **kwargs):
                 return ModelResponse(content="Done.", model="mock")
+
             @property
-            def model_name(self): return "mock"
+            def model_name(self):
+                return "mock"
+
             @property
-            def role(self): return "general"
+            def role(self):
+                return "general"
 
         agent = DocumentationAgent(model=DummyModel())
         registered = {t.name for t in agent._registry.all()}
@@ -95,6 +103,7 @@ class TestAppendFile(unittest.TestCase):
         class ScriptedModel:
             def __init__(self):
                 self.n = 0
+
             def generate(self, messages, **kwargs):
                 self.n += 1
                 if self.n == 1:
@@ -111,10 +120,14 @@ class TestAppendFile(unittest.TestCase):
                         model="mock",
                     )
                 return ModelResponse(content="Done.", model="mock")
+
             @property
-            def model_name(self): return "mock"
+            def model_name(self):
+                return "mock"
+
             @property
-            def role(self): return "general"
+            def role(self):
+                return "general"
 
         Path(self.allowed).write_text("# Changelog\n")
         agent = DocumentationAgent(model=ScriptedModel())
@@ -133,11 +146,6 @@ class TestAppendFile(unittest.TestCase):
 #   produces the correct embedding text.
 # ============================================================================
 
-import inspect
-
-from app.memory.schema import Memory
-from app.memory.vector_retriever import VectorRetriever
-
 
 class TestMemoryToText(unittest.TestCase):
     def test_memory_to_text_is_class_level_method_not_nested(self):
@@ -147,7 +155,7 @@ class TestMemoryToText(unittest.TestCase):
             hasattr(VectorRetriever, "_memory_to_text"),
             "_memory_to_text missing at class level - looks nested/dead",
         )
-        self.assertTrue(callable(getattr(VectorRetriever, "_memory_to_text")))
+        self.assertTrue(callable(VectorRetriever._memory_to_text))
 
     def test_on_index_rebuilt_does_not_redefine_it_nested(self):
         src = inspect.getsource(VectorRetriever.on_index_rebuilt)
@@ -173,10 +181,6 @@ class TestMemoryToText(unittest.TestCase):
 #   gracefully falls back when the value names a non-existent profile.
 # ============================================================================
 
-import yaml
-
-from app.config.settings import Settings
-
 
 class TestActiveProfile(unittest.TestCase):
     def _write_config(self, tmpdir: str, data: dict) -> str:
@@ -187,10 +191,13 @@ class TestActiveProfile(unittest.TestCase):
 
     def test_active_profile_loaded_from_config(self):
         with tempfile.TemporaryDirectory() as td:
-            path = self._write_config(td, {
-                "active_profile": "cloud",
-                "profiles": {"local": {}, "cloud": {}},
-            })
+            path = self._write_config(
+                td,
+                {
+                    "active_profile": "cloud",
+                    "profiles": {"local": {}, "cloud": {}},
+                },
+            )
             self.assertEqual(Settings.load(path=path).active_profile, "cloud")
 
     def test_active_profile_default_when_absent(self):
@@ -211,10 +218,13 @@ class TestActiveProfile(unittest.TestCase):
         rejected and does not fall back.
         """
         with tempfile.TemporaryDirectory() as td:
-            path = self._write_config(td, {
-                "active_profile": "no-such-profile",
-                "profiles": {"local": {}, "cloud": {}},
-            })
+            path = self._write_config(
+                td,
+                {
+                    "active_profile": "no-such-profile",
+                    "profiles": {"local": {}, "cloud": {}},
+                },
+            )
             self.assertEqual(Settings.load(path=path).active_profile, "no-such-profile")
 
     def test_active_profile_non_string_falls_back_to_default(self):
@@ -326,8 +336,6 @@ class TestActiveProfile(unittest.TestCase):
 #   different args). The parser must return ALL of them, not collapse to one.
 # ============================================================================
 
-from app.tools.git_tools import GIT_TOOLS
-
 
 class TestParserNoNameDedup(unittest.TestCase):
     def setUp(self):
@@ -344,8 +352,7 @@ class TestParserNoNameDedup(unittest.TestCase):
 
     def test_repeated_same_name_hybrid_calls_all_parsed(self):
         text = "\n".join(
-            f'<tool_call>git_show({json.dumps({"ref": f"h{i}"})})</tool_call>'
-            for i in range(4)
+            f'<tool_call>git_show({json.dumps({"ref": f"h{i}"})})</tool_call>' for i in range(4)
         )
         self.assertEqual(len(self.ex.parse(text)), 4)
 
@@ -354,15 +361,19 @@ class TestParserNoNameDedup(unittest.TestCase):
         # Use a deterministic, side-effect-free tool so the assertion is about
         # execution, not about git ref validity.
         executed = []
+
         def recorder(**kwargs):
             executed.append(kwargs)
             return "ok"
-        self.reg.register(ToolDefinition(
-            name="recorder",
-            description="test recorder",
-            parameters={"type": "object", "properties": {}},
-            handler=recorder,
-        ))
+
+        self.reg.register(
+            ToolDefinition(
+                name="recorder",
+                description="test recorder",
+                parameters={"type": "object", "properties": {}},
+                handler=recorder,
+            )
+        )
         text = "\n".join(make_call("recorder", {"i": i}) for i in range(3))
         for call in self.ex.parse(text):
             result = self.ex.run(call)
