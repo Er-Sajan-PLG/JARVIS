@@ -300,6 +300,22 @@ def _resolve_merge_base(worktree: Path, base: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def _ruff_failing_files(output: str) -> set[str]:
+    """Filenames named by ruff diagnostics, deduplicated.
+
+    Ruff prints one line per diagnostic, so a file with 13 errors appears 13
+    times. Counting lines reports 13 files; this returns 1. Only lines shaped
+    `path.py:line:col: CODE ...` count -- ruff also prints banners and help text
+    that mention no file, and prose that mentions one should not match.
+    """
+    found: set[str] = set()
+    for line in output.splitlines():
+        m = re.match(r"^(\S+\.py):\d+:\d+: ", line)
+        if m:
+            found.add(m.group(1))
+    return found
+
+
 def gate_ruff_ratchet(worktree: Path, base: str) -> Check:
     """Ruff on files changed vs ``base`` — the legacy debt is out of scope."""
     ruff = _tool("ruff")
@@ -334,12 +350,23 @@ def gate_ruff_ratchet(worktree: Path, base: str) -> Check:
             f"{len(changed)} changed file(s) clean",
             output=_tail(res.stdout),
         )
+    # Name the offending files. The previous message used len(changed), the list
+    # of files ruff was GIVEN -- so one bad file among twelve was reported as
+    # "12 changed file(s) with lint errors", sending the reader hunting through
+    # eleven clean files. A count that measures something other than what it
+    # claims is worse than no count.
+    offenders = sorted(_ruff_failing_files(res.stdout + res.stderr))
+    summary = (
+        f"{len(offenders)} of {len(changed)} changed file(s) have lint errors"
+        if offenders
+        else f"lint errors in {len(changed)} changed file(s) (filenames not parsed)"
+    )
     return Check(
         "ruff_ratchet",
         "Lint & Typecheck",
         True,
         "fail",
-        f"{len(changed)} changed file(s) with lint errors",
+        summary,
         exit_code=res.returncode,
         output=_tail(res.stdout + res.stderr),
     )
