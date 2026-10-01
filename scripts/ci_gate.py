@@ -11,13 +11,20 @@ Why this exists
 GitHub Actions is unavailable for this private repo on the free tier: every
 run dies in ~5s with an account-level billing block
 ("The job was not started because recent account payments have failed or your
-spending limit needs to be increased"). Branch protection is also 403
-("Upgrade to GitHub Pro or make this repository public"). Local n8n (Community,
-which HAS the Execute Command node) is the automation control plane; this
-script is the execution plane it invokes.
+spending limit needs to be increased"). Local n8n (Community, which HAS the
+Execute Command node) is the automation control plane; this script is the
+execution plane it invokes.
 
-Blocking policy mirrors the intended GitHub branch-protection contexts
-(see .github/workflows/ci.yml and docs/ACCEPTED_RISKS.md):
+That history is now history. The repository is public, so Actions minutes are
+unlimited and branch protection/rulesets became available (both returned HTTP
+403 while private -- RISK-011, RISK-012). `.github/workflows/ci-gate.yml` runs
+THIS script with `--require-tools --keyless`, so CI and a local run share one
+definition of green. The six-job `ci.yml` was deleted rather than re-enabled:
+bandit and pip-audit there ended in `|| true`, mypy was `continue-on-error`, and
+it measured line coverage only -- requiring it would have enforced a weaker gate
+than this one, which is worse than enforcing nothing.
+
+Blocking policy (see .github/workflows/ci-gate.yml and docs/ACCEPTED_RISKS.md):
   BLOCKING      ruff ratchet, pytest, gitleaks, board governance, compileall
   REPORTED ONLY mypy (RISK-005), coverage floor (RISK-004), bandit, pip-audit
 A non-blocking gate that fails does NOT fail the run — but it is still reported
@@ -55,6 +62,38 @@ OUTPUT_CAP = 4000
 # SOTA scanners live in an ISOLATED venv/bin so the project's pinned .venv is never
 # disturbed by their (heavy) dependency trees. Evidence artifacts land in artifacts/.
 TOOLS_HOME = Path.home() / ".local" / "share" / "jarvis-ci-tools"
+
+# When True, a BLOCKING gate whose scanner is absent is a failure instead of a
+# skip. Off by default so a developer machine missing one tool still gets an
+# honest "skip"; CI passes --require-tools, because a required status check that
+# goes green while enforcing nothing is worse than no check at all.
+REQUIRE_TOOLS = False
+
+# When True, provenance is signed keylessly via the ambient OIDC token (Fulcio
+# certificate + Rekor transparency-log entry) instead of the local keypair. Set by
+# --keyless or JARVIS_COSIGN_KEYLESS=1, which CI does: a runner cannot hold the
+# developer's signing key, and pasting it into a repo secret would put a
+# long-lived signing key next to a public repository. Keyless also lifts
+# provenance from SLSA L1 to L2/L3, since the record becomes publicly auditable.
+KEYLESS = False
+
+# Identity a keyless signature must carry to be accepted. The default is this
+# repository's own workflow, so verifying a bundle proves "this repo's CI signed
+# it" rather than "some Fulcio certificate signed it" -- any GitHub workflow in
+# any repository can obtain one of those.
+KEYLESS_ISSUER = os.environ.get(
+    "JARVIS_COSIGN_OIDC_ISSUER", "https://token.actions.githubusercontent.com"
+)
+# A REGEXP, not a literal. An OIDC identity embeds the ref that triggered the
+# run: `@refs/heads/main` on a push, but `@refs/pull/142/merge` on a pull request.
+# Pinning the literal worked on main and failed every PR with "no matching
+# CertificateIdentity found" -- verified against a real run. The pattern still
+# names this repository's ci-gate workflow specifically, so it is not a wildcard:
+# any other repository or workflow is still rejected.
+KEYLESS_IDENTITY_REGEXP = os.environ.get(
+    "JARVIS_COSIGN_IDENTITY_REGEXP",
+    r"https://github\.com/Er-Sajan-PLG/JARVIS/\.github/workflows/ci-gate\.yml@.*",
+)
 TOOLS_VENV_BIN = TOOLS_HOME / "venv" / "bin"
 ARTIFACT_DIR = REPO_ROOT / "artifacts"
 
@@ -267,6 +306,22 @@ def _resolve_merge_base(worktree: Path, base: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def _ruff_failing_files(output: str) -> set[str]:
+    """Filenames named by ruff diagnostics, deduplicated.
+
+    Ruff prints one line per diagnostic, so a file with 13 errors appears 13
+    times. Counting lines reports 13 files; this returns 1. Only lines shaped
+    `path.py:line:col: CODE ...` count -- ruff also prints banners and help text
+    that mention no file, and prose that mentions one should not match.
+    """
+    found: set[str] = set()
+    for line in output.splitlines():
+        m = re.match(r"^(\S+\.py):\d+:\d+: ", line)
+        if m:
+            found.add(m.group(1))
+    return found
+
+
 def gate_ruff_ratchet(worktree: Path, base: str) -> Check:
     """Ruff on files changed vs ``base`` — the legacy debt is out of scope."""
     ruff = _tool("ruff")
@@ -301,12 +356,23 @@ def gate_ruff_ratchet(worktree: Path, base: str) -> Check:
             f"{len(changed)} changed file(s) clean",
             output=_tail(res.stdout),
         )
+    # Name the offending files. The previous message used len(changed), the list
+    # of files ruff was GIVEN -- so one bad file among twelve was reported as
+    # "12 changed file(s) with lint errors", sending the reader hunting through
+    # eleven clean files. A count that measures something other than what it
+    # claims is worse than no count.
+    offenders = sorted(_ruff_failing_files(res.stdout + res.stderr))
+    summary = (
+        f"{len(offenders)} of {len(changed)} changed file(s) have lint errors"
+        if offenders
+        else f"lint errors in {len(changed)} changed file(s) (filenames not parsed)"
+    )
     return Check(
         "ruff_ratchet",
         "Lint & Typecheck",
         True,
         "fail",
-        f"{len(changed)} changed file(s) with lint errors",
+        summary,
         exit_code=res.returncode,
         output=_tail(res.stdout + res.stderr),
     )
@@ -813,7 +879,23 @@ def _accepted_risk_tokens(worktree: Path) -> set[str]:
 
 
 def _missing_tool(tool: str, context: str, blocking: bool, why: str) -> Check:
-    """A gate whose scanner is absent reports SKIP — never a silent pass."""
+    """A gate whose scanner is absent reports SKIP — never a silent pass.
+
+    Except under ``--require-tools``, where a missing tool that the gate marked
+    ``blocking=True`` becomes a FAILURE. ``Check.failed`` is
+    ``status in ("fail", "error")``, so a skip contributes nothing to
+    ``blocking_failures``: the run concluded ``success`` while the check made no
+    claim. In CI that turns a required status check green while enforcing
+    nothing, which is indistinguishable from a real pass.
+    """
+    if blocking and REQUIRE_TOOLS:
+        return Check(
+            tool,
+            context,
+            True,
+            "fail",
+            f"{tool} unavailable and --require-tools is set — {why}",
+        )
     return Check(tool, context, blocking, "skip", f"{tool} unavailable — {why}")
 
 
@@ -1175,13 +1257,13 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
     key = TOOLS_HOME / "cosign.key"
     pub = TOOLS_HOME / "cosign.pub"
     pw = _signing_password()
-    if not key.exists() or not pub.exists():
+    if not KEYLESS and (not key.exists() or not pub.exists()):
         return Check(
             "provenance",
             "Supply Chain",
             False,
             "skip",
-            "no cosign keypair — run scripts/ci_gate.py --init-signing",
+            "no cosign keypair — run scripts/ci_gate.py --init-signing, or pass --keyless",
         )
     statement = {
         "_type": "https://in-toto.io/Statement/v1",
@@ -1205,13 +1287,17 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
 
     # cosign v3 requires --bundle (the detached --output-signature form is deprecated
     # and now hard-fails); fall back to the detached form for older cosign builds.
+    # Keyless: cosign reads ACTIONS_ID_TOKEN_REQUEST_URL/_TOKEN from the ambient
+    # environment, exchanges it for a Fulcio certificate, and records the entry in
+    # the Rekor transparency log. No --key is passed -- that is what "keyless"
+    # means, and passing one would defeat the identity binding.
+    key_args = [] if KEYLESS else ["--key", str(key)]
     sign_res = _run(
         [
             cosign,
             "sign-blob",
             "--yes",
-            "--key",
-            str(key),
+            *key_args,
             "--bundle",
             str(bundle_path),
             str(stmt_path),
@@ -1229,8 +1315,7 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
                 cosign,
                 "sign-blob",
                 "--yes",
-                "--key",
-                str(key),
+                *key_args,
                 "--output-signature",
                 str(sig_path),
                 str(stmt_path),
@@ -1250,8 +1335,22 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
             f"cosign sign-blob failed — {_tail(sign_res.stderr, 300)}",
             exit_code=sign_res.returncode,
         )
+    # Keyless verification must pin BOTH the issuer and the workflow identity.
+    # A bundle verified without --certificate-identity proves only that some
+    # Fulcio certificate signed it, and any workflow in any repository can get
+    # one. Pinning is what ties the provenance to this repository's CI.
+    verify_auth = (
+        [
+            "--certificate-identity-regexp",
+            KEYLESS_IDENTITY_REGEXP,
+            "--certificate-oidc-issuer",
+            KEYLESS_ISSUER,
+        ]
+        if KEYLESS
+        else ["--key", str(pub)]
+    )
     verify_res = _run(
-        [cosign, "verify-blob", "--key", str(pub), *verify_args, str(stmt_path)],
+        [cosign, "verify-blob", *verify_auth, *verify_args, str(stmt_path)],
         cwd=worktree,
         timeout=300,
     )
@@ -1270,6 +1369,61 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
         False,
         "pass",
         f"SLSA provenance signed + verified ({artifact})",
+    )
+
+
+def gate_action_pinning(worktree: Path) -> Check:
+    """Every third-party GitHub Action must be pinned to a full commit SHA.
+
+    A mutable tag (`actions/checkout@v7`) can be moved by whoever controls it, and
+    the moved code then runs in this repository's CI. `ci-gate.yml` requests
+    `id-token: write` for keyless provenance, so that code could also mint OIDC
+    identities. This is OpenSSF Scorecard's Pinned-Dependencies check and the
+    repo's own SUP-010 finding.
+
+    Pure Python on purpose: shelling out to `node scripts/pin-actions.mjs --check`
+    would make the check vanish wherever node is absent, and a check that
+    disappears with its toolchain is not a check.
+    """
+    local = re.compile(r"^\./")
+    pinned = re.compile(r"^[^@\s]+@[0-9a-f]{40}(\s*#.*)?$")
+    uses = re.compile(r"^\s*(?:-\s+)?uses:\s+(\S+)")
+    unpinned: list[str] = []
+
+    candidates = [
+        path
+        for path in sorted(worktree.glob(".github/**/*.y*ml"))
+        if "workflows" in path.parts or path.name in ("action.yml", "action.yaml")
+    ]
+    files = len(candidates)
+
+    for path in candidates:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for lineno, line in enumerate(text.splitlines(), 1):
+            m = uses.match(line)
+            if not m:
+                continue
+            ref = m.group(1)
+            if local.match(ref) or pinned.match(ref):
+                continue
+            unpinned.append(f"{path.relative_to(worktree)}:{lineno} {ref}")
+
+    if unpinned:
+        return Check(
+            "action-pinning",
+            "Supply Chain",
+            True,
+            "fail",
+            f"{len(unpinned)} action ref(s) not pinned to a commit SHA",
+            exit_code=1,
+            output="\n".join(unpinned[:30]),
+        )
+    return Check(
+        "action-pinning",
+        "Supply Chain",
+        True,
+        "pass",
+        f"all third-party actions pinned ({files} action file(s))",
     )
 
 
@@ -1743,6 +1897,7 @@ def run_gates(
         _persist_doc_facts(report)
         report.checks.append(gate_doc_facts(worktree, report))
         report.checks.append(gate_compileall(worktree))
+        report.checks.append(gate_action_pinning(worktree))
         report.checks.append(gate_hadolint(worktree))
         report.checks.append(gate_checkov(worktree))
         report.checks.append(gate_commitlint(worktree, report.merge_base))
@@ -1839,6 +1994,18 @@ def main() -> int:
     parser.add_argument(
         "--init-signing", action="store_true", help="create the local cosign keypair"
     )
+    parser.add_argument(
+        "--keyless",
+        action="store_true",
+        help="sign provenance keylessly via the ambient OIDC token (Fulcio + "
+        "Rekor) instead of the local cosign keypair; used by CI",
+    )
+    parser.add_argument(
+        "--require-tools",
+        action="store_true",
+        help="a BLOCKING gate whose scanner is absent fails instead of skipping; "
+        "used by CI so a missing tool cannot turn a required check green",
+    )
 
     args = parser.parse_args()
 
@@ -1851,6 +2018,12 @@ def main() -> int:
     if not PYTHON.exists():
         print(f"FATAL: {PYTHON} missing", file=sys.stderr)
         return 2
+
+    global REQUIRE_TOOLS, KEYLESS
+    REQUIRE_TOOLS = args.require_tools
+    # An env var is accepted too: the workflow sets it once for every step, so a
+    # future step that forgets --keyless cannot silently fall back to keyed mode.
+    KEYLESS = args.keyless or os.environ.get("JARVIS_COSIGN_KEYLESS") == "1"
 
     report = run_gates(
         args.sha,

@@ -1,9 +1,28 @@
 name: Deploy to Cloudflare Pages
 
+# NOT OPERATIONAL -- read before use. Verified 2026-10-01:
+#
+#   1. This workflow referenced `cloudflare/pages-action@v1`, which no longer
+#      exists. The REST API returns HTTP 404 for `cloudflare/pages-action`; it was
+#      superseded by `cloudflare/wrangler-action`. Every tag push would have failed
+#      with "action not found".
+#   2. The repository has no `CLOUDFLARE_API_TOKEN` and no `CLOUDFLARE_ACCOUNT_ID`
+#      secret (`gh secret list` shows only `JULES_API_KEY`), so the deploy step
+#      could not authenticate even with a working action.
+#   3. The "Run full verification" step called `.venv/bin/pytest`, but no step
+#      created a `.venv` -- the setup step installs into the system interpreter.
+#      The step would fail with "No such file or directory".
+#
+# Despite that, three documents recorded Cloudflare Pages deploy as complete:
+# `docs/FINAL_STATE.md`, `docs/ROADMAP.md` and `docs/CAPABILITY_TRACKER.md`. They
+# have been corrected to describe the actual state.
+#
+# The workflow is retained and fixed rather than deleted, because the deploy
+# target may still be wanted; it is inert until the two secrets are added. It no
+# longer fires on tag push, so it cannot fail a release it was never able to
+# perform.
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,17 +32,16 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - name: Set up Python environment
+        # The shared composite action creates `.venv` and installs requirements,
+        # which is what the verification step below actually needs. The previous
+        # inline setup installed into the system interpreter and then invoked
+        # `.venv/bin/pytest`.
+        uses: ./.github/actions/setup-env
         with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python-version: "3.11"
 
       - name: Run full verification
         run: |
@@ -31,10 +49,10 @@ jobs:
           .venv/bin/python scripts/board/review.py
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        # `cloudflare/wrangler-action` replaces the retired `pages-action`.
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: 'jarvis-cf-pages'
-          directory: '.'
+          command: pages deploy . --project-name=jarvis-cf-pages
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}

@@ -64,13 +64,16 @@ def test_console_api_rejects_missing_credential(secured_client, path):
 def test_console_api_accepts_bearer_credential(secured_client, path):
     """The key the phone stores must be accepted."""
     r = secured_client.get(path, headers={"Authorization": f"Bearer {secured_client.api_key}"})
-    assert r.status_code != 401, f"{path} rejected a valid bearer credential"
+    # `== 200`, not `!= 401`. All seven paths answer 200 with a valid key
+    # (verified), and `!= 401` let a 500 through: the endpoint could be broken and
+    # the test would read as "the credential was accepted" (F-TEST-010).
+    assert r.status_code == 200, f"{path} answered {r.status_code} for a valid bearer credential"
 
 
 def test_console_api_accepts_x_api_key_header(secured_client):
     """Both documented credential forms must work."""
     r = secured_client.get("/api/models", headers={"X-API-Key": secured_client.api_key})
-    assert r.status_code != 401
+    assert r.status_code == 200, f"/api/models answered {r.status_code} for X-API-Key"
 
 
 def test_console_api_rejects_wrong_credential(secured_client):

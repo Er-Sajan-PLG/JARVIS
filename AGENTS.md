@@ -164,19 +164,44 @@ main (protected)
   └── release/*     → PR → CI → tag → deploy
 ```
 
-### 4.3 Branch Protection
-**NOT available on this repository.** `GET /repos/Er-Sajan-PLG/JARVIS/branches/main/protection`
-returns **HTTP 403** ("Upgrade to GitHub Pro or make this repository public"), so
-none of the following are enforced by GitHub. They hold as *convention* only:
-- Required PR from a feature branch — **convention** (a direct push to `main` is not blocked)
-- Required CI passes — **published as commit statuses, cannot block merge** (RISK-012)
-- 1 approval — **0 for solo repo** (GitHub forbids self-approval)
-- No force push / linear history — **convention** (squash merge is the practice)
-- Signed commits — **not enforced**; commits report `N`/`E` (RISK-011)
+### 4.3 Branch Protection — now platform-enforced
 
-Enforcement is *process, not policy*: the gate publishes statuses, the pipeline
-stops on red, and a human does not press merge. See `docs/ACCEPTED_RISKS.md`
-(RISK-012, RISK-011) and `docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md`.
+**Available since 2026-10-01.** The repository became **public**, which removed the
+two HTTP 403 walls that made enforcement impossible while it was private:
+
+| Endpoint | Private (before) | Public (now) |
+|---|---|---|
+| `GET /branches/main/protection` | **403** "Upgrade to GitHub Pro or make this repository public" | **404 not protected** — i.e. settable |
+| `GET /repos/.../rulesets` | **403** | **200** |
+| Actions minutes | billing-blocked; runs died in ~5s | **unlimited** (free on public repos) |
+
+Enforcement is therefore **policy, not merely process** for the first time. The
+ruleset is installed by `scripts/setup_branch_protection.py` (dry-run first):
+
+- **Required PR** from a feature branch — a direct push to `main` is now rejected
+- **Required check `ci-gate`** — the one job in `.github/workflows/ci-gate.yml`, which
+  runs `scripts/ci_gate.py`. It cannot be bypassed by a red suite (RISK-012 closed)
+- **Strict up-to-date** — the branch must be current with `main` before merging, so a
+  green run cannot be reused across a conflicting merge
+- **Signed commits** — enforced by GitHub, not only by the pre-push hook (RISK-011)
+- **Linear history** — merge commits are refused; use `--squash` or `--rebase`
+- **No force-push, no deletion** — `main` cannot be rewritten or removed
+
+Two notes that are easy to get wrong:
+
+1. **There is exactly one required check.** Do not add others without adding the
+   corresponding job: a required check that never reports blocks the branch forever.
+   The previous `scripts/setup_branch_protection.py` required six contexts from a
+   workflow that had never run, which would have made `main` permanently unmergeable.
+2. **`required_approving_review_count` is 0.** GitHub forbids approving your own PR,
+   so on a solo repository any higher value also blocks forever. The CI check is the
+   gate; the PR requirement is structural.
+
+See `docs/ACCEPTED_RISKS.md` (RISK-011, RISK-012, RISK-009) and
+`docs/adr/ADR-013-jarvis-orchestrates-n8n-executes.md`.
+
+**Because `main` is now linear, never merge with `--merge`.** Use
+`gh pr merge --squash` (or `--rebase`). A merge commit is rejected by the ruleset.
 
 ### 4.3.1 The pre-push hook runs the same suite as the gate
 
@@ -270,8 +295,8 @@ What did we decide?
 5. Run lint/typecheck: `.venv/bin/ruff check app/ && .venv/bin/mypy --strict app/`
 
 ### 6.2 Agent Workflow Enforcement
-- **No direct commits to main** → Always PR
-- **No skipping CI** → All 6 jobs must pass
+- **No direct commits to main** → Always PR (enforced by the ruleset, not convention)
+- **No skipping CI** → the `ci-gate` check must pass (enforced by the ruleset)
 - **No large commits** → One logical change per commit
 - **No undocumented changes** → Docs updated in same PR
 - **No untested code** → Test written first
