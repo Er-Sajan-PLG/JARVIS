@@ -1332,6 +1332,61 @@ def gate_provenance(worktree: Path, sha: str) -> Check:
     )
 
 
+def gate_action_pinning(worktree: Path) -> Check:
+    """Every third-party GitHub Action must be pinned to a full commit SHA.
+
+    A mutable tag (`actions/checkout@v7`) can be moved by whoever controls it, and
+    the moved code then runs in this repository's CI. `ci-gate.yml` requests
+    `id-token: write` for keyless provenance, so that code could also mint OIDC
+    identities. This is OpenSSF Scorecard's Pinned-Dependencies check and the
+    repo's own SUP-010 finding.
+
+    Pure Python on purpose: shelling out to `node scripts/pin-actions.mjs --check`
+    would make the check vanish wherever node is absent, and a check that
+    disappears with its toolchain is not a check.
+    """
+    local = re.compile(r"^\./")
+    pinned = re.compile(r"^[^@\s]+@[0-9a-f]{40}(\s*#.*)?$")
+    uses = re.compile(r"^\s*(?:-\s+)?uses:\s+(\S+)")
+    unpinned: list[str] = []
+
+    candidates = [
+        path
+        for path in sorted(worktree.glob(".github/**/*.y*ml"))
+        if "workflows" in path.parts or path.name in ("action.yml", "action.yaml")
+    ]
+    files = len(candidates)
+
+    for path in candidates:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for lineno, line in enumerate(text.splitlines(), 1):
+            m = uses.match(line)
+            if not m:
+                continue
+            ref = m.group(1)
+            if local.match(ref) or pinned.match(ref):
+                continue
+            unpinned.append(f"{path.relative_to(worktree)}:{lineno} {ref}")
+
+    if unpinned:
+        return Check(
+            "action-pinning",
+            "Supply Chain",
+            True,
+            "fail",
+            f"{len(unpinned)} action ref(s) not pinned to a commit SHA",
+            exit_code=1,
+            output="\n".join(unpinned[:30]),
+        )
+    return Check(
+        "action-pinning",
+        "Supply Chain",
+        True,
+        "pass",
+        f"all third-party actions pinned ({files} action file(s))",
+    )
+
+
 def gate_hadolint(worktree: Path) -> Check:
     """Dockerfile best-practice lint (blocks when a Dockerfile is present)."""
     dockerfile = worktree / "Dockerfile"
@@ -1802,6 +1857,7 @@ def run_gates(
         _persist_doc_facts(report)
         report.checks.append(gate_doc_facts(worktree, report))
         report.checks.append(gate_compileall(worktree))
+        report.checks.append(gate_action_pinning(worktree))
         report.checks.append(gate_hadolint(worktree))
         report.checks.append(gate_checkov(worktree))
         report.checks.append(gate_commitlint(worktree, report.merge_base))
