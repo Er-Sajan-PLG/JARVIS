@@ -42,7 +42,16 @@ RULESET_NAME = "protect-main"
 
 
 def gh(*args: str, stdin: dict | None = None) -> tuple[int, str, str]:
+    """Run a `gh api` call, optionally with a JSON body.
+
+    The body needs BOTH `--input -` (so gh reads stdin) AND the payload piped to
+    that stdin. Passing only `input=` to subprocess sends the bytes to a stream gh
+    never reads, and the API answers 422 "data cannot be null" -- which reads like
+    a malformed payload rather than a missing flag.
+    """
     cmd = ["gh", "api", "--method", args[0], args[1], *args[2:]]
+    if stdin is not None:
+        cmd += ["--input", "-"]
     result = subprocess.run(
         cmd,
         input=json.dumps(stdin) if stdin is not None else None,
