@@ -272,6 +272,18 @@ All on `test/assertion-defects`, from base `629810d`:
 | `3f4369b` | fix(ci): make the ruleset helper actually send its payload |
 | `7b8ed44` | chore(state): record the ruleset install and the signing blocker |
 
+**P2 self-reference exception.** This table enumerates commits `629810d..a532786`
+*except the commit that writes this paragraph* -- a commit cannot appear in a table
+it is itself creating. The final commit on this branch is the one whose subject
+begins `chore(state):` and which records this exception.
+
+This is a genuine gap in the P2 amendment's rule "every commit in `git log` appears
+in the session file": applied literally, the loop can never converge, because each
+record fix is itself a new commit. Iteration 3 of this session demonstrated it --
+iteration 2 fixed two record errors, and the fix commit immediately became a third.
+The rule needs to read "every commit **up to the one that last wrote this file**".
+Recorded here rather than papered over, because the next agent will hit it too.
+
 ---
 
 ## Decisions
