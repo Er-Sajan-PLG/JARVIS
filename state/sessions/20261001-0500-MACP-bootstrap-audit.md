@@ -268,26 +268,9 @@ All on `test/assertion-defects`, from base `629810d`:
 
 | Commit | Subject |
 |---|---|
-| `c87bb4a` | test: repair assertions that could not fail |
-| `39a5859` | feat(ci): fail the gate when a blocking scanner is missing |
-| `c5ab3a0` | feat(ci): sign provenance keylessly in CI |
-| `203d1a9` | feat(ci): pin actions to commit SHAs and enforce it in the gate |
-| `0652d1a` | feat(ci): run the real gate in GitHub Actions |
-| `e5570ea` | fix(ci): install a ruleset instead of requiring six phantom checks |
-| `ccb685f` | docs: correct every claim that enforcement is impossible |
-| `fbcbbdd` | chore(external): untrack the broken Unlimited-OCR gitlink |
-| `fc00b61` | chore(state): bootstrap MACP protocol with repository audit |
-| `59fd80c` | fix(ci): name the files that fail the ruff ratchet, not the files it checked |
-| `fd76cbb` | style(test): consolidate test_issues.py imports so the ratchet passes |
-| `0ec6128` | fix(deps): bump urllib3 2.7.0 -> 2.8.0 for CVE-2026-97687 and CVE-2026-97689 |
-| `b85ee5d` | chore(state): record the verification round and its three fixes |
-| `7ba4b19` | fix(deps): regenerate requirements.txt so it actually installs |
-| `9829b61` | fix(ci): correct the scanner installer's asset names and verify path |
-| `5e74103` | test: stop three tests depending on which token counter is installed |
-| `a924a5d` | fix(ci): pin the keyless provenance identity by regexp, not by literal |
-| `f17640e` | fix(ci): install tesseract and poppler on the runner |
-| `44526db` | test: stop two more tests depending on the machine they run on |
-| `8d9397b` | fix(deps): bump virtualenv 21.7.9 -> 21.7.13 |
+| `bfd3810` | feat(ci): make CI/CD enforcement real, and add MACP state (#142) |
+| `3f4369b` | fix(ci): make the ruleset helper actually send its payload |
+| `7b8ed44` | chore(state): record the ruleset install and the signing blocker |
 
 ---
 
@@ -339,17 +322,106 @@ All counts above are `VERIFIED` at 2026-10-01 (P5: re-run to reconfirm).
 
 ---
 
-## Handoff notes for the next agent
+## Outcome — PARTIAL
 
-1. **The ruleset is not yet installed.** `scripts/setup_branch_protection.py
-   --dry-run` is verified; the live install must happen *after* `ci-gate.yml` is
-   on `main`, or the required check will never report and `main` will be blocked
-   forever. **This ordering is load-bearing.**
-2. **Never merge with `--merge`** once the ruleset is live — linear history is
-   enforced. Use `gh pr merge --squash`.
-3. **`main` is currently unprotected.** Until the ruleset lands, this branch and
-   any other can push directly.
-4. **Read `PROTOCOL.md` before shutting down.** P1/P2/P3 change shutdown, and P2
-   forbids doing new work inside the verification loop.
-5. `.github/workflows/ci.yml` is **deleted**, not disabled. Do not restore it —
-   two gates with different definitions of green is the failure this removed.
+**The objective is met; the final merge is blocked on a human action.**
+
+CI/CD enforcement is real and verified working: the gate runs in GitHub Actions as
+a required check, and the ruleset blocks direct pushes to `main` — proven by a
+refused push, not asserted.
+
+The session is `PARTIAL` rather than `COMPLETED` because one PR (#147) cannot
+merge, and 12 Dependabot PRs are queued behind the same blocker. That is a
+deliberate classification: B-007 is unresolved, and per P2 a session with an open
+blocker does not get to call itself complete.
+
+---
+
+## What was accomplished
+
+**Enforcement moved from process to policy** — the first time this has been
+possible, because the repository became public.
+
+| Deliverable | State |
+|---|---|
+| GitHub Actions runs `scripts/ci_gate.py` as required check `ci-gate` | **live**, verified green |
+| `ci.yml` (6 jobs, never ran, weaker) | deleted |
+| Ruleset `protect-main` (id 24340175), 6 rules binding to `main` | **live**, push refused in test |
+| `--require-tools`: a missing blocking scanner fails | live; caught 4 missing tools on its first real run |
+| `--keyless` provenance (Fulcio + Rekor, identity regexp) | live, PASS in CI |
+| `gate_action_pinning`: actions pinned to SHAs | live, 14 refs pinned |
+| `MACP state/` bootstrap with protocol P1–P6 | committed |
+
+**Nine independent defects found and fixed**, most of which no one was looking for:
+
+1. A missing blocking scanner reported `skip`, so the gate went green enforcing nothing.
+2. `requirements.txt` **did not resolve** — `asyncpg==0.30.1` (HTTP 404), a phantom
+   `opentelemetry` package, a duplicated OTel block, and 36 versions adrift from
+   the environment the suite passes in.
+3. Four bugs in the scanner installer (wrong asset regexes, wrong verify path).
+4. Three tests asserting whether `tiktoken` happened to be installed.
+5. `test_subagent_tools` depending on the `opencode` CLI existing.
+6. `test_chat_uses_default_model` making a **real LLM call**.
+7. The keyless identity pinned to `@refs/heads/main`, so every PR failed.
+8. The ruff ratchet reporting *checked* files as *failing* files.
+9. `setup_branch_protection.py` never passing `--input -`, so its payload went nowhere.
+
+Plus F-TEST-010 assertion repairs and the `urllib3` / `virtualenv` security bumps.
+
+---
+
+## What was NOT accomplished
+
+- **PR #147 is unmerged**, and 12 Dependabot PRs behind it. See B-007.
+- **`osv-scanner` never installs on the runner** (B-006), so that check is a silent skip.
+- **Non-blocking findings remain**: bandit 1 high, `pip_audit` 3 vulnerable
+  packages. Both pre-existing and reported, not blocking.
+- **`docs/snippets/` still does not exist** — fenced markdown blocks are
+  `compile()`-checked, never executed (D-003).
+- The four unreachable subsystems are still unreachable (D-004).
+
+---
+
+## Decisions
+
+ADR-001…ADR-005 in `state/DECISIONS.md`. Two are worth reading before touching CI:
+
+- **ADR-001**: one gate definition, two runners. `ci.yml` was deleted, not fixed.
+- **ADR-002**: a missing blocking scanner fails the gate. Do not remove `--require-tools`.
+
+---
+
+## Technical debt introduced
+
+None knowingly. One near-miss worth recording: I added an import
+(`app.workspace.git_state`) that I had invented, caught it on the next command and
+removed it before it reached a commit. The lesson is that a plausible-looking
+import is not a checked one.
+
+---
+
+## Risks and warnings for the next agent
+
+1. **Do not merge with `--merge`.** Linear history is enforced; use `--squash`.
+   `gh pr merge` without `--squash` will be refused.
+2. **Do not remove `required_signatures` as a "fix"** for B-007 without recording
+   it as a temporary, dated measure. It is a real control that is currently
+   unsatisfiable, not a broken one.
+3. **`--require-tools` is load-bearing.** Without it a partial tool install turns
+   the required check green while enforcing nothing — the worst failure mode
+   available, because it is indistinguishable from a pass.
+4. **The local gate reuses `.venv` and never installs.** That is exactly how
+   `requirements.txt` drifted for months. CI is now the only thing that installs
+   from that file; treat a green CI run as the dependency truth.
+5. **`state/` is on a branch, not `main`** (this branch). It will land with #147.
+
+---
+
+## Prioritised next steps
+
+1. **Register a signing key** (B-007). One command; unblocks everything. Until
+   then `main` is frozen for merges.
+2. Merge #147, then work through the 12 Dependabot PRs.
+3. Make `osv-scanner` install, or drop the check so the report stops implying it ran (B-006).
+4. Consider making the coverage gate blocking at its current floor (D-007).
+5. Burn down `mypy --strict` from its current ceiling (D-001).
