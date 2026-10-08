@@ -74,6 +74,28 @@ No other agents are active. See `REGISTRY.md`.
 
 ---
 
+## 3a. Enforcement is LIVE
+
+Installed 2026-10-01. `main` is protected by ruleset **`protect-main`** (id
+`24340175`), verified binding to `refs/heads/main`:
+
+| Rule | Effect |
+|---|---|
+| `pull_request` | no direct pushes; 0 approvals (GitHub forbids self-approval) |
+| `required_status_checks` | **`ci-gate`**, strict — branch must be current with main |
+| `required_signatures` | unsigned commits rejected by GitHub |
+| `required_linear_history` | merge commits refused |
+| `non_fast_forward` | no force-push |
+| `deletion` | main cannot be deleted |
+
+**Consequence for any agent: merge with `--squash` or `--rebase`, never `--merge`.**
+
+GitHub Actions runs the same `scripts/ci_gate.py` a developer runs
+(`.github/workflows/ci-gate.yml`), so the required check and a local run cannot
+disagree. Verified green on PR #142: 25 checks, 0 blocking failures.
+
+---
+
 ## 4. Critical Alerts
 
 | # | Severity | Alert | Where |

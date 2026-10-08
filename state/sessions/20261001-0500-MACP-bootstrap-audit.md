@@ -237,6 +237,29 @@ the test files, leaving the synced doc changes uncommitted.
 
 `16:18` [PROGRESS] CI iteration 5 in flight.
 
+`16:22` [PROGRESS] **CI GREEN.** `ci-gate` passed on PR #142 after 9m47s: 25
+checks, **0 blocking failures**. pytest 2150 passed. trivy PASS. provenance PASS
+(keyless OIDC + identity regexp). action-pinning PASS.
+
+`16:25` [PROGRESS] PR #142 **squash-merged** to main as `bfd3810`.
+
+`16:28` [PROGRESS] **Ruleset installed.** `protect-main` (id 24340175),
+enforcement active, all six rules verified binding to `refs/heads/main`:
+deletion, non_fast_forward, required_linear_history, required_signatures,
+pull_request, required_status_checks (`ci-gate`, strict).
+
+RISK-012 ("the gate cannot make a PR unmergeable") is therefore **closed**, not
+merely documented. Enforcement moved from process to policy.
+
+`16:30` [DISCOVERY] The installation exposed a bug in the tool that performs it:
+`setup_branch_protection.py`'s `gh()` never passed `--input -`, so its JSON body
+went to a stdin `gh api` never read and the API answered 422 "data cannot be
+null". The ruleset was created by hand while diagnosing. Fixed and made
+idempotent in `d12ebb7`.
+
+`16:32` [PROGRESS] PR #146 opened for that fix. `ci-gate` triggered automatically
+-- the first run of the enforcement loop on a PR it governs.
+
 ---
 
 ## Commits
