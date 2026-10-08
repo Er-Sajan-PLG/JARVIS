@@ -2,10 +2,10 @@
 
 **Agent**: MACP
 **Type**: DeepSeek Harness agent (deepseek-v4.1-flash)
-**Branch**: `test/assertion-defects`
+**Branch**: `fix/ruleset-helper-payload-v2` (the work moved here; `test/assertion-defects` was merged as #142)
 **Base commit**: `629810dbb8e4e37738a2ab4d7d5fd262dd22892d`
 **Started**: 2026-10-01T14:26Z
-**Status**: IN-PROGRESS
+**Status**: PARTIAL (blocked on B-007) — shutdown at `d248a45`
 **Claims**: `state/**`, `.github/**`, `scripts/ci_gate.py`, `scripts/setup_branch_protection.py`, `scripts/pin-actions.mjs`, `scripts/install_ci_tools.sh`, `tests/unit/test_gate_action_pinning.py`, `tests/unit/test_gate_require_tools.py`, `tests/unit/test_provenance_keyless.py`, `tests/unit/test_openrouter_max_tokens.py`
 
 ---
@@ -351,6 +351,7 @@ possible, because the repository became public.
 | `--keyless` provenance (Fulcio + Rekor, identity regexp) | live, PASS in CI |
 | `gate_action_pinning`: actions pinned to SHAs | live, 14 refs pinned |
 | `MACP state/` bootstrap with protocol P1–P6 | committed |
+| `d248a45` | chore(state): shut down the MACP session (PARTIAL, blocked on B-007) |
 
 **Nine independent defects found and fixed**, most of which no one was looking for:
 
