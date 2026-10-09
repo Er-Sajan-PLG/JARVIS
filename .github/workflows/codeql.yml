@@ -1,0 +1,64 @@
+name: CodeQL
+
+# JARVIS had no static analysis. `ci-gate` runs the local gate — ruff, mypy, bandit,
+# pip-audit — which is linting and dependency checking, not dataflow analysis. Nothing
+# looked for injection, path traversal or unsafe deserialisation across the ~20k Python
+# files in this repository.
+#
+# This is deliberately NOT a required check. `ci-gate` is the single required status
+# check by design, and a second required check with a different definition of green is
+# the failure ci-gate.yml exists to remove. CodeQL reports to the Security tab; it does
+# not gate a merge.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so a query-pack update finds new findings without waiting for a commit.
+    - cron: '23 4 * * 2'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      # Required to upload the analysis result to the code-scanning tab.
+      security-events: write
+      # Required to fetch internal or private CodeQL packs.
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: actions
+            build-mode: none
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          category: /language:${{ matrix.language }}
