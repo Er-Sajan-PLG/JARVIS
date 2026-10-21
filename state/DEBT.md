@@ -40,6 +40,7 @@ acting on a number; the counts were verified 2026-10-01 and may have moved.
 | D-R7 | `urllib3==2.7.0` carried CVE-2026-97687 / CVE-2026-97689 (both fixed in 2.8.0) | `0ec6128` |
 | D-R8 | The ruff ratchet reported *checked* files as *failing* files | `59fd80c` |
 | D-R9 | `dependabot.yml`'s `ignore:` block was indented **under** `groups:`, so Dependabot never read it — the chromadb suppression had never applied | session `20261021-0430-HERM` |
+| D-R10 | A test that builds a scratch repository inherited `GIT_DIR` from the environment, so **running the suite from the pre-push hook rewrote the real repository's config**: `core.hooksPath` was pointed at a pytest temporary directory (disabling every hook) and `commit.gpgsign` set to `false` (disabling signing). The test that existed to protect the signature rule was silently switching it off on every push. Fixed by sanitising the environment in the helper; caught by a decoy-repo regression test | this PR |
 
 ---
 
