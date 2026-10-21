@@ -12,7 +12,8 @@ your own session file and add a `[COORDINATION]` note to theirs.
 
 | Agent ID | Type | Branch | Task | Since (UTC) | Status | Claims |
 |---|---|---|---|---|---|---|
-| `MACP` | DeepSeek Harness agent | `fix/ruleset-helper-payload-v2` | Bootstrap MACP; CI/CD platform enforcement | 2026-10-01T05:00Z | **PARTIAL** (blocked on B-007) | released |
+| `HERM` | Hermes Agent (`meituan/longcat-2.5-preview:free`) | `docs/state-record-correction` | Clear the real merge blocker (trivy); drain the Dependabot queue; correct the B-007 record | 2026-10-21T04:30Z | IN-PROGRESS | `state/**`, `.github/dependabot.yml` |
+| `MACP` | DeepSeek Harness agent | `fix/ruleset-helper-payload-v2` | Bootstrap MACP; CI/CD platform enforcement | 2026-10-01T05:00Z | **PARTIAL → superseded** (B-007 cleared 2026-10-21; both artefacts merged via #147) | released |
 
 ### `MACP` file claims — RELEASED
 

@@ -108,12 +108,22 @@ environment lacked but the code uses (`tiktoken`, `psycopg`, `psycopg2-binary`,
 
 ---
 
-## B-007 — `[NEEDS HUMAN]` All merges to `main` are frozen: signed commits cannot verify
+## B-007 — Signed commits could not verify — **CLEARED 2026-10-21**
 
-**Severity**: HIGH · **Status**: `ACTIVE` · **Blocks**: every merge, including 12 open Dependabot security PRs
+**Severity**: HIGH · **Status**: `CLEARED 2026-10-21` (`1260143`, key registered) · **Blocks**: nothing
+
+**Correction — this entry named the wrong blocker for two weeks.** B-007 was
+real, but it was **not** what was blocking the Dependabot PRs. Their head commits
+verify `reason=valid`, because GitHub signs commits created by its own apps, so
+`required_signatures` never applied to them. What blocked them was an ordinary
+red check: `ci-gate` failing on five unaccepted CRITICAL/HIGH trivy findings.
+Two separate problems were collapsed into one entry, and the alarming-sounding
+one was reported as the cause. The lesson is in `PROTOCOL.md` P5's spirit: *"a PR
+is `BLOCKED`" is not a diagnosis* — enumerate the rules and check each.
 
 **What**: The `protect-main` ruleset requires signed commits (`required_signatures`).
-GitHub cannot verify the signature on any commit, so every PR is `BLOCKED`:
+A commit signed with an SSH key registered only for *authentication* cannot be
+verified, so GitHub reports:
 
 ```
 3f4369bd verified=False reason=unknown_key
@@ -161,6 +171,23 @@ stuck behind it.
 
 **Do not resolve this by removing the rule and calling it done.** Remove it only
 as a documented, temporary measure, and re-enable the moment the key is registered.
+
+**Resolution — 2026-10-21.** The key was registered (`user/ssh_signing_keys` id
+`1260143`, title `Arch Linux (git signing)`) after re-authorising the token with
+`admin:ssh_signing_key`. PR #164's head commit immediately re-verified as
+`{"reason":"valid","verified":true}` and merged; the rule stays in force.
+
+**Three routes were ruled out by measurement, not assumption** — worth keeping,
+because each looks like it should work:
+
+| Route | Result |
+|---|---|
+| `gh pr merge --admin` | impossible — the ruleset has `bypass_actors: []` and `current_user_can_bypass: "never"` |
+| Create the commit via the REST contents API | `{"reason":"unsigned"}`, committer is the token owner — the API does not sign with a user token |
+| Rely on squash-merge producing a GitHub-signed commit | unreachable — the rule rejects the PR before any merge happens |
+
+Only Dependabot-style app commits carry GitHub's signature, which is exactly why
+its PRs were never affected by this rule and looked like proof the rule was inert.
 
 ---
 
