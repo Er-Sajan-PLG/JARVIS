@@ -1,7 +1,7 @@
 # Plan — agent-MACP — CI/CD platform enforcement
 
 **Agent**: MACP · **Branch**: `test/assertion-defects` · **Created**: 2026-10-01
-**Status**: IN-PROGRESS
+**Status**: INACTIVE — owner session ended PARTIAL (B-007 blocked). Not deleted: steps 1-10 are done, step 11 is pending.
 
 ---
 
@@ -40,7 +40,8 @@ the first time. This plan installs it.
 | 8 | Rewrite `setup_branch_protection.py` for the ruleset API | done |
 | 9 | Correct the docs that assert the old state | done |
 | 10 | Full verification + commit + gate + push + PR | in progress |
-| 11 | **Install the ruleset — only after `ci-gate.yml` is on `main`** | pending |
+| 11 | **Install the ruleset — only after `ci-gate.yml` is on `main`** | **done** (`protect-main`, id 24340175) |
+| 12 | Merge the final two PRs | **blocked** — B-007, needs a registered signing key |
 
 ## Risks and mitigations
 
