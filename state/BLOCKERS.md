@@ -108,6 +108,89 @@ environment lacked but the code uses (`tiktoken`, `psycopg`, `psycopg2-binary`,
 
 ---
 
+## B-007 — Signed commits could not verify — **CLEARED 2026-10-21**
+
+**Severity**: HIGH · **Status**: `CLEARED 2026-10-21` (`1260143`, key registered) · **Blocks**: nothing
+
+**Correction — this entry named the wrong blocker for two weeks.** B-007 was
+real, but it was **not** what was blocking the Dependabot PRs. Their head commits
+verify `reason=valid`, because GitHub signs commits created by its own apps, so
+`required_signatures` never applied to them. What blocked them was an ordinary
+red check: `ci-gate` failing on five unaccepted CRITICAL/HIGH trivy findings.
+Two separate problems were collapsed into one entry, and the alarming-sounding
+one was reported as the cause. The lesson is in `PROTOCOL.md` P5's spirit: *"a PR
+is `BLOCKED`" is not a diagnosis* — enumerate the rules and check each.
+
+**What**: The `protect-main` ruleset requires signed commits (`required_signatures`).
+A commit signed with an SSH key registered only for *authentication* cannot be
+verified, so GitHub reports:
+
+```
+3f4369bd verified=False reason=unknown_key
+```
+
+**Cause, in two layers** — the first is fixed, the second needs you:
+
+1. ~~`git config user.email` was `gurungsajan0228gmail.com`~~ — **missing the `@`**.
+   13 recent commits carried it, against 7 older ones with the correct address.
+   GitHub therefore reported `reason=no_user`. Corrected globally and locally.
+2. The SSH key in `user.signingkey` (`~/.ssh/id_ed25519.pub`) is registered on the
+   account as an **authentication** key only, not a **signing** key. The reason now
+   reads `unknown_key`, which is the remaining blocker.
+
+**Registering it needs a scope the current token lacks.** Both endpoints 404:
+
+```
+user/ssh_signing_keys  needs admin:ssh_signing_key
+user/gpg_keys          needs admin:gpg_key
+```
+
+**Resolution — run one of these:**
+
+```bash
+# Option A: CLI
+gh auth refresh -h github.com -s admin:ssh_signing_key
+gh api --method POST user/ssh_signing_keys \
+  -f title="Arch Linux (git signing)" \
+  -f key="$(cat ~/.ssh/id_ed25519.pub)"
+```
+
+**Option B:** Settings → SSH and GPG keys → New SSH key → **Key type: Signing Key**
+→ paste `~/.ssh/id_ed25519.pub`.
+
+A GPG key also exists locally (`4705983D407DEB9C`, `Sajan Gurung
+<gurungsajan0228@gmail.com>`) and is likewise unregistered; uploading it via
+`admin:gpg_key` and switching `gpg.format` to `openpgp` would work equally well.
+
+**This was my sequencing error, and it is worth recording as one.** The rule was
+enabled before checking that its precondition held. RISK-011 had said signatures
+were "not enforced" for months, so the unenforced state was mistaken for a missing
+*rule* rather than a missing *key registration*. A rule that cannot be satisfied
+does not enforce anything — it just blocks, including the 12 security updates now
+stuck behind it.
+
+**Do not resolve this by removing the rule and calling it done.** Remove it only
+as a documented, temporary measure, and re-enable the moment the key is registered.
+
+**Resolution — 2026-10-21.** The key was registered (`user/ssh_signing_keys` id
+`1260143`, title `Arch Linux (git signing)`) after re-authorising the token with
+`admin:ssh_signing_key`. PR #164's head commit immediately re-verified as
+`{"reason":"valid","verified":true}` and merged; the rule stays in force.
+
+**Three routes were ruled out by measurement, not assumption** — worth keeping,
+because each looks like it should work:
+
+| Route | Result |
+|---|---|
+| `gh pr merge --admin` | impossible — the ruleset has `bypass_actors: []` and `current_user_can_bypass: "never"` |
+| Create the commit via the REST contents API | `{"reason":"unsigned"}`, committer is the token owner — the API does not sign with a user token |
+| Rely on squash-merge producing a GitHub-signed commit | unreachable — the rule rejects the PR before any merge happens |
+
+Only Dependabot-style app commits carry GitHub's signature, which is exactly why
+its PRs were never affected by this rule and looked like proof the rule was inert.
+
+---
+
 ## B-006 — `osv-scanner` never installs in CI
 
 **Severity**: LOW · **Status**: `ACTIVE` · **Blocks**: nothing (the check is non-blocking)

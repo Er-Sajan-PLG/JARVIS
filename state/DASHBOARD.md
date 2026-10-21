@@ -1,7 +1,7 @@
 # MACP DASHBOARD — JARVIS
 
-**Last Reconciled**: 2026-10-01T05:00Z
-**Reconciled by**: MACP (bootstrap audit)
+**Last Reconciled**: 2026-10-21T00:55Z
+**Reconciled by**: HERM (session `20261021-0430-HERM` — merge-blocker recovery)
 **Freshness rule (P5)**: this stamp is freshness *evidence* only. It is valid only
 when nothing has been committed since. Check with
 `git log --oneline -1 --since="2026-10-01T05:00Z"` before trusting any count below.
@@ -66,11 +66,37 @@ F-TEST-010 assertion fixes.
 
 ## 3. Active Agents
 
-| Agent | Status | Branch | Owns |
-|---|---|---|---|
-| `MACP` | **ACTIVE** | `test/assertion-defects` | bootstrap `state/`; `scripts/ci_gate.py`, `scripts/setup_branch_protection.py`, `scripts/pin-actions.mjs`, `scripts/install_ci_tools.sh`, `.github/**`, `tests/unit/test_gate_*.py`, `tests/unit/test_provenance_keyless.py` |
+**None.** The `MACP` session ended at 2026-10-01T16:45Z with outcome
+**PARTIAL**, and released all file claims. `REGISTRY.md` carries the detail.
 
-No other agents are active. See `REGISTRY.md`.
+It was `PARTIAL` rather than `COMPLETED` because **B-007** was recorded as
+blocking every merge. That diagnosis was wrong — see `BLOCKERS.md` B-007. The
+signature rule did not apply to the Dependabot PRs at all; the actual blocker was
+a red `ci-gate`, cleared in #164, after which B-007 itself was cleared too.
+
+**Both of that session's unmerged artefacts are now on `main`:** the ruleset
+helper fix landed as #147, and the state documents in this directory landed with
+it. Nothing from the bootstrap session remains unmerged.
+
+## 3a. Enforcement is LIVE
+
+Installed 2026-10-01. `main` is protected by ruleset **`protect-main`** (id
+`24340175`), verified binding to `refs/heads/main`:
+
+| Rule | Effect |
+|---|---|
+| `pull_request` | no direct pushes; 0 approvals (GitHub forbids self-approval) |
+| `required_status_checks` | **`ci-gate`**, strict — branch must be current with main |
+| `required_signatures` | unsigned commits rejected by GitHub |
+| `required_linear_history` | merge commits refused |
+| `non_fast_forward` | no force-push |
+| `deletion` | main cannot be deleted |
+
+**Consequence for any agent: merge with `--squash` or `--rebase`, never `--merge`.**
+
+GitHub Actions runs the same `scripts/ci_gate.py` a developer runs
+(`.github/workflows/ci-gate.yml`), so the required check and a local run cannot
+disagree. Verified green on PR #142: 25 checks, 0 blocking failures.
 
 ---
 
@@ -78,7 +104,7 @@ No other agents are active. See `REGISTRY.md`.
 
 | # | Severity | Alert | Where |
 |---|---|---|---|
-| 1 | **HIGH** | `external/Unlimited-OCR` is a 94 MB gitlink with no `.gitmodules`, unused by any code path | `BLOCKERS.md` B-001 |
+| 0 | **RESOLVED** | ~~All merges to `main` are frozen~~ — B-007 cleared 2026-10-21 (signing key registered, ruleset kept). It was **not** the blocker for the Dependabot PRs: those commits verify `valid`. The real blocker was the `ci-gate` trivy findings, cleared in #164 | `BLOCKERS.md` B-007 |
 | 2 | **HIGH** | Chroma FTS5 index is corrupt — Tier 4 memory work must not start first | `BLOCKERS.md` B-002 |
 | 3 | **MEDIUM** | 8 RED-class secrets/rotations outstanding (Telegram token, Google key, n8n webhook, `N8N_LISTEN_ADDRESS`, …) | `BLOCKERS.md` B-003 |
 | 4 | **MEDIUM** | `mypy --strict` ceiling 504 (verified 2026-10-01); no burn-down plan scheduled | `DEBT.md` D-001 |
