@@ -179,8 +179,11 @@ Enforcement is therefore **policy, not merely process** for the first time. The
 ruleset is installed by `scripts/setup_branch_protection.py` (dry-run first):
 
 - **Required PR** from a feature branch — a direct push to `main` is now rejected
-- **Required check `ci-gate`** — the one job in `.github/workflows/ci-gate.yml`, which
-  runs `scripts/ci_gate.py`. It cannot be bypassed by a red suite (RISK-012 closed)
+- **Required check `ci-gate`** — the aggregating job in `.github/workflows/ci-gate.yml`.
+  It requires eight per-context jobs (Lint & Typecheck, SAST, Tests, Security Scan,
+  Supply Chain, Virtual Board Governance, Build, Conventional Commits), each of which
+  runs `scripts/ci_gate.py --context <name>` — the same script a developer runs. It
+  cannot be bypassed by a red suite (RISK-012 closed)
 - **Strict up-to-date** — the branch must be current with `main` before merging, so a
   green run cannot be reused across a conflicting merge
 - **Signed commits** — enforced by GitHub, not only by the pre-push hook (RISK-011)
@@ -189,10 +192,16 @@ ruleset is installed by `scripts/setup_branch_protection.py` (dry-run first):
 
 Two notes that are easy to get wrong:
 
-1. **There is exactly one required check.** Do not add others without adding the
-   corresponding job: a required check that never reports blocks the branch forever.
-   The previous `scripts/setup_branch_protection.py` required six contexts from a
-   workflow that had never run, which would have made `main` permanently unmergeable.
+1. **There is exactly one REQUIRED check, and it is the aggregator.** The
+   per-context jobs are not required, deliberately. A required check that never
+   reports blocks the branch forever, and the previous
+   `scripts/setup_branch_protection.py` required six contexts from a workflow that
+   had never run, which would have made `main` permanently unmergeable.
+   The aggregator is safe to require because it carries `if: always()`, so it
+   reports even when a job above it fails. The leaf jobs are safe to *add* because
+   they carry no `needs:` — a job with `needs:` is skipped when its dependency
+   fails, and a skipped job's check is never reported.
+   **If you add a required context, give that job `if: always()` and no `needs:`.**
 2. **`required_approving_review_count` is 0.** GitHub forbids approving your own PR,
    so on a solo repository any higher value also blocks forever. The CI check is the
    gate; the PR requirement is structural.
