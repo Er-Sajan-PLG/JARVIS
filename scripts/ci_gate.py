@@ -275,8 +275,25 @@ def _worktree_env(worktree: Path) -> dict[str, str]:
     ``python -m`` puts cwd first on sys.path, but an editable install of the
     primary repo also contributes a path hook. PYTHONPATH makes the worktree
     win unconditionally and removes ambiguity.
+
+    The fact scope is pinned here too, and that is not decoration. The worktree
+    is **detached**, so ``resolve_fact_scope`` called inside it answers
+    ``default`` -- the strict check -- because a detached HEAD with no
+    environment has to be treated as the default branch. A test that then
+    verifies the markers against *this tree's* counts fails on a pull request,
+    which is precisely the behaviour the scope rule exists to stop. Measured:
+    that is how the Tests gate failed on PR #185 while every other job passed.
+
+    Pinning the gate's own answer into the environment makes the two agree by
+    construction, which is the same reason ``gate_docs_layer2`` and
+    ``gate_doc_facts`` receive it.
     """
-    return {"PYTHONPATH": str(worktree), "PYTHONDONTWRITEBYTECODE": "1"}
+    scope = resolve_fact_scope(REPO_ROOT)
+    return {
+        "PYTHONPATH": str(worktree),
+        "PYTHONDONTWRITEBYTECODE": "1",
+        **_fact_scope_env(scope, scope.base),
+    }
 
 
 def _resolve_app(worktree: Path) -> str:

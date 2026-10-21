@@ -202,11 +202,38 @@ def test_out_creates_its_parent_directory(tmp_path, monkeypatch):
             sha="deadbeef", base="origin/main", repo="test", started_at="now"
         ),
     )
-    monkeypatch.setattr(
-        sys, "argv", ["ci_gate.py", "--sha", "deadbeef", "--out", str(target)]
-    )
+    monkeypatch.setattr(sys, "argv", ["ci_gate.py", "--sha", "deadbeef", "--out", str(target)])
 
     ci_gate.main()
 
     assert target.is_file(), "--out did not create its parent directory"
     assert "conclusion" in target.read_text()
+
+
+def test_worktree_env_pins_the_fact_scope() -> None:
+    """The gate's subprocesses must not re-derive the fact scope themselves.
+
+    ``ci_gate.py`` measures in a **detached** worktree, and
+    ``resolve_fact_scope`` treats a detached HEAD with no environment as the
+    default branch — the strict check, and correctly so, because that is the
+    answer that cannot silently skip verification.
+
+    That is right for the gate and wrong for anything the gate spawns: a
+    subprocess that re-derived the scope would answer ``default`` while the gate
+    answered ``branch``, and the doc-facts test would then verify the markers
+    against the *pull request's* counts and fail.
+
+    Measured, not hypothetical: this is how the Tests gate failed on PR #185 —
+    one test, on all three Python versions — while the Virtual Board Governance
+    job passed, because only the doc gates had the scope pinned. The fix is to
+    pin it for every subprocess, which this asserts.
+    """
+    env = ci_gate._worktree_env(Path("/tmp/not-a-real-worktree"))
+
+    assert "DOC_FACTS_SCOPE" in env, (
+        "the gate no longer pins DOC_FACTS_SCOPE for its subprocesses: a spawned "
+        "pytest would re-derive 'default' in the detached worktree and fail on a "
+        "pull request"
+    )
+    assert env["DOC_FACTS_SCOPE"] in {"default", "branch"}, env["DOC_FACTS_SCOPE"]
+    assert env["PYTHONPATH"] == "/tmp/not-a-real-worktree", "PYTHONPATH must still win"
