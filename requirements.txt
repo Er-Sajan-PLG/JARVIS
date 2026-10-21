@@ -157,7 +157,7 @@ pre_commit==4.6.2
 prettytable==3.18.0
 propcache==0.5.2
 protobuf==7.36.1
-psycopg2-binary==2.9.10
+psycopg2-binary==2.9.13
 psycopg==3.2.3
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
