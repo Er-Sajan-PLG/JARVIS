@@ -1,0 +1,123 @@
+name: "doc-facts-refresh"
+
+# The default branch is the ONLY writer of fact marker lines (state/DECISIONS.md
+# ADR-008). That invariant is what makes the merge conflict structurally
+# impossible -- and it also means no feature branch will ever correct a value, so
+# main needs a writer of its own. This workflow is its alarm; the writer is
+# `scripts/refresh_doc_facts.py --open-pr`, run by a human with a signing key.
+#
+# Why this workflow does NOT open the pull request itself
+# -------------------------------------------------------
+# Two properties of GitHub, not preferences:
+#
+#   1. A pull request opened with this workflow's `GITHUB_TOKEN` does not trigger
+#      `pull_request` workflows. `ci-gate` is the single REQUIRED check, so it
+#      would never report and the PR could never merge.
+#   2. `main` requires signed commits (ruleset `protect-main`). A commit pushed
+#      by a runner is unsigned -- GitHub signs the commits *it* creates, not the
+#      ones pushed to it. Weakening `required_signatures` so that automation is
+#      convenient is not a trade this repository makes.
+#
+# Run locally, the refresh is an ordinary signed commit from the owner's key,
+# pushed with the owner's credentials, so its PR triggers CI like any other PR.
+# So: detect here (and on a weekly sweep, because a push to main is not the only
+# way a count can move -- a rebase, a tag, or a manual edit all can), then hand
+# the owner one exact command.
+#
+# The check itself is cheap: cheap facts plus a live `pytest --collect-only` test
+# count, which is the drift that actually happens. It does not run the suite.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, so staleness that no push introduced is still noticed.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: doc-facts-refresh-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  detect:
+    name: "Detect stale doc facts"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The check compares against nothing, but a full checkout keeps this
+          # step identical to every other job in the repository.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
+        with:
+          python-version: "3.11"
+
+      - name: Check whether any marker is stale on the default branch
+        id: check
+        run: |
+          set +e
+          .venv/bin/python scripts/refresh_doc_facts.py --check > /tmp/refresh.log 2>&1
+          rc=$?
+          set -e
+          cat /tmp/refresh.log
+          {
+            echo 'report<<DOC_FACTS_REPORT'
+            cat /tmp/refresh.log
+            echo 'DOC_FACTS_REPORT'
+          } >> "$GITHUB_OUTPUT"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          # 0 = nothing stale, 1 = a refresh is needed, 2 = the check itself broke.
+          if [ "$rc" = "2" ]; then
+            echo "::error::refresh_doc_facts --check failed to run (exit 2)"
+            exit 1
+          fi
+
+      - name: Open one deduped issue naming the exact refresh command
+        if: steps.check.outputs.rc == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPORT: ${{ steps.check.outputs.report }}
+        run: |
+          TITLE="Documentation fact markers are stale on main"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --state open --search "$TITLE in:title" --json number,title \
+            --jq "[.[] | select(.title == \"$TITLE\")] | length")
+          if [ "$EXISTING" != "0" ]; then
+            # Already tracked. Deliberately no comment: this runs on every push to
+            # main, and a comment per push is noise, not a reminder.
+            echo "Already tracked by an open issue; not opening another."
+            exit 0
+          fi
+          BODY=$(cat <<EOF
+          The documentation cites derived numbers through \`<!--fact:...-->\` markers
+          (ADR-014), and only the default branch may write them (state/DECISIONS.md
+          ADR-008). Nothing on a feature branch will correct a value, so this is the
+          default branch's own reminder.
+
+          \`\`\`
+          $REPORT
+          \`\`\`
+
+          **Refresh it (writes the markers, opens a signed PR):**
+
+          \`\`\`bash
+          git checkout main && git pull
+          scripts/refresh_doc_facts.py --open-pr
+          \`\`\`
+
+          The script rewrites marker interiors only, refuses to commit if any other
+          line changed, and is the sole writer of those lines — so its PR merges
+          cleanly. This workflow cannot open that PR itself: a \`GITHUB_TOKEN\` PR does
+          not trigger \`ci-gate\` (the single required check), and a runner-pushed
+          commit is unsigned while \`main\` requires signatures.
+          EOF
+          )
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "$TITLE" --body "$BODY" --label "documentation" \
+          || gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY"
