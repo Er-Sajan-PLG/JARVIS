@@ -2097,7 +2097,15 @@ def main() -> int:
     text = json.dumps(payload, indent=2)
 
     if args.out:
-        Path(args.out).write_text(text)
+        # Create the parent directory. Until the gate was split into per-context
+        # jobs this was never needed: every run included gate_sbom, which writes
+        # into artifacts/ and so created it as a side effect. A context without
+        # gate_sbom (Build, SAST, Conventional Commits, ...) left the directory
+        # absent and --out died with FileNotFoundError *after* the gates had
+        # already run, turning a green gate into a red job.
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(text)
     if args.json:
         print(text)
     else:
