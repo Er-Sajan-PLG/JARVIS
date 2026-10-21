@@ -188,3 +188,75 @@ an honest dirty one.
 **Negative**
 - The bootstrap commit and the CI/CD commit are temporarily interleaved on one
   branch. They are committed separately, in that order, to keep the history legible.
+
+---
+
+## ADR-006 — Split the gate into one job per context, keep ONE required check
+
+**Date**: 2026-10-21
+**Author**: HERM (session `20261021-0430-HERM`)
+**Status**: Accepted
+
+### Context
+
+`ci-gate.yml` ran all 29 gates in a single job, and that job was the single
+required check. Correct, but three costs became visible:
+
+- **Opaque failures.** A red check said only "ci-gate failed". Which of 29 gates
+  failed, and whether it was blocking or reported-only, required opening a log.
+- **Serial execution.** One job runs 29 gates end to end (~11 min). Most of that
+  is the test suite; the scanners queued behind it.
+- **Over-broad privilege.** `id-token: write` sat at workflow level, so *every*
+  step — including third-party scanners — could mint an OIDC identity.
+
+The obvious fix is more jobs. The obvious fix is also the trap this repository
+already documented: the previous `setup_branch_protection.py` required six
+contexts from a workflow that had never run, which would have made `main`
+permanently unmergeable. And the six-job `ci.yml` that was deleted for being
+*weaker* than the local gate shows the other direction of the same risk.
+
+### Decision
+
+Add `--context <name>` to `scripts/ci_gate.py`, selecting the checks that already
+declare that context, and run one job per context. Keep exactly **one required
+check** — `ci-gate`, now an aggregator that `needs:` every job and carries
+`if: always()`.
+
+The load-bearing rules:
+
+1. The per-context jobs have **no `needs:`**. A job with `needs:` is skipped when
+   its dependency fails, and a skipped job's check is never reported. Only the
+   aggregator depends on others, and it is the only required context.
+2. `--context` is validated against `GATE_CONTEXTS`. A typo must fail loudly; a
+   context selecting nothing would report green while checking nothing.
+3. The contexts must **partition** the default gate set — asserted by
+   `tests/unit/test_gate_context_split.py`, not by review.
+
+### Consequences
+
+**Positive**
+- A failure names its domain in the checks list; no log spelunking.
+- Jobs run in parallel; wall-clock is the slowest context, not the sum.
+- `id-token: write` is scoped to the Supply Chain job alone.
+- The Tests job is a py3.11/3.12/3.13 matrix, which the single job could not be.
+- One definition of green is preserved: every job is the same script, and the
+  partition test makes divergence a test failure rather than a slow drift.
+
+**Negative**
+- Every job runs `install_ci_tools.sh`, so scanners are installed eight times.
+  Parallel execution absorbs the wall-clock cost; it is duplicated compute.
+- Eight jobs cost more Actions minutes. Free on a public repository; this would
+  need revisiting if the repository became private again.
+- More YAML to keep correct, and the `needs:`/`if: always()` rules above are the
+  kind of thing that is easy to reintroduce wrongly. They are stated in the
+  workflow header, in `AGENTS.md` §4.3, and here.
+
+### Rejected alternatives
+
+- **Register the per-context jobs as required checks as well.** Safe *only*
+  because they have no `needs:`, but each additional required context is another
+  way to deadlock the branch. The aggregator already gates on all of them.
+- **Keep one job and just improve its output.** Solves the opacity, not the
+  serial execution or the OIDC scope.
+- **Reinstate a second workflow with its own gate logic.** This is precisely the
+  two-definitions-of-green failure `ci.yml` was deleted for.

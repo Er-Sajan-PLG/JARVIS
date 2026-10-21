@@ -65,18 +65,50 @@ so the runners cannot drift.
 
 ### How the workflow invokes it
 
+Each per-context job runs the same script, scoped to one domain:
+
 ```
 .venv/bin/python scripts/ci_gate.py \
-    --sha "$GITHUB_SHA" --require-tools --keyless --with-coverage
+    --sha "$GITHUB_SHA" --require-tools --context "Supply Chain" --keyless
 ```
+
+The `--context` names come from `GATE_CONTEXTS` in `scripts/ci_gate.py` and match
+the `context` every `Check` already carried, so a split job and a whole-gate local
+run cannot disagree about what green means.
+`tests/unit/test_gate_context_split.py` asserts the contexts **partition** the
+default gate set: no gate is reachable from zero contexts (which would be a job
+that is green while checking nothing) and none from two (which would run it twice
+and attribute a failure to whichever job reported first).
+
+| Job (`--context`) | Gates |
+|---|---|
+| Lint & Typecheck | `ruff_ratchet`, `mypy` |
+| SAST | `semgrep` |
+| Tests | `pytest`, `contract`, `coverage` (matrix: py3.11/3.12/3.13) |
+| Security Scan | `gitleaks`, `trufflehog`, `bandit`, `pip_audit` |
+| Supply Chain | `trivy`, `osv`, `licenses`, `sbom`, `provenance`, `action-pinning`, `checkov` |
+| Virtual Board Governance | `board`, `docs`, `doc_types`, `doc_coverage`, `docs_layer2`, `doc_facts` |
+| Build | `compileall`, `hadolint` |
+| Conventional Commits | `commitlint` |
 
 Three flags carry the enforcement:
 
 | Flag | Why |
 |---|---|
 | `--require-tools` | A **missing blocking scanner becomes a failure, not a skip.** Without it, a tool that failed to install reports `skip`, and since `blocking_failures` only counts `fail`, the required check would go **green while enforcing nothing**. |
-| `--keyless` | Sign provenance with the job's OIDC token (Fulcio + Rekor) instead of a local keypair, which cannot exist on a runner. Verification pins `--certificate-identity` and `--certificate-oidc-issuer` to this repo's own workflow. |
+| `--keyless` | Sign provenance with the job's OIDC token (Fulcio + Rekor) instead of a local keypair, which cannot exist on a runner. Verification pins `--certificate-identity` and `--certificate-oidc-issuer` to this repo's own workflow. Scoped to the Supply Chain job only — no other job holds `id-token: write`. |
 | `--with-coverage` | Adds the branch-aware coverage gate (non-blocking; floor 80%, currently 86%). |
+
+### Why one required check and many jobs
+
+`ci-gate` is the **aggregator**: it `needs:` all eight jobs and carries
+`if: always()`, so it reports even when one of them fails. It is the only context
+in the ruleset.
+
+The per-context jobs deliberately have **no `needs:`**. A job with `needs:` is
+*skipped* when its dependency fails, and a skipped job's check is never reported —
+so requiring one would block the branch forever. That is the same failure mode
+that made the previous six-context ruleset unmergeable before it was ever applied.
 
 Tool installation is `scripts/install_ci_tools.sh` — **one installer, used by both
 the developer machine and CI**. It exits non-zero if a blocking scanner is
