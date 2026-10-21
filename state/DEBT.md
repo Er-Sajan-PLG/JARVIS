@@ -40,6 +40,7 @@ acting on a number; the counts were verified 2026-10-01 and may have moved.
 | D-R7 | `urllib3==2.7.0` carried CVE-2026-97687 / CVE-2026-97689 (both fixed in 2.8.0) | `0ec6128` |
 | D-R8 | The ruff ratchet reported *checked* files as *failing* files | `59fd80c` |
 | D-R9 | `dependabot.yml`'s `ignore:` block was indented **under** `groups:`, so Dependabot never read it — the chromadb suppression had never applied | session `20261021-0430-HERM` |
+| D-R10 | Two test modules built scratch git repositories in a helper that inherited the environment, so an inherited `GIT_DIR` redirected them at the real repository: `git -C <scratch>` obeys `GIT_DIR` over its `cwd`, so `test_prepush_verifies_only_new_commits` rewrote this repository's config — `core.hooksPath` pointed at a pytest temporary directory (**disabling every hook**) and `commit.gpgsign` set to `false` (disabling signing) — while `test_git_tools_ref_safety` committed `first commit`/`second commit` onto whatever branch was checked out. Note: git does **not** export `GIT_DIR` to hooks, so the trigger is the invoking environment; that is why depending on its absence was unsafe. Fixed by sanitising the environment in both helpers and, in the fixture, in `os.environ` itself (the app's git tools do not sanitise their own). Each has a decoy-repo regression test | this PR |
 
 ---
 
