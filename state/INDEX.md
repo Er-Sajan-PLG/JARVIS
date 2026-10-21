@@ -5,7 +5,7 @@ path **before** reading session files — reading all of them wastes context.
 
 | Session ID | Agent | Date | Title | Files touched | Status | Branch |
 |---|---|---|---|---|---|---|
-| `20261001-0500-MACP-bootstrap-audit` | MACP | 2026-10-01 | Bootstrap MACP + repository audit; CI/CD platform enforcement | `state/**`, `.github/**`, `scripts/ci_gate.py`, `scripts/setup_branch_protection.py`, `scripts/pin-actions.mjs`, `scripts/install_ci_tools.sh`, `tests/unit/test_gate_*.py`, `tests/unit/test_provenance_keyless.py` | IN-PROGRESS | `test/assertion-defects` |
+| `20261001-0500-MACP-bootstrap-audit` | MACP | 2026-10-01 | Bootstrap MACP + repository audit; CI/CD platform enforcement (GitHub Actions, ruleset, keyless provenance, action pinning, requirements.txt repair) | `state/**`, `.github/**`, `scripts/ci_gate.py`, `scripts/setup_branch_protection.py`, `scripts/pin-actions.mjs`, `scripts/install_ci_tools.sh`, `requirements.txt`, `tests/unit/test_gate_*.py`, `tests/unit/test_provenance_keyless.py`, `tests/unit/test_tokenizer.py`, `tests/unit/test_context.py` | **PARTIAL** — B-007 | `fix/ruleset-helper-payload-v2` |
 
 ---
 
