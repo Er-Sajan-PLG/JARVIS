@@ -9,7 +9,10 @@
 #
 # Stages (all must pass):
 #   0. Refuse branch/tag deletion and force-pushes (non-fast-forward).
-#   1. Require SSH signatures on every pushed commit (commit.gpgsign).
+#   1. Require SSH signatures on every commit this push INTRODUCES. Commits
+#      already on origin are skipped: they are published, and GitHub's own
+#      commits (Dependabot, API squash-merges) are PGP-signed, which this
+#      SSH-only configuration cannot check. See Stage 1 for the full reasoning.
 #   2. gitleaks on the pushed range (secrets never reach remote).
 #   3. ruff on changed files.
 #   4. Documentation gates (check_docs + coverage + doc tests).
@@ -75,7 +78,31 @@ fi
 
 echo "🔒 JARVIS pre-push hardening over:$RANGES"
 
-# Stage 1: signatures on every pushed commit.
+# Stage 1: signatures on every commit this push INTRODUCES.
+#
+# Not "every commit in the range". Commits already published on origin are not
+# re-verified, because re-verifying them cannot prevent anything -- they are
+# already on the remote, and the remote accepted them when they landed: either
+# they carried a signature this same rule required, or GitHub created them
+# itself (Dependabot bumps, squash-merges through the API) and signed them with
+# GitHub's PGP key.
+#
+# That distinction is load-bearing, because GitHub's commits verify as %G? = E
+# here -- "cannot check", not "unsigned". This repository signs with
+# gpg.format=ssh and verifies against gpg.ssh.allowedsignersfile, so it holds no
+# PGP keyring capable of checking a GitHub signature. Requiring G/U for them
+# refused the push outright:
+#
+#     ❌ commit 4cf9f5a is not signed (GPG/SSH signature required)
+#
+# which made any PR branch that had merged main into itself unpushable -- and
+# unrecoverable, because Stage 0b refuses the force-push that would have kept
+# the branch linear instead. Two branches had to be rebuilt because of it.
+#
+# The fix is not to trust `E` (that would accept a genuinely unverifiable local
+# commit) and not to install GitHub's public key (a third-party key in the trust
+# store of a repository whose point is verifiable provenance). It is to stop
+# re-checking what is already published.
 echo "— signatures…"
 for rev in $RANGES; do
   while read -r sha; do
@@ -84,7 +111,7 @@ for rev in $RANGES; do
     if [ "$sig" != "G" ] && [ "$sig" != "U" ]; then
       fail "commit $sha is not signed (GPG/SSH signature required)"
     fi
-  done < <(git -C "$REPO_ROOT" rev-list $rev 2>/dev/null)
+  done < <(git -C "$REPO_ROOT" rev-list $rev --not --remotes=origin 2>/dev/null)
 done
 [ "$FAIL" -ne 0 ] && { echo "❌ push refused: unsigned commits. Sign with 'git rebase --exec \"git commit --amend --no-edit -S\"' then push."; exit 1; }
 echo "✅ signatures ok."
