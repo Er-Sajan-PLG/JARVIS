@@ -33,7 +33,7 @@ bcrypt==5.0.0
 boolean.py==5.0
 build==1.6.0
 CacheControl==0.14.4
-certifi==2026.7.22
+certifi==2026.10.19
 cffi==2.1.1
 cfgv==3.5.0
 chardet==5.2.0
@@ -146,7 +146,7 @@ ormsgpack==1.12.2
 overrides==7.7.0
 packageurl-python==0.17.6
 packaging==26.3
-pillow==12.3.0
+pillow==13.0.0
 pip_api==0.0.35
 pip_audit==2.10.1
 pip-licenses==5.5.5
