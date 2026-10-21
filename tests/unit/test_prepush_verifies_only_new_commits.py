@@ -41,18 +41,22 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PRE_PUSH = REPO_ROOT / "githooks" / "pre-push"
 
-# Git exports GIT_DIR (and friends) into the environment of every hook it runs,
-# and the pre-push hook runs this suite. An inherited GIT_DIR makes
-# `git -C <scratch>` operate on the repository GIT_DIR points at instead of the
-# scratch repo -- so the four config calls in _repo_with_a_merged_main landed on
-# the REAL repository and rewrote it:
+# An inherited GIT_DIR makes `git -C <scratch>` operate on the repository
+# GIT_DIR points at instead of the scratch repo -- so the four config calls in
+# _repo_with_a_merged_main can land on the REAL repository and rewrite it:
 #
 #   core.hooksPath = /tmp/pytest-of-.../nohooks   -> every hook silently disabled
 #   commit.gpgsign = false                        -> commit signing switched off
 #
-# That is, running the suite from the pre-push hook disabled the signature
-# enforcement this file exists to protect. These helpers therefore must not
-# inherit that environment.
+# Both were observed in this repository during the session that added this file.
+# The helpers therefore must not inherit that environment.
+#
+# To be precise about the trigger, because the obvious guess is wrong: **git
+# does not export GIT_DIR to hooks.** A hook receives GIT_INDEX_FILE, GIT_PREFIX
+# and GIT_AUTHOR_*, but no GIT_DIR. GIT_DIR arrives from the invoking
+# environment -- a shell or tool working against a bare repository, or a wrapper
+# that exported it. That is exactly why a test must not depend on it being
+# absent.
 _GIT_ENV_DROP = frozenset(
     {
         "GIT_DIR",
@@ -204,19 +208,22 @@ def test_scratch_helpers_cannot_be_redirected_by_an_inherited_git_dir(
 ) -> None:
     """A GIT_DIR in the environment must not redirect these helpers.
 
-    This is the regression that matters. Git exports ``GIT_DIR`` into the
-    environment of every hook it runs, and ``githooks/pre-push`` runs this whole
-    suite -- so the suite normally executes *with* a ``GIT_DIR`` set. Before the
-    helpers sanitised their environment, the config calls in
-    ``_repo_with_a_merged_main`` therefore operated on the real repository
-    instead of the scratch one, and rewrote it:
+    This is the regression that matters. Before the helpers sanitised their
+    environment, the config calls in ``_repo_with_a_merged_main`` operated on
+    the real repository instead of the scratch one whenever ``GIT_DIR`` was set,
+    and rewrote it:
 
     - ``core.hooksPath`` to a pytest temporary directory, which disables **every
       hook** in the repository (the path does not exist, so nothing runs), and
     - ``commit.gpgsign`` to ``false``, which disables commit signing.
 
-    So the test that exists to protect the signature rule would silently switch
-    the signature rule off, on the machine, every time it ran from the hook.
+    So the test that exists to protect the signature rule could silently switch
+    the signature rule off on the machine. Both effects were observed in this
+    repository.
+
+    ``GIT_DIR`` is not set by git for hooks -- see the note at the top of this
+    file -- so the trigger is the invoking environment, which is exactly what
+    makes depending on its absence unsafe.
 
     A decoy repository stands in for the real one: if the helpers are ever
     redirected again, the writes land there and this fails -- without the test
