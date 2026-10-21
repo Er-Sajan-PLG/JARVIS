@@ -81,31 +81,44 @@ def test_context_builder_assemble_context_full() -> None:
 
 
 def test_context_builder_assemble_context_truncation() -> None:
+    """History beyond the budget is dropped, most-recent-first.
+
+    The history size is chosen so the test does not depend on WHICH token counter
+    is active. `assemble_context` calls the module-level `count_tokens`, which
+    uses tiktoken when importable and a word-count heuristic otherwise -- 17
+    tokens per message versus roughly 30. The previous 50 messages cost ~850
+    tokens under tiktoken against a 1000-token floor, so nothing needed dropping
+    and the assertion failed. That was the code behaving correctly on a smaller
+    count; the test had been calibrated against the fallback counter alone.
+
+    200 messages exceed the floor under either counter, so the behaviour under
+    test -- truncation -- is what runs in both environments.
+    """
     mock_loader = MagicMock()
     mock_loader.render.return_value = "System Prompt"
 
     builder = ContextBuilder(prompt_loader=mock_loader)
     session = SessionState(session_id="s1")
 
-    # Create 50 messages of 100 characters each
     long_history = [
         Message(
             id=f"m_{i}",
             role=Role.USER if i % 2 == 0 else Role.ASSISTANT,
             content=f"Message {i} " + "X" * 100,
         )
-        for i in range(50)
+        for i in range(200)
     ]
     conv = ConversationState(id="c1", messages=long_history)
 
-    # Budget remaining = max(1000, 2500 - system_tokens - 1000) = 1400 tokens
     messages = builder.assemble_context(session=session, conversation=conv, max_context_tokens=2500)
 
-    # System message + truncated history
-    assert len(messages) > 1
-    assert len(messages) < len(long_history) + 1
-    # Most recent message (m_49) must be preserved
-    assert messages[-1]["content"].startswith("Message 49")
+    # System message + a truncated subset of the history
+    assert len(messages) > 1, "the system message should always be present"
+    assert len(messages) < len(long_history) + 1, (
+        f"no truncation: {len(messages)} messages for a 2500-token budget"
+    )
+    # The most recent message must survive; truncation drops from the far end.
+    assert messages[-1]["content"].startswith("Message 199")
 
 
 def test_context_window_manager_content_to_text() -> None:

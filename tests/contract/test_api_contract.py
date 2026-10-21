@@ -86,7 +86,13 @@ def test_chat_completions_contract_shape(client):
     assert set(body.keys()) >= {"session_id", "plan_id", "status", "steps_count", "complexity"}
     assert body["session_id"] == "contract-test"
     assert isinstance(body["steps_count"], int)
-    assert body["status"] in {"completed", "failed", "running"}
+    # Not `in {"completed", "failed", "running"}`. That set made the test
+    # unsatisfiable-to-fail: the endpoint could answer status="failed" with
+    # steps_count=0 -- the chat path doing nothing at all -- and the assertion
+    # still passed, because "failed" was one of the accepted values (F-TEST-010).
+    # A valid prompt must complete, and completing means at least one step ran.
+    assert body["status"] == "completed", f"a valid prompt did not complete: {body['status']!r}"
+    assert body["steps_count"] >= 1, "reported completed with zero steps executed"
 
 
 def test_chat_completions_missing_prompt_still_ok(client):

@@ -138,7 +138,7 @@ tables and must not be reintroduced.
 ## 3. Sprint-by-sprint Compliance Targets
 
 ### Sprint 0-2 (Weeks 0-4): Foundation + Hardening
-- [x] CI pipeline (<!--fact:gate_count-->28<!--/fact--> gates, 9 contexts)
+- [x] CI pipeline (<!--fact:gate_count-->29<!--/fact--> gates, 9 contexts)
 - [x] Security scanning (gitleaks, trufflehog, bandit, semgrep, trivy)
 - [x] Containerization (Dockerfile + hadolint)
 - [x] Release automation (auto-tag + publish)
@@ -159,7 +159,7 @@ tables and must not be reintroduced.
 
 ### Sprint 4 (Weeks 9-12): Ecosystem Integration
 - [x] PROFESSOR-J MCP server + mesh — 17 tools exposed
-- [x] Cloudflare Pages deploy — auto-deploy on tag
+- [ ] Cloudflare Pages deploy — workflow corrected; **no secrets configured**, so it has never deployed
 - [x] Workspace awareness — git state + file tree
 - [x] Memory pipeline façade — extract→manage→store→retrieve
 - [x] Web app — FastAPI + chat UI + WebSocket streaming

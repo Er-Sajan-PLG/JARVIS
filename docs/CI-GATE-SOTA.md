@@ -14,10 +14,25 @@ state of the art in CI/CD verification, and exactly what is **missing**.
 
 Read this with:
 - `docs/ACCEPTED_RISKS.md` — the register that machine-exempts reviewed findings
-- `.github/workflows/ci.yml` — the Actions jobs this gate replaces
+- `.github/workflows/ci-gate.yml` — the Actions workflow that runs THIS gate
 - `docs/N8N-SETUP.md` — how n8n invokes the gate
 
-The gate runs <!--fact:gate_count-->28<!--/fact--> checks
+> **Updated 2026-10-01.** The repository is now **public**, which changed this
+> document's premise. Actions minutes are unlimited and branch protection/rulesets
+> became available — both had returned **HTTP 403** while it was private (RISK-011,
+> RISK-012). `ci_gate.py` is no longer a local-only substitute for Actions: the
+> `ci-gate` workflow runs *this same script* with `--require-tools --keyless`, so
+> one gate definition serves both runners and the two cannot drift apart.
+>
+> The six-job `ci.yml` this document compared against **has been deleted**, not
+> re-enabled. It was disabled on 2026-09-10 (billing) and was in any case weaker
+> than the local gate: `bandit` and `pip-audit` ended in `|| true`, `mypy` was
+> `continue-on-error: true`, and coverage was line-only. Requiring it would have
+> enforced the weaker set — worse than enforcing nothing, because it looks
+> enforced. The parity table in §2 is retained as the historical record of what
+> that comparison found.
+
+The gate runs <!--fact:gate_count-->29<!--/fact--> checks
 (`def gate_*` in `scripts/ci_gate.py`), published under
 <!--fact:context_count-->9<!--/fact--> commit-status contexts
 (`CONTEXT_ORDER` in `scripts/ci_bridge.py`): Lint & Typecheck, SAST, Tests,
@@ -37,9 +52,11 @@ vendor product:
 | **OWASP ASVS 4.0 / SAMM** | Verification requirements mapped to automated checks; SAMM measurement of the security practice |
 | **CycloneDX / NTIA SBOM minimum elements** | Machine-readable inventory: supplier, component, version, unique IDs, dependency relationships |
 
-## 2. Coverage of the jobs this replaces
+## 2. Coverage of the jobs this replaced (historical)
 
-The six Actions jobs and where each is now enforced:
+The six Actions jobs and where each is now enforced. **`ci.yml` was deleted on
+2026-10-01**; this table records the parity comparison that drove the gate's
+development, not a live mapping.
 
 | Actions job (ci.yml) | Local gate(s) | Blocking? |
 |---|---|---|

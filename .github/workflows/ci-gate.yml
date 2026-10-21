@@ -1,0 +1,106 @@
+name: "ci-gate"
+
+# The single required status check. It runs scripts/ci_gate.py -- the SAME gate a
+# developer runs locally -- so there is exactly one definition of "green" and the
+# two runners cannot drift apart.
+#
+# This workflow replaced a six-job ci.yml that had been disabled since 2026-09-10
+# because Actions was billing-blocked on a private repo. That workflow was also
+# weaker than the local gate: bandit and pip-audit ended in `|| true` (always
+# passing), mypy was `continue-on-error: true` (never blocking), and it measured
+# line coverage only. Making those checks required would have enforced the weaker
+# set, which is worse than enforcing nothing because it looks enforced.
+#
+# Now that the repository is public, Actions minutes are unlimited and branch
+# protection/rulesets are available for the first time (they returned HTTP 403
+# while it was private -- RISK-011, RISK-012).
+#
+# To restore the old six-job workflow instead, see git history for ci.yml. Do not
+# run both as required checks: two gates with different definitions of green is
+# the failure this file exists to remove.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  security-events: write
+  # Keyless provenance: cosign exchanges this OIDC token for a Fulcio certificate
+  # and writes a Rekor transparency-log entry. Without it, gate_provenance cannot
+  # sign and can only report a skip -- making no claim at all.
+  id-token: write
+
+jobs:
+  gate:
+    name: "ci-gate"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The ruff/semgrep/commitlint ratchets diff against the merge base, so
+          # the full history is required -- a shallow clone silently empties them.
+          fetch-depth: 0
+
+      - name: Install system dependencies
+        # The suite exercises the real OCR and PDF paths, not mocks:
+        # tests/unit/test_web_upload_extraction.py rasterises a scanned PDF with
+        # PyMuPDF and OCRs it with the `tesseract` BINARY. On a runner without it
+        # those tests fail with "a scanned PDF was not OCR'd", which reads like a
+        # logic bug but is a missing package. requirements.txt cannot express a
+        # system dependency, so it is installed here.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends tesseract-ocr poppler-utils
+          tesseract --version | head -1
+
+      - name: Set up Python environment
+        uses: ./.github/actions/setup-env
+        with:
+          python-version: "3.11"
+
+      - name: Install gate scanners
+        # One installer, used locally and here. It exits non-zero if a blocking
+        # scanner is missing, so a partial install fails loudly instead of
+        # silently degrading the gate.
+        run: scripts/install_ci_tools.sh
+
+      - name: Run the gate
+        # --require-tools: a missing BLOCKING scanner is a failure, not a skip.
+        #   Without it, a tool that failed to install reports "skip", and since
+        #   blocking_failures only counts "fail", the required check would go
+        #   green while enforcing nothing.
+        # --keyless: sign provenance with this job's OIDC identity rather than a
+        #   local keypair, which cannot exist on a runner.
+        # --with-coverage: add the coverage gate (currently non-blocking).
+        # The gate runs the FULL suite: pytest tests/ (~2128 tests).
+        run: |
+          .venv/bin/python scripts/ci_gate.py \
+            --sha "${{ github.sha }}" \
+            --require-tools \
+            --keyless \
+            --with-coverage \
+            --out artifacts/ci-gate.json
+        env:
+          JARVIS_COSIGN_KEYLESS: "1"
+          # `osv-scanner` and others read this; present so the gate can attribute
+          # a rate-limited scan rather than failing opaquely.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload gate report
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: ci-gate-report
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 14

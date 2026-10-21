@@ -49,22 +49,44 @@ def test_setting_default_rejects_empty_values(client):
         assert client.post("/api/settings/default", json=payload).status_code == 400, payload
 
 
-def test_chat_resolves_the_saved_default(client):
-    """The core regression: a chat request with no model must resolve to the
-    saved default rather than dispatching with an empty model id.
+def test_chat_resolves_the_saved_default(client, monkeypatch):
+    """The core regression: a chat request with no model must reach the provider
+    with the SAVED default, not an empty model id.
 
-    'bad input' is the exact symptom the user reported, so it must never
-    appear once a default is set.
+    This previously called `/api/chat` for real and accepted "either the real
+    call succeeds, or it fails for a reason unrelated to an empty model id". That
+    made the test's outcome depend on the machine: with the `agy` CLI installed
+    it exercised a live model, and on CI -- which has no `agy` -- the handler
+    returned 503 "AGY CLI not found on PATH" before the model id was ever used.
+    A test that passes for two unrelated reasons asserts neither.
+
+    The provider is now stubbed at its own boundary and the resolved `model` is
+    read off the call, which is the thing the reported bug was about. No network,
+    no CLI, no account.
     """
     client.post("/api/settings/default", json={"provider": "agy", "model": "gemini-3.1-pro-high"})
 
+    from app.adapters.integrations import agy as agy_mod
+
+    seen: dict[str, object] = {}
+
+    def fake_chat(**kwargs):
+        seen.update(kwargs)
+        return {"content": "PING", "tokens_used": 1}
+
+    monkeypatch.setattr(agy_mod, "is_available", lambda: True)
+    monkeypatch.setattr(agy_mod, "chat", fake_chat)
+
     r = client.post("/api/chat", json={"message": "Reply with exactly: PING"})
+
     assert r.status_code == 200, r.text
-    body = r.json()
-    assert "bad input" not in json.dumps(body), body
-    # Either the real call succeeds, or it fails for a reason unrelated to an
-    # empty model id (e.g. the CLI is busy). Never "no model".
-    assert "No model selected" not in json.dumps(body), body
+    body = json.dumps(r.json())
+    assert "bad input" not in body, body
+    assert "No model selected" not in body, body
+    assert seen, "the provider was never called"
+    assert (
+        seen.get("model") == "gemini-3.1-pro-high"
+    ), f"the saved default did not reach the provider: {seen.get('model')!r}"
 
 
 def test_chat_without_any_default_reports_a_clear_error(client, monkeypatch):

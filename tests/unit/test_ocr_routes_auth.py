@@ -131,7 +131,13 @@ def test_traversal_filename_cannot_escape_temp_dir(
     )
     # The route may legitimately fail to OCR the bytes; what matters is that the
     # path handed to the service has no directory component.
+    #
+    # `!= 401` alone was unsatisfiable-proof: if the request never reached the
+    # service, `service.processed` was empty, the loop below ran zero times, and
+    # the test asserted nothing at all. Requiring the call is what makes the loop
+    # meaningful (F-TEST-010).
     assert response.status_code != 401
+    assert service.processed, "the request never reached the service; nothing was checked"
     for path in service.processed:
         assert ".." not in path, f"traversal reached the service: {path}"
 

@@ -278,3 +278,10 @@ sbom.json
 
 # n8n CI bridge local secret
 .ci-bridge.env
+
+# A local clone of Unlimited-OCR with no .gitmodules mapping. `git submodule
+# status` failed outright ("no submodule mapping found"), and the gitlink kept
+# git status permanently dirty -- which broke the MACP clean-tree check and
+# bloated every clone. The abandoned OCR backend, superseded by Tesseract
+# (ADR-018). Untracked rather than deleted: the local copy is untouched.
+external/Unlimited-OCR/

@@ -52,8 +52,27 @@ def test_word_counter_char_dominated():
 # ===== _try_tiktoken Tests =====
 
 
-def test_try_tiktoken_not_installed():
-    """Verify _try_tiktoken returns None when tiktoken is not installed."""
+def test_try_tiktoken_returns_none_when_the_import_fails(monkeypatch):
+    """The absent-tiktoken path, forced rather than assumed.
+
+    This read `assert _try_tiktoken("default") is None` and passed only because
+    tiktoken happened not to be installed. It therefore asserted an ENVIRONMENT
+    property, not a code property: installing a dependency -- which is what
+    requirements.txt asks for -- turned it red without any code changing.
+
+    The import is now made to fail explicitly, so the branch under test always
+    runs regardless of what is installed.
+    """
+    import builtins
+
+    real_import = builtins.__import__
+
+    def failing_import(name, *args, **kwargs):
+        if name == "tiktoken":
+            raise ImportError("simulated absence")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", failing_import)
     assert _try_tiktoken("default") is None
 
 

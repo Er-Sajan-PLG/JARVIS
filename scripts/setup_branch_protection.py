@@ -1,119 +1,164 @@
 #!/usr/bin/env python3
-"""Configure GitHub branch protection for JARVIS repository.
+"""Configure the GitHub ruleset that protects `main` for JARVIS.
 
-This script sets up branch protection rules on the main branch:
-- Required status checks from CI workflow
-- No force pushes
-- Linear history (squash merge)
-- Required PR reviews (can be 0 for solo repo)
-- Dismiss stale approvals
-- Require branches to be up to date before merging
+Makes the enforcement real. Until 2026-10-01 this repository was private on a Free
+plan, so branch protection returned **HTTP 403** ("Upgrade to GitHub Pro or make
+this repository public") and every rule below existed only as convention --
+RISK-011 and RISK-012 in docs/ACCEPTED_RISKS.md. Now that the repository is
+public, GitHub will enforce them, and this script is what installs them.
 
-Run with: python scripts/setup_branch_protection.py
-Requires: GITHUB_TOKEN environment variable with repo admin permissions
+The previous version of this file was a trap. It required six status-check
+contexts from `.github/workflows/ci.yml` -- "Lint & Typecheck", "Tests", "Security
+Scan", "Build", "Conventional Commits", "Virtual Board Governance". That workflow
+had been disabled since 2026-09-10 and had **never run**, so none of those checks
+ever reported. A required check that never reports does not pass, and the branch
+would have been permanently unmergeable. The workflow has since been deleted and
+replaced by `ci-gate.yml`, which runs `scripts/ci_gate.py`.
+
+Usage:
+    gh auth refresh -s admin:repo_hook   # if the token lacks scope
+    .venv/bin/python scripts/setup_branch_protection.py --dry-run
+    .venv/bin/python scripts/setup_branch_protection.py
+
+Requires: the `gh` CLI, authenticated with admin rights on the repository.
 """
 
+from __future__ import annotations
+
+import argparse
 import json
-import os
 import subprocess
 import sys
 
-REPO_OWNER = "Er-Sajan-PLG"
-REPO_NAME = "JARVIS"
+REPO = "Er-Sajan-PLG/JARVIS"
 BRANCH = "main"
 
-REQUIRED_CHECKS = [
-    "Lint & Typecheck",
-    "Tests",
-    "Security Scan",
-    "Build",
-    "Conventional Commits",
-    "Virtual Board Governance",
-]
+# The workflow's job name, which is the context GitHub reports. There is exactly
+# one: one gate definition, one required check. Requiring anything else would
+# reintroduce the "two definitions of green" problem this replaced.
+REQUIRED_CHECK = "ci-gate"
+
+RULESET_NAME = "protect-main"
 
 
-def run_gh_api(method: str, endpoint: str, data: dict = None) -> dict:
-    """Run gh api command and return parsed JSON."""
-    cmd = ["gh", "api", "--method", method, endpoint]
-    if data:
-        cmd.extend(["--input", "-"])
-        result = subprocess.run(cmd, input=json.dumps(data), capture_output=True, text=True)
-    else:
-        result = subprocess.run(cmd, capture_output=True, text=True)
-
-    if result.returncode != 0:
-        print(f"Error: {result.stderr}")
-        return {}
-
-    try:
-        return json.loads(result.stdout) if result.stdout else {}
-    except json.JSONDecodeError:
-        return {}
+def gh(*args: str, stdin: dict | None = None) -> tuple[int, str, str]:
+    cmd = ["gh", "api", "--method", args[0], args[1], *args[2:]]
+    result = subprocess.run(
+        cmd,
+        input=json.dumps(stdin) if stdin is not None else None,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode, result.stdout, result.stderr
 
 
-def get_current_protection() -> dict:
-    """Get current branch protection rules."""
-    return run_gh_api("GET", f"repos/{REPO_OWNER}/{REPO_NAME}/branches/{BRANCH}/protection")
+def build_ruleset() -> dict:
+    """The ruleset payload.
 
+    Notes on two deliberate choices:
 
-def create_protection_payload() -> dict:
-    """Create branch protection configuration payload."""
+    * ``required_approving_review_count`` is 0. GitHub forbids approving your own
+      pull request, so on a solo repository any higher number makes `main`
+      unmergeable -- the same trap the old script set with its status checks.
+      The review requirement is structural (a PR must exist); the CI check is what
+      provides the actual gate.
+    * ``strict_required_status_checks_policy`` is True, so a branch must be up to
+      date with `main` before merging. Without it a green run from before a
+      conflicting merge can be reused, and two PRs can each pass while their
+      combination does not.
+    """
     return {
-        "required_status_checks": {"strict": True, "contexts": REQUIRED_CHECKS},
-        "enforce_admins": True,
-        "required_pull_request_reviews": {
-            "required_approving_review_count": 0,
-            "dismiss_stale_reviews": True,
-            "require_code_owner_reviews": False,
-            "require_last_push_approval": False,
-        },
-        "restrictions": {},
-        "required_linear_history": True,
-        "allow_force_pushes": False,
-        "allow_deletions": False,
-        "required_conversation_resolution": True,
-        "lock_branch": False,
-        "allow_fork_syncing": True,
+        "name": RULESET_NAME,
+        "target": "branch",
+        "enforcement": "active",
+        "conditions": {"ref_name": {"include": ["refs/heads/main"], "exclude": []}},
+        "rules": [
+            {"type": "deletion"},
+            {"type": "non_fast_forward"},
+            {"type": "required_linear_history"},
+            {"type": "required_signatures"},
+            {
+                "type": "pull_request",
+                "parameters": {
+                    "required_approving_review_count": 0,
+                    "dismiss_stale_reviews_on_push": True,
+                    "require_code_owner_review": False,
+                    "require_last_push_approval": False,
+                    "required_review_thread_resolution": True,
+                    "allowed_merge_methods": ["squash", "rebase"],
+                },
+            },
+            {
+                "type": "required_status_checks",
+                "parameters": {
+                    "strict_required_status_checks_policy": True,
+                    "do_not_enforce_on_create": False,
+                    "required_status_checks": [{"context": REQUIRED_CHECK}],
+                },
+            },
+        ],
     }
 
 
-def main():
-    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
-    if not token:
-        print("Error: GITHUB_TOKEN environment variable required")
-        sys.exit(1)
+def existing_ruleset_id() -> int | None:
+    code, out, _ = gh("GET", f"repos/{REPO}/rulesets")
+    if code != 0:
+        return None
+    try:
+        for rs in json.loads(out):
+            if rs.get("name") == RULESET_NAME:
+                return rs.get("id")
+    except json.JSONDecodeError:
+        return None
+    return None
 
-    # Check if gh is authenticated
-    result = subprocess.run(["gh", "auth", "status"], capture_output=True, text=True)
-    if result.returncode != 0:
-        print("Error: gh CLI not authenticated. Run 'gh auth login'")
-        sys.exit(1)
 
-    print(f"Configuring branch protection for {REPO_OWNER}/{REPO_NAME}@{BRANCH}")
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dry-run", action="store_true", help="print the payload, change nothing")
+    args = parser.parse_args()
 
-    # Get current protection
-    current = get_current_protection()
-    if current:
-        print("Current protection exists, updating...")
+    payload = build_ruleset()
+
+    if args.dry_run:
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    status = subprocess.run(["gh", "auth", "status"], capture_output=True, text=True)
+    if status.returncode != 0:
+        print("Error: gh CLI is not authenticated. Run 'gh auth login'.", file=sys.stderr)
+        return 1
+
+    print(f"Configuring ruleset '{RULESET_NAME}' for {REPO}@{BRANCH}")
+    print(f"  required check : {REQUIRED_CHECK}")
+
+    rid = existing_ruleset_id()
+    if rid is not None:
+        print(f"  existing ruleset id={rid}, updating")
+        code, out, err = gh("PUT", f"repos/{REPO}/rulesets/{rid}", stdin=payload)
     else:
-        print("No existing protection, creating new...")
+        print("  no existing ruleset, creating")
+        code, out, err = gh("POST", f"repos/{REPO}/rulesets", stdin=payload)
 
-    payload = create_protection_payload()
-    print(f"Required checks: {REQUIRED_CHECKS}")
+    if code != 0:
+        print(f"FAILED: {err.strip()}", file=sys.stderr)
+        return 1
 
-    result = run_gh_api(
-        "PUT", f"repos/{REPO_OWNER}/{REPO_NAME}/branches/{BRANCH}/protection", payload
-    )
-    if result:
-        print("✅ Branch protection configured successfully!")
-        print(f"Required checks: {result.get('required_status_checks', {}).get('contexts', [])}")
-        print(f"Linear history: {result.get('required_linear_history')}")
-        print(f"Force pushes allowed: {result.get('allow_force_pushes')}")
-        print(f"Admin enforcement: {result.get('enforce_admins')}")
-    else:
-        print("❌ Failed to configure branch protection")
-        sys.exit(1)
+    print("  OK")
+    try:
+        body = json.loads(out)
+    except json.JSONDecodeError:
+        return 0
+
+    rules = [r.get("type") for r in body.get("rules", [])]
+    print(f"  enforcement : {body.get('enforcement')}")
+    print(f"  rules       : {', '.join(rules)}")
+    for rule in body.get("rules", []):
+        if rule.get("type") == "required_status_checks":
+            checks = rule.get("parameters", {}).get("required_status_checks", [])
+            print(f"  checks      : {[c.get('context') for c in checks]}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

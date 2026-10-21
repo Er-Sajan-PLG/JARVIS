@@ -33,16 +33,29 @@ def test_estimate_tokens_word_fallback():
     assert estimate_tokens(text, method="word") == 28
 
 
-def test_estimate_tokens_falls_back_to_the_word_count_without_tiktoken():
-    """The documented fallback, asserted unconditionally.
+def test_estimate_tokens_falls_back_to_the_word_count_without_tiktoken(monkeypatch):
+    """The documented fallback, with tiktoken's absence FORCED.
 
-    This was one half of a `try: import tiktoken ... except ImportError:` test
-    whose assertion depended on which branch the environment happened to take,
-    so one of the two assertions was always dead. tiktoken is pinned in
-    requirements.txt but is NOT installed in this environment, so the branch
-    that ran was the fallback -- the `count == 2` assertion had never executed.
-    Splitting the test makes each behaviour explicit and always-run.
+    The docstring previously justified the expected value with "tiktoken is
+    pinned in requirements.txt but is NOT installed in this environment" -- an
+    explicit admission that the assertion depended on the machine. Installing the
+    pinned dependency, which is what requirements.txt is for, made it fail
+    without any code changing: tiktoken counts "Hello world" as 2, the fallback
+    as 6.
+
+    The import is now blocked so the fallback path is the one under test, and the
+    installed case is covered separately by the tiktoken tests above.
     """
+    import builtins
+
+    real_import = builtins.__import__
+
+    def failing_import(name, *args, **kwargs):
+        if name == "tiktoken":
+            raise ImportError("simulated absence")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", failing_import)
     assert estimate_tokens("Hello world", method="tiktoken", model="gpt-4") == 6
 
 

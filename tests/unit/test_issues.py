@@ -9,20 +9,24 @@ Run individual issue groups, e.g.:
 Each Test* class maps to one issue from the triage list.
 """
 
-import sys
-import os
+import inspect
 import json
-import unittest
-import tempfile
+import os
 import shutil
+import tempfile
+import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
+import yaml
 
-from app.tools.base import ToolRegistry, ToolDefinition
-from app.tools.executor import ToolExecutor, ParsedCall
+from app.config.settings import Settings
+from app.memory.schema import Memory
+from app.memory.vector_retriever import VectorRetriever
 from app.models.client import ModelResponse
+from app.tools.base import ToolDefinition, ToolRegistry
+from app.tools.executor import ParsedCall, ToolExecutor
+from app.tools.file_tools import FILE_TOOLS, append_file
+from app.tools.git_tools import GIT_TOOLS
 
 
 def make_call(name: str, args: dict) -> str:
@@ -35,8 +39,6 @@ def make_call(name: str, args: dict) -> str:
 #   Verify append_file is registered, callable, and wired into the doc agent
 #   (so the "Use append_file to add entries" instruction is executable).
 # ============================================================================
-
-from app.tools.file_tools import FILE_TOOLS, append_file
 
 
 class TestAppendFile(unittest.TestCase):
@@ -65,11 +67,13 @@ class TestAppendFile(unittest.TestCase):
         reg = ToolRegistry()
         reg.register_many(FILE_TOOLS)
         ex = ToolExecutor(reg, require_confirmation=False)
-        result = ex.run(ParsedCall(
-            name="append_file",
-            args={"path": self.allowed, "content": "appended\n"},
-            raw="",
-        ))
+        result = ex.run(
+            ParsedCall(
+                name="append_file",
+                args={"path": self.allowed, "content": "appended\n"},
+                raw="",
+            )
+        )
         self.assertTrue(result.success, result.error)
         self.assertIn("appended", Path(self.allowed).read_text())
 
@@ -79,10 +83,14 @@ class TestAppendFile(unittest.TestCase):
         class DummyModel:
             def generate(self, messages, **kwargs):
                 return ModelResponse(content="Done.", model="mock")
+
             @property
-            def model_name(self): return "mock"
+            def model_name(self):
+                return "mock"
+
             @property
-            def role(self): return "general"
+            def role(self):
+                return "general"
 
         agent = DocumentationAgent(model=DummyModel())
         registered = {t.name for t in agent._registry.all()}
@@ -95,6 +103,7 @@ class TestAppendFile(unittest.TestCase):
         class ScriptedModel:
             def __init__(self):
                 self.n = 0
+
             def generate(self, messages, **kwargs):
                 self.n += 1
                 if self.n == 1:
@@ -111,10 +120,14 @@ class TestAppendFile(unittest.TestCase):
                         model="mock",
                     )
                 return ModelResponse(content="Done.", model="mock")
+
             @property
-            def model_name(self): return "mock"
+            def model_name(self):
+                return "mock"
+
             @property
-            def role(self): return "general"
+            def role(self):
+                return "general"
 
         Path(self.allowed).write_text("# Changelog\n")
         agent = DocumentationAgent(model=ScriptedModel())
@@ -133,11 +146,6 @@ class TestAppendFile(unittest.TestCase):
 #   produces the correct embedding text.
 # ============================================================================
 
-import inspect
-
-from app.memory.schema import Memory
-from app.memory.vector_retriever import VectorRetriever
-
 
 class TestMemoryToText(unittest.TestCase):
     def test_memory_to_text_is_class_level_method_not_nested(self):
@@ -147,7 +155,7 @@ class TestMemoryToText(unittest.TestCase):
             hasattr(VectorRetriever, "_memory_to_text"),
             "_memory_to_text missing at class level - looks nested/dead",
         )
-        self.assertTrue(callable(getattr(VectorRetriever, "_memory_to_text")))
+        self.assertTrue(callable(VectorRetriever._memory_to_text))
 
     def test_on_index_rebuilt_does_not_redefine_it_nested(self):
         src = inspect.getsource(VectorRetriever.on_index_rebuilt)
@@ -173,10 +181,6 @@ class TestMemoryToText(unittest.TestCase):
 #   gracefully falls back when the value names a non-existent profile.
 # ============================================================================
 
-import yaml
-
-from app.config.settings import Settings
-
 
 class TestActiveProfile(unittest.TestCase):
     def _write_config(self, tmpdir: str, data: dict) -> str:
@@ -187,10 +191,13 @@ class TestActiveProfile(unittest.TestCase):
 
     def test_active_profile_loaded_from_config(self):
         with tempfile.TemporaryDirectory() as td:
-            path = self._write_config(td, {
-                "active_profile": "cloud",
-                "profiles": {"local": {}, "cloud": {}},
-            })
+            path = self._write_config(
+                td,
+                {
+                    "active_profile": "cloud",
+                    "profiles": {"local": {}, "cloud": {}},
+                },
+            )
             self.assertEqual(Settings.load(path=path).active_profile, "cloud")
 
     def test_active_profile_default_when_absent(self):
@@ -198,21 +205,129 @@ class TestActiveProfile(unittest.TestCase):
             path = self._write_config(td, {})
             self.assertEqual(Settings.load(path=path).active_profile, "default")
 
-    def test_active_profile_invalid_falls_back(self):
-        with tempfile.TemporaryDirectory() as td:
-            path = self._write_config(td, {
-                "active_profile": "cloud",
-            })
-            self.assertEqual(Settings.load(path=path).active_profile, "cloud")
+    def test_active_profile_valid_string_is_kept_verbatim(self):
+        """A string profile is stored as-is, with no validation against profiles.
 
-    def test_active_profile_propagates_to_switcher(self):
-        from app.models.switcher import ModelSwitcher
+        This replaces ``test_active_profile_invalid_falls_back``, which wrote the
+        *valid* profile ``"cloud"`` and asserted it equalled ``"cloud"`` -- no
+        invalid input and no fallback, so the name described behaviour the body
+        never exercised (F-TEST-010).
+
+        Recording the real behaviour, which is looser than the old name implied:
+        ``Settings.load`` accepts any string. An unrecognised profile is not
+        rejected and does not fall back.
+        """
         with tempfile.TemporaryDirectory() as td:
-            path = self._write_config(td, {
-                "active_profile": "cloud",
-            })
-            settings = Settings.load(path=path)
-            self.assertEqual(settings.active_profile, "cloud")
+            path = self._write_config(
+                td,
+                {
+                    "active_profile": "no-such-profile",
+                    "profiles": {"local": {}, "cloud": {}},
+                },
+            )
+            self.assertEqual(Settings.load(path=path).active_profile, "no-such-profile")
+
+    def test_active_profile_non_string_falls_back_to_default(self):
+        """The one fallback that exists: a non-string reverts to ``"default"``.
+
+        ``settings.py`` guards the assignment with ``isinstance(..., str)``, so
+        ``null`` and numbers take the default. This is the boundary the old
+        mis-named test was reaching for.
+        """
+        for value in (None, 42, ["cloud"], {"name": "cloud"}):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as td:
+                path = self._write_config(td, {"active_profile": value})
+                self.assertEqual(Settings.load(path=path).active_profile, "default")
+
+    def test_active_profile_propagates_to_a_real_switcher(self):
+        """A configured model becomes a client, and a real profile resolves.
+
+        The old version imported ``ModelSwitcher`` and then asserted
+        ``settings.active_profile`` a second time -- the import was unused and the
+        assertion duplicated ``test_active_profile_loaded_from_config``
+        (F-TEST-010).
+
+        Building it corrects a false assumption too. ``ModelSwitcher._routers``
+        holds profiles, and profiles are ``"omni"`` and ``"default"`` -- the keys
+        under ``models`` are *clients*, not profiles (``switcher.py:41-92``). So
+        ``active_profile: cloud`` is not honoured, and asserting it would be
+        wrong. What the profile does propagate is this: the configured model is
+        loaded, and the resolved profile is one that exists.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from app.models.switcher import ModelSwitcher
+
+        config = MagicMock()
+        config.backend = "openrouter"
+        config.model_name = "meta-llama/llama-3.3-70b-instruct"
+        config.role = "general"
+
+        settings = MagicMock()
+        settings.models = {"cloud": config}
+        settings.active_profile = "cloud"
+
+        with patch("app.models.switcher.create_client") as create_client:
+            client = MagicMock()
+            client.model_name = "meta-llama/llama-3.3-70b-instruct"
+            client.generate = MagicMock()
+            create_client.return_value = client
+            switcher = ModelSwitcher(settings)
+
+        # The configured model was loaded under its own key.
+        self.assertIn("cloud", switcher._clients)
+        # The resolved profile is real, and the accessor returns it.
+        self.assertTrue(switcher.active_profile)
+        self.assertIn(switcher.active_profile, switcher._routers)
+
+    def test_switcher_falls_back_when_the_requested_profile_is_absent(self):
+        """A requested profile that was never built is not honoured.
+
+        This is the fallback the old ``..._invalid_falls_back`` name claimed but
+        never exercised. It lives in ``ModelSwitcher``, not in ``Settings.load``.
+
+        Two models are configured on purpose. With only one router built, the
+        ``omni`` branch and the final ``elif self._routers`` branch are equivalent
+        and removing either is invisible -- verified. A local plus a cloud model
+        builds both ``omni`` and ``default``, and ``_routers`` is inserted omni
+        first (``switcher.py:74`` before ``:80``), so the resolver must reach the
+        ``"default"`` branch rather than fall through to ``next(iter(...))``. That
+        makes the local-first preference observable.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from app.models.switcher import ModelSwitcher
+
+        cloud = MagicMock()
+        cloud.backend = "openrouter"
+        cloud.name = "cloud-model"
+        cloud.model_name = "some/cloud-model"
+        cloud.role = "general"
+
+        local = MagicMock()
+        local.backend = "ollama"
+        local.name = "llama3.1:8b"
+        local.model_name = "llama3.1:8b"
+        local.role = "general"
+
+        settings = MagicMock()
+        settings.models = {"cloud": cloud, "local": local}
+        settings.active_profile = "no-such-profile"
+
+        def _fake_client(cfg):
+            client = MagicMock()
+            client.model_name = cfg.model_name
+            client.role = cfg.role
+            client.generate = MagicMock()
+            return client
+
+        with patch("app.models.switcher.create_client", side_effect=_fake_client):
+            switcher = ModelSwitcher(settings)
+
+        # A wrong profile is not honoured...
+        self.assertNotEqual(switcher.active_profile, "no-such-profile")
+        # ...and the chain prefers the local "default" over "omni".
+        self.assertEqual(switcher.active_profile, "default")
 
 
 # ============================================================================
@@ -220,8 +335,6 @@ class TestActiveProfile(unittest.TestCase):
 #   The doc agent emits e.g. several git_show calls in one turn (same name,
 #   different args). The parser must return ALL of them, not collapse to one.
 # ============================================================================
-
-from app.tools.git_tools import GIT_TOOLS
 
 
 class TestParserNoNameDedup(unittest.TestCase):
@@ -239,8 +352,7 @@ class TestParserNoNameDedup(unittest.TestCase):
 
     def test_repeated_same_name_hybrid_calls_all_parsed(self):
         text = "\n".join(
-            f'<tool_call>git_show({json.dumps({"ref": f"h{i}"})})</tool_call>'
-            for i in range(4)
+            f'<tool_call>git_show({json.dumps({"ref": f"h{i}"})})</tool_call>' for i in range(4)
         )
         self.assertEqual(len(self.ex.parse(text)), 4)
 
@@ -249,15 +361,19 @@ class TestParserNoNameDedup(unittest.TestCase):
         # Use a deterministic, side-effect-free tool so the assertion is about
         # execution, not about git ref validity.
         executed = []
+
         def recorder(**kwargs):
             executed.append(kwargs)
             return "ok"
-        self.reg.register(ToolDefinition(
-            name="recorder",
-            description="test recorder",
-            parameters={"type": "object", "properties": {}},
-            handler=recorder,
-        ))
+
+        self.reg.register(
+            ToolDefinition(
+                name="recorder",
+                description="test recorder",
+                parameters={"type": "object", "properties": {}},
+                handler=recorder,
+            )
+        )
         text = "\n".join(make_call("recorder", {"i": i}) for i in range(3))
         for call in self.ex.parse(text):
             result = self.ex.run(call)

@@ -1,4 +1,5 @@
 """Tests for the sub-agent runner (OpenCode workers, mocked subprocess)."""
+
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -19,14 +20,16 @@ def _event(kind, **extra):
     return json.dumps(base)
 
 
-SAMPLE_STREAM = "\n".join([
-    _event("step_start"),
-    _event("text", part={"type": "text", "text": "done thing"}),
-    _event(
-        "step_finish",
-        part={"tokens": {"total": 10}, "cost": 0.01},
-    ),
-])
+SAMPLE_STREAM = "\n".join(
+    [
+        _event("step_start"),
+        _event("text", part={"type": "text", "text": "done thing"}),
+        _event(
+            "step_finish",
+            part={"tokens": {"total": 10}, "cost": 0.01},
+        ),
+    ]
+)
 
 
 class TestParseEvents:
@@ -67,6 +70,26 @@ class TestWorkdirPolicy:
 
 
 class TestSpawn:
+    """Spawn tests for stream parsing and command construction.
+
+    These patch `asyncio.create_subprocess_exec`, so no process actually runs --
+    but `app.tools.subagent_tools` resolves `OPENCODE_BIN` with `shutil.which` at
+    MODULE IMPORT, so on a machine without the `opencode` CLI the guard raises
+    before the patched call is reached and every test here fails. That made these
+    tests pass on the developer's machine (which has opencode) and fail on CI
+    (which does not), for a reason unrelated to what they assert.
+
+    `_fake_binary` supplies the path the guard looks for. Binary DISCOVERY is a
+    separate concern and is covered by its own test.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _fake_binary(self, monkeypatch, tmp_path):
+        fake = tmp_path / "opencode"
+        fake.write_text("#!/bin/sh\n")
+        fake.chmod(0o755)
+        monkeypatch.setattr("app.tools.subagent_tools.OPENCODE_BIN", str(fake))
+
     def _proc(self, out, returncode=0):
         proc = AsyncMock()
         proc.communicate = AsyncMock(return_value=(out.encode(), b""))
@@ -74,6 +97,13 @@ class TestSpawn:
         proc.wait = AsyncMock()
         proc.kill = MagicMock()
         return proc
+
+    @pytest.mark.asyncio
+    async def test_missing_binary_raises_a_named_error(self, monkeypatch):
+        """The guard the fixture bypasses, asserted directly."""
+        monkeypatch.setattr("app.tools.subagent_tools.OPENCODE_BIN", "")
+        with pytest.raises(RuntimeError, match="opencode binary not found"):
+            await spawn_subagent("hi", workdir="/tmp")
 
     @pytest.mark.asyncio
     async def test_agent_allowlist(self):
@@ -136,9 +166,10 @@ class TestSpawnWorkerBridge:
     @pytest.mark.asyncio
     async def test_hermes_backend(self):
         proc = self._proc("HERMES-OK")
-        with patch(
-            "app.tools.subagent_tools.HERMES_BIN", "/usr/bin/hermes", create=True
-        ), patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
+        with (
+            patch("app.tools.subagent_tools.HERMES_BIN", "/usr/bin/hermes", create=True),
+            patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)),
+        ):
             out = json.loads(await spawn_worker("hi", backend="hermes", workdir="/tmp"))
         assert out["status"] == "ok"
         assert out["summary"] == "HERMES-OK"
@@ -150,8 +181,9 @@ class TestSpawnWorkerBridge:
 
     @pytest.mark.asyncio
     async def test_deepseek_missing_command(self):
-        with patch("app.tools.subagent_tools.DSH_CMD", "", create=True), pytest.raises(
-            RuntimeError, match="dsh command not configured"
+        with (
+            patch("app.tools.subagent_tools.DSH_CMD", "", create=True),
+            pytest.raises(RuntimeError, match="dsh command not configured"),
         ):
             await spawn_worker("hi", backend="deepseek", workdir="/tmp")
 
@@ -181,9 +213,10 @@ class TestSpawnWorkerBridge:
         proc.communicate = AsyncMock(side_effect=TimeoutError())
         proc.wait = AsyncMock()
         proc.kill = MagicMock()
-        with patch(
-            "app.tools.subagent_tools.HERMES_BIN", "/usr/bin/hermes", create=True
-        ), patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
+        with (
+            patch("app.tools.subagent_tools.HERMES_BIN", "/usr/bin/hermes", create=True),
+            patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)),
+        ):
             out = json.loads(
                 await spawn_worker("hang", backend="hermes", workdir="/tmp", timeout_s=1)
             )
