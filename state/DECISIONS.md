@@ -188,3 +188,84 @@ an honest dirty one.
 **Negative**
 - The bootstrap commit and the CI/CD commit are temporarily interleaved on one
   branch. They are committed separately, in that order, to keep the history legible.
+
+---
+
+## ADR-007 — The signature stage verifies only the commits a push introduces
+
+**Date**: 2026-10-21
+**Author**: HERM (session `20261021-0430-HERM`)
+**Status**: Accepted
+
+### Context
+
+`githooks/pre-push` Stage 1 required a verifiable signature on every commit in
+the range it gates. For an existing branch that range is `remote_sha..local_sha`,
+so as soon as a PR branch merged `main` into itself, every commit `main` had
+gained since the branch was cut entered the range — including GitHub's own.
+
+GitHub signs the commits *it* creates (Dependabot bumps, squash-merges through
+the API) with GitHub's **PGP** key. This repository signs with `gpg.format=ssh`
+and verifies against `gpg.ssh.allowedsignersfile`, so it holds no PGP keyring
+able to check those signatures. `%G?` therefore answers `E` — *cannot check* —
+not the `G`/`U` the hook requires:
+
+```
+git log -1 --format='%G?' 0349071   ->  G   (an SSH-signed commit of ours)
+git log -1 --format='%G?' 4cf9f5a   ->  E   (a GitHub PGP-signed Dependabot commit)
+```
+
+The hook reported that as *"commit … is not signed"*. That message is wrong: the
+commit is signed, in a format the local check cannot read. The consequence was
+not a warning but a dead end — the branch could not be merged forward (push
+refused) and could not be rebased into a linear shape either, because Stage 0b
+refuses the force-push that would have done it. Two branches had to be rebuilt
+from scratch during this session (#168 -> #179, and #167 would have hit the same
+wall).
+
+### Decision
+
+Stage 1 gates `rev-list <range> --not --remotes=origin`. A commit already
+published on the remote is not re-verified. The check applies to the commits a
+push actually introduces.
+
+The reasoning is that re-verifying a published commit cannot prevent anything: it
+is already on the remote, and the remote accepted it when it landed — either
+carrying a signature this same rule required, or created by GitHub itself, which
+the ruleset accepts.
+
+### Consequences
+
+**Positive**
+- A PR branch that merges `main` is pushable again, so a conflicted branch has a
+  forward path that is not "rebuild it from scratch".
+- The check is scoped rather than weakened: every commit the push introduces is
+  still verified exactly as before.
+- No third-party key material enters the trust store.
+
+**Negative**
+- A commit reachable from *any* `origin/*` remote-tracking ref is now trusted, not
+  only those on `origin/main`. This is deliberate — "already published" is the
+  property that matters, not which branch published it — but it does mean a commit
+  pushed to a throwaway branch on origin is not re-verified on a later push.
+- The exclusion depends on remote-tracking refs being present. A stale or absent
+  `refs/remotes/origin/*` makes the filter match nothing, so more commits are
+  checked than necessary. That direction fails closed, which is the right one.
+
+### Rejected alternatives
+
+| Alternative | Why not |
+|---|---|
+| Accept `%G? = E` outright | `E` means *cannot check*, which is exactly what a genuinely unverifiable local commit also returns. Trusting it would disable the check rather than scope it. |
+| Install GitHub's PGP public key in a local keyring | Puts a third party's key into the trust store of a repository whose entire purpose is verifiable provenance. The owner rejected this explicitly. |
+| Rebase every PR branch and never merge `main` | Treats the symptom. The hook would still refuse the push for anyone who did merge, and there is no way to know that without reading this record. |
+
+### Verification
+
+`tests/unit/test_prepush_verifies_only_new_commits.py` asserts both directions
+against a real repository built to the shape that broke: a branch whose remote tip
+predates a `main` that advanced, then merged. It asserts the published commit is
+excluded **and** that the new commit is not — the second is the negative control,
+because a change that merely stopped the hook complaining would be
+indistinguishable from deleting the check. Mutation-verified: reverting the hook
+change fails the test; restoring it passes.
