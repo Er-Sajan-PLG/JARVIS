@@ -94,6 +94,8 @@ decision would hide that:
 |---|---|---|
 | [ADR-020](adr/ADR-020-telegram-is-long-poll-not-a-webhook.md) | Telegram is long-poll, not a webhook | RISK-018 |
 | [ADR-021](adr/ADR-021-whatsapp-is-send-only.md) | WhatsApp is send-only; no inbound webhook | RISK-019 |
+| [ADR-022](adr/ADR-022-voice-ingress-is-bounded-local-stt.md) | Voice ingress is bounded local STT plus Edge TTS | RISK-020 |
+| [ADR-023](adr/ADR-023-push-is-vapid-with-a-public-key-by-design.md) | Push is VAPID; the public key is exposed by design | RISK-021 |
 
 ---
 

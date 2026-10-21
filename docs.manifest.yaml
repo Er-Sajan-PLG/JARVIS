@@ -430,6 +430,18 @@ sections:
     staleness: snapshot
     owner: governance
     notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-022-voice-ingress-is-bounded-local-stt.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-023-push-is-vapid-with-a-public-key-by-design.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
 
   # docs/archive/, docs/migrations/, docs/timelines/ — frozen by policy.
   - doc: docs/archive/API_SIGNATURE_HISTORY.md
