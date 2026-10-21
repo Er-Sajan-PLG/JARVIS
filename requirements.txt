@@ -146,7 +146,7 @@ ormsgpack==1.12.2
 overrides==7.7.0
 packageurl-python==0.17.6
 packaging==26.3
-pillow==12.3.0
+pillow==13.0.0
 pip_api==0.0.35
 pip_audit==2.10.1
 pip-licenses==5.5.5
