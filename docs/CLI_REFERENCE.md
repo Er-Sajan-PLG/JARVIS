@@ -52,6 +52,7 @@ _Regenerated from `argparse` declarations in `scripts/*.py`. Run `<script> --hel
 | `--init-signing` | create the local cosign keypair |
 | `--keyless` | sign provenance keylessly via the ambient OIDC token (Fulcio + Rekor) instead of the local cosign ke |
 | `--require-tools` | a BLOCKING gate whose scanner is absent fails instead of skipping; used by CI so a missing tool cann |
+| `--context` | run only the gates belonging to this context (repeatable). Names come from GATE_CONTEXTS; used by th |
 
 ## `scripts/deliver_brief.py`
 

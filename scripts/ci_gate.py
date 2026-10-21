@@ -1832,6 +1832,29 @@ def _init_signing() -> int:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+# The gate's own grouping. Every Check already carries one of these strings as
+# its `context`, so `--context X` selects exactly the checks that belong to X and
+# a split CI job cannot disagree with a whole-gate run about what green means.
+# A name here with no matching `_selected(...)` guard in run_gates is a no-op,
+# which is why tests/unit/test_gate_context_split.py asserts every context
+# selects at least one gate.
+GATE_CONTEXTS: tuple[str, ...] = (
+    "Lint & Typecheck",
+    "SAST",
+    "Tests",
+    "Security Scan",
+    "Supply Chain",
+    "Virtual Board Governance",
+    "Build",
+    "Conventional Commits",
+)
+
+
+def _selected(context: str, only: set[str] | None) -> bool:
+    """True when this gate should run. ``only=None`` means the whole gate."""
+    return only is None or context in only
+
+
 def run_gates(
     sha: str,
     base: str,
@@ -1840,6 +1863,7 @@ def run_gates(
     with_docker: bool = False,
     with_mutation: bool = False,
     with_evals: bool = False,
+    only: set[str] | None = None,
 ) -> GateReport:
     started = time.time()
     report = GateReport(
@@ -1870,39 +1894,49 @@ def run_gates(
         report.merge_base = _resolve_merge_base(worktree, base)
 
         # ── static analysis & types ──────────────────────────────────────────
-        report.checks.append(gate_ruff_ratchet(worktree, report.merge_base))
-        report.checks.append(gate_semgrep(worktree, report.merge_base))
-        report.checks.append(gate_mypy(worktree))
+        if _selected("Lint & Typecheck", only):
+            report.checks.append(gate_ruff_ratchet(worktree, report.merge_base))
+            report.checks.append(gate_mypy(worktree))
+        if _selected("SAST", only):
+            report.checks.append(gate_semgrep(worktree, report.merge_base))
         # ── tests ────────────────────────────────────────────────────────────
-        report.checks.append(gate_pytest(worktree))
-        report.checks.append(gate_contract(worktree))
+        if _selected("Tests", only):
+            report.checks.append(gate_pytest(worktree))
+            report.checks.append(gate_contract(worktree))
         # ── secrets & application security ───────────────────────────────────
-        report.checks.append(gate_gitleaks(worktree))
-        report.checks.append(gate_trufflehog(worktree))
-        report.checks.append(gate_bandit(worktree))
+        if _selected("Security Scan", only):
+            report.checks.append(gate_gitleaks(worktree))
+            report.checks.append(gate_trufflehog(worktree))
+            report.checks.append(gate_bandit(worktree))
+            report.checks.append(gate_pip_audit(worktree))
         # ── supply chain (SCA / SBOM / licences / provenance) ────────────────
-        report.checks.append(gate_pip_audit(worktree))
-        report.checks.append(gate_trivy_fs(worktree))
-        report.checks.append(gate_osv(worktree))
-        report.checks.append(gate_licenses(worktree))
-        report.checks.append(gate_sbom(worktree))
-        report.checks.append(gate_provenance(worktree, sha))
+        if _selected("Supply Chain", only):
+            report.checks.append(gate_trivy_fs(worktree))
+            report.checks.append(gate_osv(worktree))
+            report.checks.append(gate_licenses(worktree))
+            report.checks.append(gate_sbom(worktree))
+            report.checks.append(gate_provenance(worktree, sha))
+            report.checks.append(gate_action_pinning(worktree))
+            report.checks.append(gate_checkov(worktree))
         # ── governance & build ──────────────────────────────────────────────
-        report.checks.append(gate_board(worktree))
-        report.checks.append(gate_docs(worktree))
-        report.checks.append(gate_doc_types(worktree))
-        report.checks.append(gate_doc_coverage(worktree))
-        report.checks.append(gate_docs_layer2(worktree))
-        # Persist facts from pytest/coverage results BEFORE gate_doc_facts so it can reuse them.
-        _persist_doc_facts(report)
-        report.checks.append(gate_doc_facts(worktree, report))
-        report.checks.append(gate_compileall(worktree))
-        report.checks.append(gate_action_pinning(worktree))
-        report.checks.append(gate_hadolint(worktree))
-        report.checks.append(gate_checkov(worktree))
-        report.checks.append(gate_commitlint(worktree, report.merge_base))
+        if _selected("Virtual Board Governance", only):
+            report.checks.append(gate_board(worktree))
+            report.checks.append(gate_docs(worktree))
+            report.checks.append(gate_doc_types(worktree))
+            report.checks.append(gate_doc_coverage(worktree))
+            report.checks.append(gate_docs_layer2(worktree))
+            # Persist facts from pytest/coverage results BEFORE gate_doc_facts so
+            # it can reuse them. In a split run the Tests job is elsewhere, so
+            # report.facts is empty and gate_doc_facts falls back to --run-tests.
+            _persist_doc_facts(report)
+            report.checks.append(gate_doc_facts(worktree, report))
+        if _selected("Build", only):
+            report.checks.append(gate_compileall(worktree))
+            report.checks.append(gate_hadolint(worktree))
+        if _selected("Conventional Commits", only):
+            report.checks.append(gate_commitlint(worktree, report.merge_base))
         # ── opt-in (heavy / ratcheted) ───────────────────────────────────────
-        if with_coverage:
+        if with_coverage and _selected("Tests", only):
             report.checks.append(gate_coverage(worktree))
         if with_docker:
             report.checks.append(gate_docker_build(worktree))
@@ -2007,6 +2041,17 @@ def main() -> int:
         "used by CI so a missing tool cannot turn a required check green",
     )
 
+    parser.add_argument(
+        "--context",
+        action="append",
+        default=None,
+        metavar="NAME",
+        help="run only the gates belonging to this context (repeatable). "
+        "Names come from GATE_CONTEXTS; used by the split ci-gate jobs so each "
+        "job runs the SAME gate code scoped to one domain. Omit for the whole "
+        "gate, which is what a local run does.",
+    )
+
     args = parser.parse_args()
 
     if args.init_signing:
@@ -2014,6 +2059,17 @@ def main() -> int:
 
     if not args.sha:
         parser.error("--sha is required (unless --init-signing is used)")
+
+    # A typo in --context must be loud. Silently selecting nothing would make
+    # `concluded` report "failure" (no checks), which looks like a red build
+    # rather than a misconfigured job — and a job name typo in the workflow is
+    # exactly the mistake this flag invites.
+    only: set[str] | None = None
+    if args.context:
+        unknown = [c for c in args.context if c not in GATE_CONTEXTS]
+        if unknown:
+            parser.error(f"unknown --context {unknown!r}; known contexts: {list(GATE_CONTEXTS)}")
+        only = set(args.context)
 
     if not PYTHON.exists():
         print(f"FATAL: {PYTHON} missing", file=sys.stderr)
@@ -2033,6 +2089,7 @@ def main() -> int:
         with_docker=args.with_docker,
         with_mutation=args.with_mutation,
         with_evals=args.with_evals,
+        only=only,
     )
 
     payload = asdict(report)
@@ -2040,7 +2097,15 @@ def main() -> int:
     text = json.dumps(payload, indent=2)
 
     if args.out:
-        Path(args.out).write_text(text)
+        # Create the parent directory. Until the gate was split into per-context
+        # jobs this was never needed: every run included gate_sbom, which writes
+        # into artifacts/ and so created it as a side effect. A context without
+        # gate_sbom (Build, SAST, Conventional Commits, ...) left the directory
+        # absent and --out died with FileNotFoundError *after* the gates had
+        # already run, turning a green gate into a red job.
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(text)
     if args.json:
         print(text)
     else:

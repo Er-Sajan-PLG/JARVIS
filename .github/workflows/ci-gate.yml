@@ -1,23 +1,52 @@
 name: "ci-gate"
 
-# The single required status check. It runs scripts/ci_gate.py -- the SAME gate a
-# developer runs locally -- so there is exactly one definition of "green" and the
-# two runners cannot drift apart.
+# One job per gate CONTEXT, plus a single aggregating required check.
 #
-# This workflow replaced a six-job ci.yml that had been disabled since 2026-09-10
-# because Actions was billing-blocked on a private repo. That workflow was also
-# weaker than the local gate: bandit and pip-audit ended in `|| true` (always
-# passing), mypy was `continue-on-error: true` (never blocking), and it measured
-# line coverage only. Making those checks required would have enforced the weaker
-# set, which is worse than enforcing nothing because it looks enforced.
+# Why this shape
+# --------------
+# `ci_gate.py` remains the ONE definition of "green" in this repository: every job
+# below runs the SAME script, scoped with `--context <name>`. A job cannot
+# disagree with a local `scripts/ci_gate.py` run, because it is the same code
+# reading the same `Check.context` values that the single-job version used.
 #
-# Now that the repository is public, Actions minutes are unlimited and branch
-# protection/rulesets are available for the first time (they returned HTTP 403
-# while it was private -- RISK-011, RISK-012).
+# Before this split there was one job running all 29 gates. That was correct but
+# opaque -- a red check said only "ci-gate failed", and the reviewer had to open a
+# log to learn whether it was a lint error, a CVE or a stale document. It also ran
+# everything serially, and granted `id-token: write` to every step, including the
+# third-party scanners.
 #
-# To restore the old six-job workflow instead, see git history for ci.yml. Do not
-# run both as required checks: two gates with different definitions of green is
-# the failure this file exists to remove.
+# THE TRAP, stated once and load-bearing:
+#
+#   A required status check that NEVER REPORTS blocks the branch forever.
+#
+# That is not hypothetical here. `scripts/setup_branch_protection.py` once
+# required six contexts from a workflow that had never run, which would have made
+# `main` permanently unmergeable. Two rules follow, and both are enforced below:
+#
+#   1. The per-context jobs have NO `needs:`. A job with `needs:` is SKIPPED when
+#      its dependency fails, and a skipped job's check is never reported.
+#   2. Only `ci-gate` (the aggregator) is registered as a required check in the
+#      ruleset. It carries `if: always()` so it reports even when a job above it
+#      fails. Registering the leaf jobs as required is safe too, precisely because
+#      of rule 1 -- but it is not necessary, since the aggregator gates on all of
+#      them. Prefer the aggregator: fewer required contexts is fewer ways to
+#      deadlock the branch.
+#
+# To inspect the current required checks:
+#   gh api repos/Er-Sajan-PLG/JARVIS/rulesets/24340175 --jq '.rules'
+#
+# To run one domain locally, exactly as CI does:
+#   .venv/bin/python scripts/ci_gate.py --sha HEAD --context "Supply Chain"
+#
+# To restore the previous single-job behaviour: keep only `ci-gate`, drop its
+# `needs:`, and give it the `--context`-less invocation. It is then the whole
+# gate, which is what it was before.
+#
+# Known follow-up: every job runs `install_ci_tools.sh`, which installs all
+# scanners. That keeps ONE definition of "the tools the gate needs" (and
+# `--require-tools` keeps it honest per job), at the cost of installing tools a
+# given context does not use. The jobs run in parallel, so wall-clock is
+# unaffected; a per-context filter is an optimisation, not a correctness fix.
 
 on:
   pull_request:
@@ -30,77 +59,359 @@ concurrency:
   group: ci-gate-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege at the top. `id-token: write` is deliberately NOT here: it is
+# granted only to the job that signs provenance, so a compromised scanner in any
+# other job cannot mint an OIDC identity.
 permissions:
   contents: read
   pull-requests: read
   security-events: write
-  # Keyless provenance: cosign exchanges this OIDC token for a Fulcio certificate
-  # and writes a Rekor transparency-log entry. Without it, gate_provenance cannot
-  # sign and can only report a skip -- making no claim at all.
-  id-token: write
 
 jobs:
-  gate:
-    name: "ci-gate"
+  # ── Lint & Typecheck ──────────────────────────────────────────────────────
+  lint-typecheck:
+    name: "Lint & Typecheck"
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # The ruff/semgrep/commitlint ratchets diff against the merge base, so
           # the full history is required -- a shallow clone silently empties them.
           fetch-depth: 0
+      - uses: ./.github/actions/setup-env
+        with:
+          python-version: "3.11"
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
+      - name: Run the Lint & Typecheck gates
+        run: |
+          .venv/bin/python scripts/ci_gate.py \
+            --sha "${{ github.sha }}" \
+            --require-tools \
+            --context "Lint & Typecheck" \
+            --out artifacts/ci-gate-lint-typecheck.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ci-gate-lint-typecheck
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
 
+  # ── SAST ──────────────────────────────────────────────────────────────────
+  sast:
+    name: "SAST"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
+        with:
+          python-version: "3.11"
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
+      - name: Run the SAST gate
+        run: |
+          .venv/bin/python scripts/ci_gate.py \
+            --sha "${{ github.sha }}" \
+            --require-tools \
+            --context "SAST" \
+            --out artifacts/ci-gate-sast.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ci-gate-sast
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ── Tests (matrix) ────────────────────────────────────────────────────────
+  # The only job that needs the OCR binaries: tests/unit/test_web_upload_extraction.py
+  # rasterises a scanned PDF with PyMuPDF and OCRs it with the `tesseract` BINARY.
+  # On a runner without it those tests fail with "a scanned PDF was not OCR'd",
+  # which reads like a logic bug but is a missing package. requirements.txt cannot
+  # express a system dependency, so it is installed here.
+  tests:
+    name: "Tests (py${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
       - name: Install system dependencies
-        # The suite exercises the real OCR and PDF paths, not mocks:
-        # tests/unit/test_web_upload_extraction.py rasterises a scanned PDF with
-        # PyMuPDF and OCRs it with the `tesseract` BINARY. On a runner without it
-        # those tests fail with "a scanned PDF was not OCR'd", which reads like a
-        # logic bug but is a missing package. requirements.txt cannot express a
-        # system dependency, so it is installed here.
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends tesseract-ocr poppler-utils
           tesseract --version | head -1
+      - uses: ./.github/actions/setup-env
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
+      - name: Run the Tests gates (suite + contract + coverage)
+        run: |
+          .venv/bin/python scripts/ci_gate.py \
+            --sha "${{ github.sha }}" \
+            --require-tools \
+            --with-coverage \
+            --context "Tests" \
+            --out artifacts/ci-gate-tests.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ci-gate-tests-py${{ matrix.python-version }}
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
 
-      - name: Set up Python environment
-        uses: ./.github/actions/setup-env
+  # ── Security Scan ─────────────────────────────────────────────────────────
+  security-scan:
+    name: "Security Scan"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
         with:
           python-version: "3.11"
-
       - name: Install gate scanners
-        # One installer, used locally and here. It exits non-zero if a blocking
-        # scanner is missing, so a partial install fails loudly instead of
-        # silently degrading the gate.
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: scripts/install_ci_tools.sh
+      - name: Run the Security Scan gates
+        run: |
+          .venv/bin/python scripts/ci_gate.py \
+            --sha "${{ github.sha }}" \
+            --require-tools \
+            --context "Security Scan" \
+            --out artifacts/ci-gate-security-scan.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ci-gate-security-scan
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
 
-      - name: Run the gate
-        # --require-tools: a missing BLOCKING scanner is a failure, not a skip.
-        #   Without it, a tool that failed to install reports "skip", and since
-        #   blocking_failures only counts "fail", the required check would go
-        #   green while enforcing nothing.
-        # --keyless: sign provenance with this job's OIDC identity rather than a
-        #   local keypair, which cannot exist on a runner.
-        # --with-coverage: add the coverage gate (currently non-blocking).
-        # The gate runs the FULL suite: pytest tests/ (~2128 tests).
+  # ── Supply Chain ──────────────────────────────────────────────────────────
+  # The ONLY job with `id-token: write`. cosign exchanges that OIDC token for a
+  # Fulcio certificate and writes a Rekor transparency-log entry; without it
+  # gate_provenance can only report a skip, which makes no claim at all. Scoping
+  # it here means no other job's third-party scanner can mint an identity.
+  supply-chain:
+    name: "Supply Chain"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
+        with:
+          python-version: "3.11"
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
+      - name: Run the Supply Chain gates
         run: |
           .venv/bin/python scripts/ci_gate.py \
             --sha "${{ github.sha }}" \
             --require-tools \
             --keyless \
-            --with-coverage \
-            --out artifacts/ci-gate.json
+            --context "Supply Chain" \
+            --out artifacts/ci-gate-supply-chain.json
         env:
           JARVIS_COSIGN_KEYLESS: "1"
           # `osv-scanner` and others read this; present so the gate can attribute
           # a rate-limited scan rather than failing opaquely.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload gate report
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ci-gate-report
+          name: ci-gate-supply-chain
           path: artifacts/
           if-no-files-found: ignore
           retention-days: 14
+
+  # ── Virtual Board Governance ──────────────────────────────────────────────
+  governance:
+    name: "Virtual Board Governance"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
+        with:
+          python-version: "3.11"
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
+      - name: Run the governance and documentation gates
+        run: |
+          .venv/bin/python scripts/ci_gate.py \
+            --sha "${{ github.sha }}" \
+            --require-tools \
+            --context "Virtual Board Governance" \
+            --out artifacts/ci-gate-governance.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ci-gate-governance
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ── Build ─────────────────────────────────────────────────────────────────
+  build:
+    name: "Build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
+        with:
+          python-version: "3.11"
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
+      - name: Run the Build gates
+        run: |
+          .venv/bin/python scripts/ci_gate.py \
+            --sha "${{ github.sha }}" \
+            --require-tools \
+            --context "Build" \
+            --out artifacts/ci-gate-build.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ci-gate-build
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ── Conventional Commits ──────────────────────────────────────────────────
+  commitlint:
+    name: "Conventional Commits"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
+        with:
+          python-version: "3.11"
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
+      - name: Run the Conventional Commits gate
+        run: |
+          .venv/bin/python scripts/ci_gate.py \
+            --sha "${{ github.sha }}" \
+            --require-tools \
+            --context "Conventional Commits" \
+            --out artifacts/ci-gate-commitlint.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ci-gate-commitlint
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ── The required check ────────────────────────────────────────────────────
+  # `if: always()` is what makes this safe to REQUIRE: it reports even when a job
+  # above it failed or was cancelled, so the required context can never go
+  # missing. Without it, a failure above would SKIP this job and leave the PR
+  # blocked with no check to satisfy -- the exact failure mode that made the old
+  # six-context ruleset unmergeable.
+  ci-gate:
+    name: "ci-gate"
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - lint-typecheck
+      - sast
+      - tests
+      - security-scan
+      - supply-chain
+      - governance
+      - build
+      - commitlint
+    steps:
+      - name: Require every gate job to have succeeded
+        run: |
+          echo '${{ toJSON(needs) }}' | jq -r 'to_entries[] | "  \(.key): \(.value.result)"'
+          failed=$(echo '${{ toJSON(needs) }}' | jq -r '[to_entries[] | select(.value.result != "success")] | length')
+          if [ "$failed" != "0" ]; then
+            echo "::error::$failed gate job(s) did not succeed — see the individual checks above"
+            exit 1
+          fi
+          echo "all gate jobs succeeded"
