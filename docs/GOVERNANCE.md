@@ -19,8 +19,8 @@ Inspired by [Universal_Software_Auditor](https://github.com/Er-Sajan-PLG/Univers
 
 **Inline value** (HTML comments, survive Prettier, render invisibly):
 ```markdown
-Tests: <!--fact:test_count-->2163<!--/fact-->
-Coverage: <!--fact:coverage-->87<!--/fact-->
+Tests: <!--fact:test_count-->2178<!--/fact-->
+Coverage: <!--fact:coverage-->88<!--/fact-->
 Gates: <!--fact:gate_count-->29<!--/fact-->
 ```
 
