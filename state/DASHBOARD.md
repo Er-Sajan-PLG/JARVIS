@@ -1,7 +1,7 @@
 # MACP DASHBOARD — JARVIS
 
-**Last Reconciled**: 2026-10-01T16:45Z
-**Reconciled by**: MACP (final reconciliation at session shutdown)
+**Last Reconciled**: 2026-10-21T00:55Z
+**Reconciled by**: HERM (session `20261021-0430-HERM` — merge-blocker recovery)
 **Freshness rule (P5)**: this stamp is freshness *evidence* only. It is valid only
 when nothing has been committed since. Check with
 `git log --oneline -1 --since="2026-10-01T05:00Z"` before trusting any count below.
@@ -69,14 +69,14 @@ F-TEST-010 assertion fixes.
 **None.** The `MACP` session ended at 2026-10-01T16:45Z with outcome
 **PARTIAL**, and released all file claims. `REGISTRY.md` carries the detail.
 
-It is `PARTIAL` rather than `COMPLETED` for one reason: **B-007** blocks every
-merge to `main`, including two open PRs from this work and 12 Dependabot security
-PRs. Per amendment P2, an open blocker forfeits the right to call a session
-complete.
+It was `PARTIAL` rather than `COMPLETED` because **B-007** was recorded as
+blocking every merge. That diagnosis was wrong — see `BLOCKERS.md` B-007. The
+signature rule did not apply to the Dependabot PRs at all; the actual blocker was
+a red `ci-gate`, cleared in #164, after which B-007 itself was cleared too.
 
-**Unmerged work lives on `fix/ruleset-helper-payload-v2` (PR #147)**:
-`scripts/setup_branch_protection.py` and the `state/` documents below. If you need
-either, go through that PR — do not edit `main` and expect the state to match.
+**Both of that session's unmerged artefacts are now on `main`:** the ruleset
+helper fix landed as #147, and the state documents in this directory landed with
+it. Nothing from the bootstrap session remains unmerged.
 
 ## 3a. Enforcement is LIVE
 
@@ -104,7 +104,7 @@ disagree. Verified green on PR #142: 25 checks, 0 blocking failures.
 
 | # | Severity | Alert | Where |
 |---|---|---|---|
-| 0 | **HIGH — NEEDS HUMAN** | **All merges to `main` are frozen.** Ruleset requires signed commits; GitHub reports `unknown_key` because the SSH key is registered for authentication, not signing. One command to fix | `BLOCKERS.md` B-007 |
+| 0 | **RESOLVED** | ~~All merges to `main` are frozen~~ — B-007 cleared 2026-10-21 (signing key registered, ruleset kept). It was **not** the blocker for the Dependabot PRs: those commits verify `valid`. The real blocker was the `ci-gate` trivy findings, cleared in #164 | `BLOCKERS.md` B-007 |
 | 2 | **HIGH** | Chroma FTS5 index is corrupt — Tier 4 memory work must not start first | `BLOCKERS.md` B-002 |
 | 3 | **MEDIUM** | 8 RED-class secrets/rotations outstanding (Telegram token, Google key, n8n webhook, `N8N_LISTEN_ADDRESS`, …) | `BLOCKERS.md` B-003 |
 | 4 | **MEDIUM** | `mypy --strict` ceiling 504 (verified 2026-10-01); no burn-down plan scheduled | `DEBT.md` D-001 |
