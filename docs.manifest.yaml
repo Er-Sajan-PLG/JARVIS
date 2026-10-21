@@ -418,6 +418,18 @@ sections:
     staleness: snapshot
     owner: governance
     notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-020-telegram-is-long-poll-not-a-webhook.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-021-whatsapp-is-send-only.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
 
   # docs/archive/, docs/migrations/, docs/timelines/ — frozen by policy.
   - doc: docs/archive/API_SIGNATURE_HISTORY.md
