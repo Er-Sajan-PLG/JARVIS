@@ -180,7 +180,7 @@ python-dateutil==2.9.0.post0
 python-discovery==1.6.0
 python-dotenv==1.2.3
 python-multipart==0.0.32
-py-vapid==1.9.4
+py-vapid==1.9.6
 pywebpush==2.5.0
 PyYAML==6.0.3
 referencing==0.37.0
