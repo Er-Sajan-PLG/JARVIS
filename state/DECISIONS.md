@@ -338,3 +338,119 @@ excluded **and** that the new commit is not — the second is the negative contr
 because a change that merely stopped the hook complaining would be
 indistinguishable from deleting the check. Mutation-verified: reverting the hook
 change fails the test; restoring it passes.
+
+---
+
+## ADR-008 — Only the default branch writes a fact marker line
+
+**Date**: 2026-10-21
+**Author**: HERM (session `20261021-0430-HERM`; design and implementation begun by a
+delegated worker that died on an upstream 429 and was finished and verified here)
+**Status**: Accepted
+
+### Context
+
+A fact marker value is a **function of the working tree** — `test_count` is the
+number of tests *here*, `adr_count` the number of ADRs *here*. The pre-commit hook
+ran `sync_doc_facts.py --apply/--sync` on **every** commit, so every branch
+rewrote the marker lines to its own values. The default branch advances on its
+own and rewrites the same lines. Both sides therefore changed the same lines, and
+git reported a conflict — **structurally**, not occasionally:
+
+- every PR that adds or removes a test,
+- every dependency PR (the count moves when a package is added or dropped),
+- every ADR (`adr_count`),
+- and `docs/FINAL_STATE.md` / `docs/GOVERNANCE.md` on **every** merge.
+
+Measured in one session: PR #180 went `DIRTY` for this reason alone and had to be
+rebuilt; #182 went `DIRTY` on `docs/GOVERNANCE.md` for the same reason while its
+own content was unrelated.
+
+The markers themselves are not the problem — they are what makes a stale number a
+gate failure instead of a silent lie (ADR-014). The problem is **who writes them**.
+
+### Decision
+
+**A branch must never modify a fact marker line. Only the default branch may.**
+
+Enforced at three points, all resolving the scope through one shared function
+(`doc_facts.resolve_fact_scope`), so the hook, the gate and the checkers cannot
+disagree about what "the base branch's values" means:
+
+1. **`githooks/pre-commit`** writes nothing on a non-default branch. It checks the
+   marker lines against the base (blocking) and reports values stale relative to
+   this tree (advisory — on a branch that is the expected state, because the
+   markers describe the *published* repository, not the proposal). On the default
+   branch it syncs, verifies and re-stages exactly as before.
+2. **`gate_doc_facts`** scopes its check: on the default branch the markers must
+   match reality (unchanged — the honesty property ADR-014 exists to protect); on
+   any other branch they must equal the **base branch's** values. The base is the
+   **merge base**, not the base tip, so a branch that is merely behind is not
+   treated as divergent — only a change relative to the fork point can conflict.
+3. **`.github/workflows/doc-facts-refresh.yml`** is the sanctioned writer on the
+   default branch, and the only caller of `DOC_FACTS_REFRESH=1`. Main is
+   protected and `bypass_actors` is empty, so it opens a PR rather than pushing.
+
+The scope is also **pinned into every subprocess** the gate runs
+(`DOC_FACTS_SCOPE`, `DOC_FACTS_BASE_REF`): the gate's worktree is detached and its
+`--git-common-dir` HEAD belongs to the primary checkout, so a worktree that
+re-derived the scope could reach the opposite conclusion. Pinning makes them
+agree by construction, and `DOC_FACTS_SCOPE=default` is passed explicitly on the
+default branch so a stricter scope can never be silently downgraded.
+
+### Consequences
+
+**Positive**
+
+- The conflict becomes impossible **by construction** rather than by resolution:
+  if a branch never touches those lines, merging the default branch's change to
+  them is a clean one-sided change.
+- It is also the **correct semantics**. The documents describe the published
+  repository; a branch's test count is not a fact about the project, it is a fact
+  about an unmerged proposal.
+- The published documents stay honest: the default branch is still required to be
+  accurate, and the refresh path exists to make that true.
+- One definition of the scope, so a future checker cannot quietly disagree.
+
+**Negative**
+
+- Between a merge that moves a count and the refresh PR landing, the published
+  documents are briefly stale. This is a real window, not a theoretical one.
+- A contributor who edits a marker line by hand is now refused rather than
+  silently corrected, which is a worse first experience and a better outcome.
+- The refresh path is a second workflow to maintain, and it depends on the
+  repository's auto-merge behaviour to land without a human.
+
+### Rejected alternatives
+
+- **A `.gitattributes` merge driver (`merge=ours` or a custom driver).** Rejected:
+  a driver runs **client-side**. GitHub computes mergeability itself and does not
+  run `.gitattributes` drivers, so it cannot fix the thing that was actually
+  broken — the PR showing as `DIRTY`. It would also have hidden the conflict
+  locally while leaving it on the server, which is worse than the problem.
+- **`merge=union`.** Rejected: for a changed line it emits **both** versions, so
+  the document would carry two contradictory values.
+- **Deleting the markers, or reverting to prose numbers.** Rejected: that is
+  ADR-014's entire point. The alternative is documents asserting numbers that
+  silently drift, which is the defect ADR-014 was written to end.
+- **Accepting the conflict and resolving it by hand each time.** Rejected: it
+  recurred on every test-adding PR, dependency PR and ADR, and each resolution
+  risked taking the wrong side — a manual step that is wrong once is worse than
+  no step at all.
+- **Making the markers branch-relative everywhere.** Rejected: it is the current
+  behaviour and it is the cause.
+
+### Verification
+
+- `tests/unit/test_fact_marker_merge_conflicts.py` builds the shape that broke — a
+  branch that rewrites a marker, a base that rewrites the same marker to a
+  different value, then a real `git merge` — and asserts the merge is clean.
+- `tests/unit/test_doc_facts.py::test_real_repository_has_no_doc_drift` is
+  scope-aware: on the default branch it verifies the markers against reality; on a
+  branch it verifies this tree left every base marker line unchanged, and asserts
+  that it compared a non-zero number of markers so it cannot pass by measuring
+  nothing. Forcing `DOC_FACTS_SCOPE=default` on a branch makes it fail with the
+  old drift message, which shows the two invariants are genuinely distinct.
+- `sync_doc_facts.py --check-vs-base <ref>` reports the markers compared as well as
+  the findings, because a check that compared nothing must never be reported as a
+  pass.

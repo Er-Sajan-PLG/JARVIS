@@ -378,7 +378,33 @@ def test_real_repository_has_no_doc_drift(sync_mod):
     be measured (it requires test execution, which would cause infinite
     recursion). In that case, only test_count is asserted. When run outside
     pytest (CI, pre-commit), both test_count and coverage are asserted.
+
+    WHICH invariant applies depends on who may write a marker line
+    (state/DECISIONS.md ADR-008):
+
+    - **the default branch** — the markers describe the published repository, so
+      they must match this tree's reality. This is the check below, unchanged.
+    - **any other branch** — the markers must equal the *base branch's* values,
+      i.e. this tree must leave every marker line alone. Demanding a branch's own
+      counts is what made every branch rewrite lines ``main`` had also
+      rewritten, so every PR conflicted. The base compared against is the merge
+      base, so a branch that is merely behind is not treated as divergent.
     """
+    scope = sync_mod.resolve_fact_scope()
+    if scope.frozen:
+        findings, compared = sync_mod.check_vs_base(scope.base)
+        # The guard must have teeth here too: a comparison that compared nothing
+        # is not a pass.
+        assert compared > 0, (
+            "no base marker lines were comparable, so this test verified nothing "
+            f"(base {scope.base!r}, scope {scope.scope!r})"
+        )
+        assert findings == [], (
+            f"this tree modified a fact marker line (base {scope.base}):\n"
+            + "\n".join(findings)
+        )
+        return
+
     inside_pytest = "pytest" in sys.modules
     facts = sync_mod.collect(run_tests=True)
 

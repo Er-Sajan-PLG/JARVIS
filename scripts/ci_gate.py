@@ -53,6 +53,13 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+# The doc-facts scope rule (state/DECISIONS.md ADR-008): a branch must never
+# modify a fact marker line, only the default branch may. The gate asks the
+# shared resolver rather than guessing, and passes the answer down to every
+# subprocess it runs, so the gate, the hook and the doc checkers cannot disagree
+# about what "the base branch's values" means.
+from doc_facts import FactScope, resolve_fact_scope
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VENV_BIN = REPO_ROOT / ".venv" / "bin"
 PYTHON = VENV_BIN / "python"
@@ -268,6 +275,16 @@ def _worktree_env(worktree: Path) -> dict[str, str]:
     ``python -m`` puts cwd first on sys.path, but an editable install of the
     primary repo also contributes a path hook. PYTHONPATH makes the worktree
     win unconditionally and removes ambiguity.
+
+    Deliberately does NOT pin the fact scope here. It was tried, on the theory
+    that a detached worktree would re-derive ``default``, and it is wrong for
+    two reasons. First it is unnecessary: ``doc_facts.current_branch`` already
+    reads the *primary* checkout's HEAD through ``--git-common-dir``, so a
+    subprocess in the worktree resolves the same scope the gate does. Second it
+    is harmful: the environment reaches the tests, and a test that runs the
+    pre-commit hook in a scratch repository then inherits the gate's scope
+    instead of deriving one from that repository -- which broke two tests. The
+    gate's own doc checks receive the scope explicitly; nothing else needs it.
     """
     return {"PYTHONPATH": str(worktree), "PYTHONDONTWRITEBYTECODE": "1"}
 
@@ -1603,12 +1620,31 @@ def gate_doc_coverage(worktree: Path) -> Check:
     return Check("doc_coverage", "Virtual Board Governance", True, "pass", summary[:160])
 
 
-def gate_docs_layer2(worktree: Path) -> Check:
+def _fact_scope_env(scope: FactScope, base: str) -> dict[str, str]:
+    """Pin the doc-facts scope for a subprocess run in the gate's worktree.
+
+    The worktree is detached, and its ``--git-common-dir`` HEAD belongs to the
+    primary checkout, so a worktree that re-derived the scope itself could reach
+    the opposite conclusion to the gate. Pinning it makes the two agree by
+    construction; ``DOC_FACTS_SCOPE=default`` is passed explicitly on the default
+    branch so a *stricter* scope can never be silently downgraded either.
+    """
+    env = {"DOC_FACTS_SCOPE": scope.scope}
+    if scope.frozen and base:
+        env["DOC_FACTS_BASE_REF"] = base
+    return env
+
+
+def gate_docs_layer2(worktree: Path, scope: FactScope, base: str = "") -> Check:
     """Autonomous docs Layer 2: manifest, markdown, spelling, snippets, generated.
 
     Runs scripts/docs/check-full.py (offline full-tree). Fails loudly with the
     first findings so authors see exactly which doc/line to fix. Network checks
     (external links) stay on the 15-day scheduled sweep by design.
+
+    The fact scope is passed through: on a branch, F7 holds the marker lines to
+    the base branch's values instead of a live recompute, because demanding a
+    branch's own counts is what made every branch conflict with ``main``.
     """
     script = worktree / "scripts" / "docs" / "check-full.py"
     if not script.is_file():
@@ -1623,7 +1659,7 @@ def gate_docs_layer2(worktree: Path) -> Check:
         [str(PYTHON), str(script)],
         cwd=worktree,
         timeout=300,
-        env={"PYTHONPATH": str(worktree)},
+        env={"PYTHONPATH": str(worktree), **_fact_scope_env(scope, base)},
     )
     out = ((res.stdout or "") + (res.stderr or "")).strip()
     summary = out.splitlines()[-1] if out else f"exit {res.returncode}"
@@ -1647,9 +1683,20 @@ def gate_doc_facts(worktree: Path, report: GateReport) -> Check:
     Separate from gate_docs on purpose — this one is about *truth*, not form, and
     it fails when a doc is well-formed but wrong.
 
-    Uses the authoritative fact snapshot from the gate's pytest/coverage results
-    when available, avoiding a redundant pytest run. Falls back to
-    ``--check --run-tests`` when invoked standalone.
+    Scoped by who may write a marker line (state/DECISIONS.md ADR-008):
+
+    * **the default branch** — the markers describe the published repository, so
+      they must match reality. Uses the authoritative fact snapshot from the
+      gate's pytest/coverage results when available, avoiding a redundant pytest
+      run; falls back to ``--check --run-tests`` when invoked standalone. This is
+      the honesty property ADR-014 exists to protect, and it is unchanged.
+    * **any other branch** — the markers must equal the *base branch's* values,
+      i.e. the PR must not change them. The branch's own counts are not facts
+      about the project, and requiring them here is exactly what made every
+      branch rewrite the same lines ``main`` had rewritten, so every PR
+      conflicted. The base compared against is the merge base, not the base tip:
+      a branch that is merely behind is not divergent, and only a change relative
+      to the fork point can conflict.
     """
     script = worktree / "scripts" / "sync_doc_facts.py"
     if not script.is_file():
@@ -1660,8 +1707,18 @@ def gate_doc_facts(worktree: Path, report: GateReport) -> Check:
             "skip",
             "scripts/sync_doc_facts.py absent",
         )
+    scope = resolve_fact_scope(REPO_ROOT)
+    base = report.merge_base or report.base or scope.base
+    env = {"PYTHONPATH": str(worktree), **_fact_scope_env(scope, base)}
+    if scope.frozen:
+        res = _run(
+            [str(PYTHON), str(script), "--check-vs-base", base],
+            cwd=worktree,
+            timeout=300,
+            env=env,
+        )
     # Use stored facts from the gate's pytest/coverage results if available.
-    if report.facts:
+    elif report.facts:
         res = _run(
             [
                 str(PYTHON),
@@ -1672,26 +1729,31 @@ def gate_doc_facts(worktree: Path, report: GateReport) -> Check:
             ],
             cwd=worktree,
             timeout=300,
-            env={"PYTHONPATH": str(worktree)},
+            env=env,
         )
     else:
         res = _run(
             [str(PYTHON), str(script), "--check", "--run-tests"],
             cwd=worktree,
             timeout=300,
-            env={"PYTHONPATH": str(worktree)},
+            env=env,
         )
     out = (res.stdout or "") + (res.stderr or "")
     lines = [ln for ln in out.strip().splitlines() if ln.strip()]
     summary = lines[0] if lines else f"exit {res.returncode}"
     if res.returncode != 0:
         detail = [ln.strip() for ln in lines if ln.strip().startswith("-")]
+        headline = (
+            f"documentation contradicts the code: {len(detail)} finding(s)"
+            if not scope.frozen
+            else f"this branch modified a fact marker line: {len(detail)} finding(s)"
+        )
         return Check(
             "doc_facts",
             "Virtual Board Governance",
             True,
             "fail",
-            f"documentation contradicts the code: {len(detail)} finding(s)",
+            headline,
             exit_code=res.returncode,
             output=_tail("\n".join(detail[:40]) or out),
         )
@@ -1920,11 +1982,16 @@ def run_gates(
             report.checks.append(gate_checkov(worktree))
         # ── governance & build ──────────────────────────────────────────────
         if _selected("Virtual Board Governance", only):
+            fact_scope = resolve_fact_scope(REPO_ROOT)
             report.checks.append(gate_board(worktree))
             report.checks.append(gate_docs(worktree))
             report.checks.append(gate_doc_types(worktree))
             report.checks.append(gate_doc_coverage(worktree))
-            report.checks.append(gate_docs_layer2(worktree))
+            report.checks.append(
+                gate_docs_layer2(
+                    worktree, fact_scope, report.merge_base or report.base or fact_scope.base
+                )
+            )
             # Persist facts from pytest/coverage results BEFORE gate_doc_facts so
             # it can reuse them. In a split run the Tests job is elsewhere, so
             # report.facts is empty and gate_doc_facts falls back to --run-tests.

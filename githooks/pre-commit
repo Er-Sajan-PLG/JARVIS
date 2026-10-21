@@ -37,33 +37,56 @@ except Exception:
 PY
 fi
 
-# 3) Keep doc facts true to the code. Documents do not store numbers; they cite
-#    a fact name that is re-derived here, so "22 checks" cannot survive gate 23.
-#    --sync computes facts once, applies, verifies, and re-stages, so the corrected
-#    docs ride along in the same commit as the change that made them stale.
+# 3) Doc facts are true — and a BRANCH may not write them.
+#
+#    Documents do not store numbers; they cite a fact name that is re-derived
+#    here, so "22 checks" cannot survive gate 23.
+#
+#    WHAT WENT WRONG, because this hook was the cause and not a bystander: it
+#    ran `--sync`/`--apply` on EVERY commit, so every branch rewrote the marker
+#    lines. A marker value is a function of the working tree, so a branch's value
+#    differs from main's the moment the branch changes a count -- and main
+#    advances on its own. Both sides therefore changed the same lines and git
+#    reported a conflict: structurally, on every test-adding PR, every dependency
+#    PR and every ADR. (No .gitattributes driver can fix that: GitHub computes
+#    mergeability itself and does not run merge drivers -- measured, not assumed.)
+#
+#    So the rule is now: a branch must NEVER modify a fact marker line; only the
+#    default branch may. On the default branch this stage still syncs, verifies
+#    and re-stages, exactly as before. On any other branch it writes NOTHING: it
+#    checks the marker lines against the base branch (blocking -- that is the
+#    invariant, enforced at commit time) and reports which values are stale
+#    relative to this tree (advisory -- on a branch that is the expected state,
+#    because the markers describe the published repository, not the proposal).
+#
+#    `DOC_FACTS_REFRESH=1` is the one sanctioned exception: the main-side refresh
+#    path, which exists precisely to be main's writer of those lines
+#    (.github/workflows/doc-facts-refresh.yml).
+#
+#    See state/DECISIONS.md ADR-008 and docs/adr/ADR-014-*.md.
 if [ -x "$REPO_ROOT/.venv/bin/python" ] && [ -f "$REPO_ROOT/scripts/sync_doc_facts.py" ]; then
-  echo "Synchronizing doc facts with the code..."
   FACTS_CACHE="$REPO_ROOT/.governance/doc_facts.json"
+  DOC_FACTS_LOG=/tmp/jarvis_doc_facts.log
+  rc=0
   if [ -f "$FACTS_CACHE" ]; then
-    # Fast path: use cached facts (no pytest run)
-    if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --apply --facts-json "$(cat $FACTS_CACHE)" >/tmp/jarvis_doc_facts.log 2>&1; then
-      echo "Documentation fact sync failed:"
-      cat /tmp/jarvis_doc_facts.log
-      exit 1
-    fi
+    # Fast path: reuse the gate's measured facts (no pytest run). Only the
+    # default branch can act on them; a branch never writes.
+    "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --pre-commit \
+      --facts-json "$(cat "$FACTS_CACHE")" >"$DOC_FACTS_LOG" 2>&1 || rc=$?
   else
-    # No cache — compute from scratch (slow, runs pytest)
-    if ! "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --sync >/tmp/jarvis_doc_facts.log 2>&1; then
-      echo "Documentation fact sync failed:"
-      cat /tmp/jarvis_doc_facts.log
-      exit 1
-    fi
+    "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/sync_doc_facts.py" --pre-commit \
+      >"$DOC_FACTS_LOG" 2>&1 || rc=$?
   fi
-  # Re-stage only documents the sync actually touched.
+  cat "$DOC_FACTS_LOG"
+  if [ "$rc" -ne 0 ]; then
+    echo "❌ Commit refused: documentation facts. See state/DECISIONS.md ADR-008."
+    exit 1
+  fi
+  # Re-stage only documents the sync actually touched. On a branch nothing was
+  # written, so this is a no-op there — and that is the point.
   git diff --name-only -- docs '*.md' | while IFS= read -r f; do
     [ -n "$f" ] && git add -- "$f"
   done
-  echo "   $(tail -1 /tmp/jarvis_doc_facts.log)"
 fi
 
 # 3b) Keep the documented type contract identical to scripts/doc_types.py. The

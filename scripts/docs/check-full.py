@@ -12,6 +12,11 @@ Rules (see DOCS_SYSTEM_DESIGN.md):
   F6 orphan report: docs with zero inbound links (warnings in v1 — ratchet
      philosophy: 27 pre-existing orphans must not red-day-one new code; the
      remaining-work list in the final report tracks the index fix).
+  F7 fact markers, scoped: on the default branch the markers must match a live
+     recompute; on any other branch they must be unchanged from the base branch,
+     because only the default branch may write a marker line (state/DECISIONS.md
+     ADR-008). Demanding a branch's own counts is what made every branch
+     conflict with main.
 
 Exit 1 on any error. No network.
 
@@ -268,6 +273,77 @@ def check_facts_live(errors: list[str]) -> None:
             errors.append(f"F7 facts: {rel}: {finding}")
 
 
+def _base_document(rel: str, ref: str) -> str | None:
+    """The base branch's copy of a document, or None when it is new there."""
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "show", f"{ref}:{rel}"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):  # pragma: no cover - git absent
+        return None
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def check_fact_markers_vs_base(rel: str, base_text: str, head_text: str) -> list[str]:
+    """F7 on a branch: every marker line the base has must survive unchanged.
+
+    Pure function, so it is unit-tested the same way `check_fact_markers` is.
+    A marker line the base does not have cannot conflict, so adding one is
+    allowed; changing or deleting one is the defect this rule exists to stop.
+    """
+    doc_facts = _load("docs_doc_facts_vs_base", SCRIPTS / "doc_facts.py")
+    return doc_facts.marker_drift_vs_base(rel, base_text, head_text)
+
+
+def check_facts_scoped(errors: list[str]) -> None:
+    """F7, scoped by who is allowed to write a marker value.
+
+    On the default branch the markers describe the published repository, so they
+    must match a live recompute — that is the honesty property this check exists
+    for. On a branch they must be *unchanged from the base branch* instead: a
+    branch's own counts are not facts about the project, and demanding them here
+    would demand the rewrite that made every branch conflict with `main`.
+    """
+    doc_facts = _load("docs_doc_facts_scope", SCRIPTS / "doc_facts.py")
+    scope = doc_facts.resolve_fact_scope(REPO_ROOT)
+    if not scope.frozen:
+        check_facts_live(errors)
+        return
+
+    if not scope.base:
+        # No comparison point: say so rather than pass silently, but do not fail
+        # a contributor for an environment problem (an unfetched base branch).
+        print(f"note: F7 facts: no base branch resolved ({scope.reason}); live check skipped")
+        return
+
+    compared = 0
+    for path in all_docs():
+        rel = _rel(path)
+        if rel.startswith(F7_SKIP_DIRS):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as err:
+            errors.append(f"F7 read: {rel}: {err}")
+            continue
+        base_text = _base_document(rel, scope.base)
+        if base_text is None:
+            continue
+        compared += len(re.findall(FACT_MARKER_RE, base_text))
+        for finding in check_fact_markers_vs_base(rel, base_text, text):
+            errors.append(f"F7 facts: {finding}")
+    if compared == 0:
+        errors.append(
+            f"F7 facts: no base marker lines were comparable against {scope.base[:12]} "
+            f"— the check verified nothing"
+        )
+    else:
+        print(f"note: F7 facts: {compared} base marker line(s) held to {scope.base[:12]}")
+
+
 def check_generated(errors: list[str]) -> None:
     try:
         generate = _load("docs_generate", DOCS_DIR / "generate.py")
@@ -335,7 +411,7 @@ def main() -> int:
         check_spelling(path, errors)
         check_snippets(path, errors)
     check_generated(errors)
-    check_facts_live(errors)
+    check_facts_scoped(errors)
     warnings = orphan_warnings(docs)
     check_orphan_ratchet(warnings, errors)
     for warning in warnings:

@@ -202,9 +202,7 @@ def test_out_creates_its_parent_directory(tmp_path, monkeypatch):
             sha="deadbeef", base="origin/main", repo="test", started_at="now"
         ),
     )
-    monkeypatch.setattr(
-        sys, "argv", ["ci_gate.py", "--sha", "deadbeef", "--out", str(target)]
-    )
+    monkeypatch.setattr(sys, "argv", ["ci_gate.py", "--sha", "deadbeef", "--out", str(target)])
 
     ci_gate.main()
 
