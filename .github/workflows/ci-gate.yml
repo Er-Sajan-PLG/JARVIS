@@ -82,7 +82,15 @@ jobs:
       - uses: ./.github/actions/setup-env
         with:
           python-version: "3.11"
-      - run: scripts/install_ci_tools.sh
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
       - name: Run the Lint & Typecheck gates
         run: |
           .venv/bin/python scripts/ci_gate.py \
@@ -110,7 +118,15 @@ jobs:
       - uses: ./.github/actions/setup-env
         with:
           python-version: "3.11"
-      - run: scripts/install_ci_tools.sh
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
       - name: Run the SAST gate
         run: |
           .venv/bin/python scripts/ci_gate.py \
@@ -152,7 +168,15 @@ jobs:
       - uses: ./.github/actions/setup-env
         with:
           python-version: ${{ matrix.python-version }}
-      - run: scripts/install_ci_tools.sh
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
       - name: Run the Tests gates (suite + contract + coverage)
         run: |
           .venv/bin/python scripts/ci_gate.py \
@@ -181,7 +205,15 @@ jobs:
       - uses: ./.github/actions/setup-env
         with:
           python-version: "3.11"
-      - run: scripts/install_ci_tools.sh
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
       - name: Run the Security Scan gates
         run: |
           .venv/bin/python scripts/ci_gate.py \
@@ -216,7 +248,15 @@ jobs:
       - uses: ./.github/actions/setup-env
         with:
           python-version: "3.11"
-      - run: scripts/install_ci_tools.sh
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
       - name: Run the Supply Chain gates
         run: |
           .venv/bin/python scripts/ci_gate.py \
@@ -250,7 +290,15 @@ jobs:
       - uses: ./.github/actions/setup-env
         with:
           python-version: "3.11"
-      - run: scripts/install_ci_tools.sh
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
       - name: Run the governance and documentation gates
         run: |
           .venv/bin/python scripts/ci_gate.py \
@@ -278,7 +326,15 @@ jobs:
       - uses: ./.github/actions/setup-env
         with:
           python-version: "3.11"
-      - run: scripts/install_ci_tools.sh
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
       - name: Run the Build gates
         run: |
           .venv/bin/python scripts/ci_gate.py \
@@ -306,7 +362,15 @@ jobs:
       - uses: ./.github/actions/setup-env
         with:
           python-version: "3.11"
-      - run: scripts/install_ci_tools.sh
+      - name: Install gate scanners
+        env:
+          # The releases API allows 60 requests/hour unauthenticated and the
+          # installer makes one call per downloaded tool. Eight per-context
+          # jobs installing concurrently exhausted that, and every download
+          # failed with "no asset matching" -- which reads like a renamed
+          # release asset rather than a rate limit. With a token: 5000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/install_ci_tools.sh
       - name: Run the Conventional Commits gate
         run: |
           .venv/bin/python scripts/ci_gate.py \

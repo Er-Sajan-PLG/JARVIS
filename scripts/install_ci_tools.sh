@@ -29,7 +29,6 @@ export PATH="$VENV/bin:$BIN:$PATH"
 
 # Checks the gate marks blocking=True. Each MUST be present or this exits 1.
 REQUIRED_BINARIES=(trivy syft cosign hadolint trufflehog gitleaks semgrep)
-REQUIRED_PY_TOOLS=()
 
 log() { printf '%s\n' "  $*"; }
 
@@ -64,7 +63,22 @@ esac
 fetch_asset() { # repo  regex  outname  [inner path]
   local repo="$1" rx="$2" out="$3" inner="${4:-}"
   local url
-  url=$(curl -sSL --max-time 60 "https://api.github.com/repos/${repo}/releases/latest" |
+  # Authenticate the releases API when a token is available.
+  #
+  # Unauthenticated api.github.com allows 60 requests/hour per IP, and this
+  # function makes one per downloaded tool -- six of them. That fit a
+  # single-job workflow. Once the gate was split into eight per-context jobs,
+  # each installing all tools, it did not: the API answered 403, the asset
+  # list came back empty, and every download failed with
+  #
+  #   !! aquasecurity/trivy: no asset matching /Linux-64bit.tar.gz$/
+  #
+  # which reads like a renamed release asset rather than a rate limit. With a
+  # token the limit is 5000/hour; .github/workflows/ci-gate.yml passes
+  # GITHUB_TOKEN to every job.
+  local -a auth=()
+  [ -n "${GITHUB_TOKEN:-}" ] && auth=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+  url=$(curl -sSL --max-time 60 "${auth[@]}" "https://api.github.com/repos/${repo}/releases/latest" |
     python3 -c "
 import json,sys,re
 rx=re.compile(sys.argv[1])
@@ -74,11 +88,13 @@ for a in d.get('assets',[]):
         print(a['browser_download_url']); break
 " "$rx")
   if [ -z "$url" ]; then
-    log "!! $repo: no asset matching /$rx/"
+    log "!! $repo: no asset matching /$rx/ (API rate-limited? GITHUB_TOKEN unset?)"
     return 1
   fi
   log "$repo -> $(basename "$url")"
   local tmp="$TOOLS/dl_$out"
+  # The asset download is a release CDN, not the API, so it needs no token --
+  # but it does redirect to objects.githubusercontent.com, which -L follows.
   curl -sSL --max-time 300 "$url" -o "$tmp" || {
     log "!! download failed"
     return 1
