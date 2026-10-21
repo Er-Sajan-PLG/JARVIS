@@ -23,9 +23,13 @@ Facts are split into two costs:
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
+from collections import Counter
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +37,274 @@ FACTS_CACHE = REPO_ROOT / ".governance" / "doc_facts.json"
 
 # `<--fact:name-->value<--/fact-->` (real form uses HTML comment delimiters).
 MARKER_RE = re.compile(r"<!--fact:([a-z_]+)-->(.*?)<!--/fact-->", re.DOTALL)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fact scope: who is allowed to WRITE a marker value
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# A marker value is a function of the working tree, so a branch's value differs
+# from the default branch's the moment the branch changes a count. While the
+# pre-commit hook rewrote those lines on every commit, every branch rewrote
+# lines the default branch had also rewritten -- both sides changed the same
+# lines, so git reported a conflict. Not occasionally: structurally, on every
+# dependency PR, every test-adding PR and every ADR.
+#
+# No client-side merge driver can fix that. GitHub computes mergeability itself
+# and does NOT run `.gitattributes` merge drivers; measured on a probe repo that
+# declared `merge=union` for one file and `merge=ours` for another and changed
+# the same line on both sides, the server still answered `mergeable=false` /
+# `mergeable_state=dirty` and the merge API refused with "Pull Request has merge
+# conflicts". `merge=union` does apply locally, and emits BOTH values into the
+# document -- two contradictory numbers, which is worse than the conflict.
+#
+# The invariant that does fix it, by construction:
+#
+#     A branch must never modify a fact marker line. Only the default branch may.
+#
+# A branch that leaves the line alone receives the default branch's change as a
+# clean one-sided merge. So every consumer resolves a **scope** before judging a
+# marker:
+#
+#   ``default``  the tree being described IS the published repository (the
+#                default branch, or the refresh PR that is its designated
+#                writer) -> markers must match reality.
+#   ``branch``   the tree is an unmerged proposal -> markers must be *unchanged*
+#                from the base branch. Keeping the published values there is not
+#                a compromise, it is the accurate thing to write: the documents
+#                describe the published repository, not the proposal.
+
+DEFAULT_BRANCH = "main"
+
+SCOPE_DEFAULT = "default"
+SCOPE_BRANCH = "branch"
+
+# The one branch that may write marker lines on a non-default branch: the refresh
+# path (scripts/refresh_doc_facts.py, .github/workflows/doc-facts-refresh.yml),
+# which exists precisely to be the default branch's writer of those lines.
+#
+# This is a convention, and it is safe to key on it because the scope it selects
+# is the STRICTER one, not a weaker one: a refresh branch is still required to
+# make every marker match reality. A contributor who names their branch
+# `chore/doc-facts-refresh` therefore does not obtain a bypass -- they take on the
+# stricter check.
+REFRESH_BRANCH_PREFIX = "chore/doc-facts-refresh"
+
+
+@dataclass(frozen=True)
+class FactScope:
+    """Whether this tree may write marker values, and what to compare against."""
+
+    scope: str
+    base: str
+    reason: str
+
+    @property
+    def frozen(self) -> bool:
+        """True when marker lines must be left exactly as the base branch has them."""
+        return self.scope == SCOPE_BRANCH
+
+
+def _git(args: list[str], repo_root: Path | None = None) -> tuple[int, str]:
+    root = Path(repo_root) if repo_root else REPO_ROOT
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):  # pragma: no cover - git absent
+        return 1, ""
+    return proc.returncode, proc.stdout.strip()
+
+
+def _commit_of(ref: str, repo_root: Path | None = None) -> str:
+    """The commit ``ref`` names, or "" when it does not resolve."""
+    code, out = _git(["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"], repo_root)
+    return out if code == 0 else ""
+
+
+def current_branch(repo_root: Path | None = None) -> str:
+    """The branch this repository is checked out on.
+
+    A linked worktree -- what ``ci_gate.py --sha`` measures -- is detached, so
+    asking it directly answers ``HEAD``. The branch that matters is the one the
+    *primary* checkout is on, which ``--git-common-dir`` HEAD records.
+    """
+    code, out = _git(["rev-parse", "--abbrev-ref", "HEAD"], repo_root)
+    if code == 0 and out and out != "HEAD":
+        return out
+    code, common = _git(["rev-parse", "--git-common-dir"], repo_root)
+    if code != 0 or not common:
+        return ""
+    head = Path(common) / "HEAD"
+    if not head.is_absolute():
+        head = (Path(repo_root) if repo_root else REPO_ROOT) / head
+    try:
+        text = head.resolve().read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+    prefix = "ref: refs/heads/"
+    return text[len(prefix) :] if text.startswith(prefix) else ""
+
+
+def default_branch(repo_root: Path | None = None) -> str:
+    """The repository's default branch, read from the remote HEAD when known."""
+    code, out = _git(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], repo_root)
+    if code == 0 and out.startswith("origin/"):
+        return out[len("origin/") :]
+    return DEFAULT_BRANCH
+
+
+def _base_candidate(repo_root: Path | None = None) -> str:
+    """A ref that carries the published values: ``origin/main`` when fetched."""
+    name = default_branch(repo_root)
+    remote = f"origin/{name}"
+    if _commit_of(remote, repo_root):
+        return remote
+    if _commit_of(name, repo_root):
+        return name
+    return ""
+
+
+def _fork_point(candidate: str, repo_root: Path | None = None) -> str:
+    """The merge base of ``candidate`` and HEAD -- the correct comparison point.
+
+    Comparing against the base branch *tip* is wrong in the same way diffing
+    against it is wrong elsewhere in this repository: a branch cut before the
+    last refresh is behind, not divergent, and its markers still match the fork
+    point. Only a change relative to the fork point can conflict.
+    """
+    if not candidate or not _commit_of(candidate, repo_root):
+        return ""
+    code, out = _git(["merge-base", candidate, "HEAD"], repo_root)
+    if code == 0 and out:
+        return out
+    return candidate
+
+
+def resolve_fact_scope(
+    repo_root: Path | None = None, env: Mapping[str, str] | None = None
+) -> FactScope:
+    """Decide whether this tree may write marker values.
+
+    Precedence, and why each rung exists:
+
+    1. ``DOC_FACTS_SCOPE`` -- explicit. Used by the refresh path (which is the
+       default branch's designated writer) and by tests that need to pin a scope.
+    2. ``DOC_FACTS_BASE_REF`` -- explicit comparison ref. ``ci_gate.py`` passes
+       the worktree's merge base so the gate, the hook and the checker cannot
+       disagree about what "the base branch's values" means.
+    3. ``GITHUB_BASE_REF`` -- a pull request event names its base branch. The one
+       exception is the refresh branch, which is the default branch's designated
+       writer and is therefore judged by the stricter ``default`` scope.
+    4. ``GITHUB_REF`` -- a push to ``refs/heads/<default>`` publishes; a push to
+       any other branch does not.
+    5. local git -- the branch the primary checkout is on. A detached HEAD with
+       no environment is treated as ``default``: the strict check, and the one
+       that cannot silently skip verification.
+    """
+    env = os.environ if env is None else env
+    root = Path(repo_root) if repo_root else REPO_ROOT
+    explicit_scope = (env.get("DOC_FACTS_SCOPE") or "").strip().lower()
+    explicit_base = (env.get("DOC_FACTS_BASE_REF") or "").strip()
+
+    if explicit_scope == SCOPE_DEFAULT:
+        return FactScope(SCOPE_DEFAULT, "", "DOC_FACTS_SCOPE=default")
+    if explicit_scope == SCOPE_BRANCH:
+        return FactScope(SCOPE_BRANCH, _fork_point(explicit_base, root), "DOC_FACTS_SCOPE=branch")
+    if explicit_base:
+        return FactScope(
+            SCOPE_BRANCH, _fork_point(explicit_base, root), f"DOC_FACTS_BASE_REF={explicit_base}"
+        )
+
+    head_ref = (env.get("GITHUB_HEAD_REF") or "").strip()
+    if head_ref.startswith(REFRESH_BRANCH_PREFIX):
+        return FactScope(SCOPE_DEFAULT, "", f"GITHUB_HEAD_REF={head_ref} (the refresh path)")
+
+    pr_base = (env.get("GITHUB_BASE_REF") or "").strip()
+    if pr_base:
+        return FactScope(
+            SCOPE_BRANCH,
+            _fork_point(f"origin/{pr_base}", root) or _fork_point(pr_base, root),
+            f"GITHUB_BASE_REF={pr_base} (pull request)",
+        )
+
+    ref = (env.get("GITHUB_REF") or "").strip()
+    if ref.startswith("refs/heads/"):
+        pushed = ref[len("refs/heads/") :]
+        if pushed == default_branch(root) or pushed.startswith(REFRESH_BRANCH_PREFIX):
+            return FactScope(SCOPE_DEFAULT, "", f"GITHUB_REF={ref}")
+        return FactScope(
+            SCOPE_BRANCH,
+            _fork_point(_base_candidate(root), root),
+            f"GITHUB_REF={ref}",
+        )
+
+    branch = current_branch(root)
+    if branch.startswith(REFRESH_BRANCH_PREFIX):
+        return FactScope(SCOPE_DEFAULT, "", f"checked out on {branch} (the refresh path)")
+    if not branch or branch == default_branch(root):
+        return FactScope(SCOPE_DEFAULT, "", f"checked out on {branch or 'a detached HEAD'}")
+
+    candidate = _base_candidate(root)
+    if not candidate:
+        return FactScope(
+            SCOPE_BRANCH,
+            "",
+            f"checked out on {branch}; no base branch ref resolves locally",
+        )
+    return FactScope(SCOPE_BRANCH, _fork_point(candidate, root), f"checked out on {branch}")
+
+
+def markers_in(text: str) -> list[tuple[str, str]]:
+    """``(fact name, committed value)`` for every marker, in document order."""
+    return [(m.group(1), m.group(2).strip()) for m in MARKER_RE.finditer(text)]
+
+
+def marker_drift_vs_base(rel: str, base_text: str, head_text: str) -> list[str]:
+    """The invariant as findings: every marker line the base has must survive.
+
+    Multiset containment, not set membership: if the base carries the same
+    marker twice and this tree changed one of the two, that is a modified line
+    and must be reported. Adding a marker line is deliberately allowed -- a line
+    the base does not have cannot conflict -- and so is moving one, since the
+    line itself is unchanged.
+    """
+    base_counts = Counter(markers_in(base_text))
+    head_counts = Counter(markers_in(head_text))
+    findings: list[str] = []
+    for (name, value), count in sorted(base_counts.items()):
+        if head_counts[(name, value)] >= count:
+            continue
+        alternatives = sorted({v for n, v in head_counts if n == name})
+        got = ", ".join(repr(v) for v in alternatives) if alternatives else "no value at all"
+        findings.append(
+            f"{rel}: fact '{name}' is {value!r} on the base branch but this tree says {got} "
+            f"— a branch must never modify a fact marker line; only the default branch may "
+            f"(state/DECISIONS.md ADR-008). Restore the base value instead of re-syncing."
+        )
+    return findings
+
+
+def marker_value_conflicts(rel: str, text: str) -> list[str]:
+    """One fact carrying two values in one document is incoherent in any scope.
+
+    On the default branch ``--check`` catches this (one of the two is wrong), but
+    on a branch nothing else looks, and a branch that *added* a marker line with
+    a value of its own would otherwise slip a wrong number into the published
+    documents unchecked.
+    """
+    values: dict[str, set[str]] = {}
+    for name, value in markers_in(text):
+        values.setdefault(name, set()).add(value)
+    return [
+        f"{rel}: fact '{name}' carries {len(found)} different values in one document "
+        f"({', '.join(repr(v) for v in sorted(found))}) — a fact has exactly one value"
+        for name, found in sorted(values.items())
+        if len(found) > 1
+    ]
 
 
 def _run(cmd: list[str], cwd: Path | None = None) -> str:

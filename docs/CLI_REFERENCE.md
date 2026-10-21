@@ -125,6 +125,14 @@ _Regenerated from `argparse` declarations in `scripts/*.py`. Run `<script> --hel
 | `--backfill` | publish every tag missing a release |
 | `--dry-run` | — |
 
+## `scripts/refresh_doc_facts.py`
+
+| Flags | Help |
+|---|---|
+| `--check` | report staleness; exit 1 if a refresh is needed |
+| `--open-pr` | sync the markers, verify the change is marker-only, push and open the PR |
+| `--dry-run` | with --open-pr: sync and verify in the working tree, but commit/push nothing |
+
 ## `scripts/remediate_memory_store.py`
 
 | Flags | Help |
@@ -159,6 +167,9 @@ _Regenerated from `argparse` declarations in `scripts/*.py`. Run `<script> --hel
 | `--apply` | rewrite marker values from the repo |
 | `--check` | fail on stale markers/bare claims |
 | `--sync` | compute facts once, apply to docs, verify, and write cache (one pytest run) |
+| `--check-vs-base` | fail when this tree modifies a fact marker line that REF has — the branch-side rule (a branch must n |
+| `--status` | report stale marker values without writing them; never fails (a branch's markers are expected to be  |
+| `--pre-commit` | hook mode: sync markers on the default branch, and on any other branch enforce --check-vs-base and r |
 | `--run-tests` | compute test facts by running them |
 | `--facts-json` | use the provided JSON fact snapshot instead of computing (for CI reuse) |
 

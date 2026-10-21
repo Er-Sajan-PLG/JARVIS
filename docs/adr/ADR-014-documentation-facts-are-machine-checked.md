@@ -240,3 +240,33 @@ breaking it and observing the failure, then reverting.
 | Delete an index entry | `check_docs` reports the unreachable document |
 | Add an unknown `**Type**` | `check_docs` names the allowed types |
 | Add a dead external link | `check_links.py` exits 1 with file and line, on DNS failure |
+
+---
+
+### Follow-up applied 2026-10-21: who may *write* a marker value
+
+This ADR decided that facts are machine-derived and machine-checked. It did not
+say **who is allowed to write them**, and that omission had a cost.
+
+Because `githooks/pre-commit` ran `--apply`/`--sync` on every commit, every branch
+rewrote the marker lines to its own values — and a marker value is a function of
+the working tree. The default branch rewrote the same lines independently, so both
+sides changed the same lines and git reported a conflict **structurally**: on
+every test-adding PR, every dependency PR, every ADR, and on `docs/FINAL_STATE.md`
+and `docs/GOVERNANCE.md` on every merge. Two PRs went `DIRTY` for this reason
+alone during a single session, one of them with unrelated content.
+
+**The rule is now: a branch must never modify a fact marker line; only the default
+branch may.** A branch's test count is not a fact about the project — it is a fact
+about an unmerged proposal — so a branch leaving the published values in place is
+not a compromise, it is the accurate thing to write. The default branch is still
+required to be accurate, which is the property this ADR exists to protect.
+
+Enforcement, and the reasoning, are recorded in full in
+`state/DECISIONS.md` **ADR-008**. The short version: the hook writes nothing on a
+branch, the gate requires a branch's markers to equal the merge base's, and a
+refresh workflow is the sanctioned writer on the default branch.
+
+Note what this does **not** change: facts are still derived rather than typed,
+values still live in markers, unmarked claims are still failures, and the
+`**Source**` binding is still load-bearing. Only the write scope changed.
