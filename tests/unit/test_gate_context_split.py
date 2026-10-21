@@ -170,7 +170,7 @@ def test_unknown_context_is_rejected_loudly():
     assert "Conventional Commits" in combined, "the error must list the valid names"
 
 
-def test_out_creates_its_parent_directory(tmp_path):
+def test_out_creates_its_parent_directory(tmp_path, monkeypatch):
     """`--out` must not fail when its directory does not exist yet.
 
     Before the split this never mattered: every run included `gate_sbom`, which
@@ -179,30 +179,35 @@ def test_out_creates_its_parent_directory(tmp_path):
     left the directory absent, and `--out` raised FileNotFoundError *after* the
     gates had already run. A green gate reported as a red job.
 
-    This is asserted against a real subprocess rather than the helper, because
-    the defect was in `main()`'s exit path, not in any gate.
+    Driven in-process rather than through a subprocess, deliberately. The first
+    version of this test shelled out, and it passed standalone while failing
+    inside the gate's own run: `ci_gate.py` resolves `PYTHON` from its own repo
+    root, and when the gate runs pytest in its temporary worktree that path is
+    `/tmp/jarvis-ci-gate/HEAD/.venv/bin/python`, which does not exist, so the
+    child exited `FATAL` before reaching `--out`. A test that depends on which
+    checkout it runs from asserts an environment property, not a code property --
+    the exact defect class this repository has paid for repeatedly. Calling
+    `main()` directly removes the dependency instead of accommodating it.
     """
-    import subprocess
-
     target = tmp_path / "does" / "not" / "exist" / "report.json"
     assert not target.parent.exists()
 
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(REPO / "scripts" / "ci_gate.py"),
-            "--sha",
-            "HEAD",
-            "--context",
-            "Conventional Commits",
-            "--out",
-            str(target),
-        ],
-        capture_output=True,
-        text=True,
-        cwd=REPO,
+    # PYTHON must exist: main() refuses to run otherwise. Point it at the
+    # interpreter actually running this test.
+    monkeypatch.setattr(ci_gate, "PYTHON", Path(sys.executable))
+    # Stub the gates so no worktree is needed; this is about main()'s exit path.
+    monkeypatch.setattr(
+        ci_gate,
+        "run_gates",
+        lambda *_a, **_k: ci_gate.GateReport(
+            sha="deadbeef", base="origin/main", repo="test", started_at="now"
+        ),
     )
-    assert target.is_file(), (
-        f"--out did not create its parent directory\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+    monkeypatch.setattr(
+        sys, "argv", ["ci_gate.py", "--sha", "deadbeef", "--out", str(target)]
     )
+
+    ci_gate.main()
+
+    assert target.is_file(), "--out did not create its parent directory"
     assert "conclusion" in target.read_text()
