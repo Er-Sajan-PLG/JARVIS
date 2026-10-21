@@ -276,24 +276,17 @@ def _worktree_env(worktree: Path) -> dict[str, str]:
     primary repo also contributes a path hook. PYTHONPATH makes the worktree
     win unconditionally and removes ambiguity.
 
-    The fact scope is pinned here too, and that is not decoration. The worktree
-    is **detached**, so ``resolve_fact_scope`` called inside it answers
-    ``default`` -- the strict check -- because a detached HEAD with no
-    environment has to be treated as the default branch. A test that then
-    verifies the markers against *this tree's* counts fails on a pull request,
-    which is precisely the behaviour the scope rule exists to stop. Measured:
-    that is how the Tests gate failed on PR #185 while every other job passed.
-
-    Pinning the gate's own answer into the environment makes the two agree by
-    construction, which is the same reason ``gate_docs_layer2`` and
-    ``gate_doc_facts`` receive it.
+    Deliberately does NOT pin the fact scope here. It was tried, on the theory
+    that a detached worktree would re-derive ``default``, and it is wrong for
+    two reasons. First it is unnecessary: ``doc_facts.current_branch`` already
+    reads the *primary* checkout's HEAD through ``--git-common-dir``, so a
+    subprocess in the worktree resolves the same scope the gate does. Second it
+    is harmful: the environment reaches the tests, and a test that runs the
+    pre-commit hook in a scratch repository then inherits the gate's scope
+    instead of deriving one from that repository -- which broke two tests. The
+    gate's own doc checks receive the scope explicitly; nothing else needs it.
     """
-    scope = resolve_fact_scope(REPO_ROOT)
-    return {
-        "PYTHONPATH": str(worktree),
-        "PYTHONDONTWRITEBYTECODE": "1",
-        **_fact_scope_env(scope, scope.base),
-    }
+    return {"PYTHONPATH": str(worktree), "PYTHONDONTWRITEBYTECODE": "1"}
 
 
 def _resolve_app(worktree: Path) -> str:

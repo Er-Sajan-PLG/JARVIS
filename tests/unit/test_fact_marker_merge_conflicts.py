@@ -46,6 +46,7 @@ document the defect and prove the write path was not simply deleted.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -71,17 +72,65 @@ DOC = (
 )
 
 
+# Two independent ambient variables can silently redirect these tests, and both
+# were observed doing it.
+#
+#  * GIT_DIR (and friends). `git -C <scratch>` obeys GIT_DIR over its cwd, so an
+#    inherited pointer makes the scratch-repo writes land on the REAL repository.
+#    `_init_repo` writes `core.hooksPath`, `commit.gpgsign`, `user.name` and
+#    `user.email`; redirected, those rewrite the developer's repository config --
+#    disabling every hook and commit signing. Measured in this repository.
+#  * the fact scope. The pre-commit hook decides its scope from the repository it
+#    runs in, so an inherited DOC_FACTS_SCOPE / GITHUB_BASE_REF overrides that
+#    decision and the hook tests assert against the caller's environment instead
+#    of the fixture's. That is exactly why they passed locally and failed in CI,
+#    where GITHUB_BASE_REF is set: a test that depends on the ambient environment
+#    tests the environment, not the code.
+_SCRATCH_ENV_DROP = frozenset(
+    {
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_COMMON_DIR",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "DOC_FACTS_SCOPE",
+        "DOC_FACTS_BASE_REF",
+        "GITHUB_BASE_REF",
+        "GITHUB_HEAD_REF",
+        "GITHUB_REF",
+        "GITHUB_EVENT_NAME",
+    }
+)
+
+
+def _scratch_env() -> dict[str, str]:
+    """Environment for the scratch repo and for the hook run inside it.
+
+    Hermetic in both directions: no inherited repository pointer, and no
+    inherited fact scope. The global and system git config are pinned to nothing
+    so the fixture's explicit identity is what applies.
+    """
+    env = {k: v for k, v in os.environ.items() if k not in _SCRATCH_ENV_DROP}
+    env["GIT_CONFIG_GLOBAL"] = os.devnull
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    return env
+
+
 def _git(repo: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(repo), *args],
         capture_output=True,
         text=True,
         check=True,
+        env=_scratch_env(),
     ).stdout.strip()
 
 
 def _git_allow_failure(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, env=_scratch_env()
+    )
 
 
 def _init_repo(path: Path) -> Path:
@@ -143,6 +192,7 @@ def _run_hook(repo: Path) -> subprocess.CompletedProcess[str]:
         cwd=str(repo),
         capture_output=True,
         text=True,
+        env=_scratch_env(),
     )
 
 
