@@ -77,7 +77,7 @@ the code wins — and the document is a bug.
 
 | Document | Purpose |
 |---|---|
-| **[adr/](adr/)** | Architectural Decision Records — **ADR-001 through ADR-017** |
+| **[adr/](adr/)** | Architectural Decision Records — **ADR-001 through ADR-025** |
 | **[DECISIONS-AUTONOMOUS-2026-09-10.md](DECISIONS-AUTONOMOUS-2026-09-10.md)** | Autonomous decisions: what, why, rejected alternatives |
 | **[CAPABILITY-CONTRACT.md](CAPABILITY-CONTRACT.md)** | The JARVIS ↔ PROFESSOR-J contract itself |
 | **[CAPABILITY_TRACKER.md](CAPABILITY_TRACKER.md)** | Compliance tracking against that contract |
@@ -85,6 +85,19 @@ the code wins — and the document is a bug.
 | **[AUDIT-USAT.md](AUDIT-USAT.md)** | USAT audit report (dated snapshot — see its banner) |
 | **[CHANGELOG.md](CHANGELOG.md)** | User-facing release notes |
 | **[archive/](archive/)** | Frozen historical documents — **never cite as current** |
+
+The comms, voice and mobile boundaries are each recorded individually, because
+they resolve the *same* deployment constraint differently and a single "comms"
+decision would hide that:
+
+| ADR | Decision | Risk it accounts for |
+|---|---|---|
+| [ADR-020](adr/ADR-020-telegram-is-long-poll-not-a-webhook.md) | Telegram is long-poll, not a webhook | RISK-018 |
+| [ADR-021](adr/ADR-021-whatsapp-is-send-only.md) | WhatsApp is send-only; no inbound webhook | RISK-019 |
+| [ADR-022](adr/ADR-022-voice-ingress-is-bounded-local-stt.md) | Voice ingress is bounded local STT plus Edge TTS | RISK-020 |
+| [ADR-023](adr/ADR-023-push-is-vapid-with-a-public-key-by-design.md) | Push is VAPID; the public key is exposed by design | RISK-021 |
+| [ADR-024](adr/ADR-024-mobile-ships-as-a-sideloaded-debug-build.md) | Mobile ships as a sideloaded debug build | RISK-022 |
+| [ADR-025](adr/ADR-025-tgcall-runs-outside-the-server-auth-boundary.md) | tgcall runs outside the server auth boundary | RISK-023 |
 
 ---
 
@@ -95,7 +108,7 @@ the code wins — and the document is a bug.
 | [`architecture/`](architecture/) | System topology docs + Mermaid diagrams (components, cognitive brain, model routing, memory, data flow, startup) + migration audit, gap analysis, and plan |
 | [`architecture/DEAD-CODE-REGISTER.md`](architecture/DEAD-CODE-REGISTER.md) | Subsystems in `app/` with no production call site, each re-derived by `tests/unit/test_dead_code_register.py` |
 | [`modules/`](modules/) | Per-subsystem guides: domain, brain, models, memory, guardrails, adapters, integrations |
-| [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-017) |
+| [`adr/`](adr/) | Architectural Decision Records (ADR-001 → ADR-025) |
 | [`migrations/`](migrations/) | v2→v3 migration notes and symbol tombstones |
 | [`timelines/`](timelines/) | Evolution and symbol timelines |
 | [`archive/`](archive/) | Superseded snapshots and frozen release-cycle docs |
