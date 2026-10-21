@@ -168,3 +168,41 @@ def test_unknown_context_is_rejected_loudly():
     combined = proc.stdout + proc.stderr
     assert "unknown --context" in combined
     assert "Conventional Commits" in combined, "the error must list the valid names"
+
+
+def test_out_creates_its_parent_directory(tmp_path):
+    """`--out` must not fail when its directory does not exist yet.
+
+    Before the split this never mattered: every run included `gate_sbom`, which
+    writes into `artifacts/` and therefore created the directory as a side
+    effect. A context without `gate_sbom` -- Build, SAST, Conventional Commits --
+    left the directory absent, and `--out` raised FileNotFoundError *after* the
+    gates had already run. A green gate reported as a red job.
+
+    This is asserted against a real subprocess rather than the helper, because
+    the defect was in `main()`'s exit path, not in any gate.
+    """
+    import subprocess
+
+    target = tmp_path / "does" / "not" / "exist" / "report.json"
+    assert not target.parent.exists()
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "scripts" / "ci_gate.py"),
+            "--sha",
+            "HEAD",
+            "--context",
+            "Conventional Commits",
+            "--out",
+            str(target),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+    )
+    assert target.is_file(), (
+        f"--out did not create its parent directory\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+    )
+    assert "conclusion" in target.read_text()
