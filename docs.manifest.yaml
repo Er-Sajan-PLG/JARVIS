@@ -442,6 +442,18 @@ sections:
     staleness: snapshot
     owner: governance
     notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-024-mobile-ships-as-a-sideloaded-debug-build.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
+  - doc: docs/adr/ADR-025-tgcall-runs-outside-the-server-auth-boundary.md
+    covers: []
+    kind: hand
+    staleness: snapshot
+    owner: governance
+    notes: ADR; frozen once accepted.
 
   # docs/archive/, docs/migrations/, docs/timelines/ — frozen by policy.
   - doc: docs/archive/API_SIGNATURE_HISTORY.md

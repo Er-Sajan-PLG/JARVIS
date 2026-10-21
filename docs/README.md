@@ -96,6 +96,8 @@ decision would hide that:
 | [ADR-021](adr/ADR-021-whatsapp-is-send-only.md) | WhatsApp is send-only; no inbound webhook | RISK-019 |
 | [ADR-022](adr/ADR-022-voice-ingress-is-bounded-local-stt.md) | Voice ingress is bounded local STT plus Edge TTS | RISK-020 |
 | [ADR-023](adr/ADR-023-push-is-vapid-with-a-public-key-by-design.md) | Push is VAPID; the public key is exposed by design | RISK-021 |
+| [ADR-024](adr/ADR-024-mobile-ships-as-a-sideloaded-debug-build.md) | Mobile ships as a sideloaded debug build | RISK-022 |
+| [ADR-025](adr/ADR-025-tgcall-runs-outside-the-server-auth-boundary.md) | tgcall runs outside the server auth boundary | RISK-023 |
 
 ---
 
