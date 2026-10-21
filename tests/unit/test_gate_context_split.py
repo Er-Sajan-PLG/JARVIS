@@ -36,7 +36,6 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 import ci_gate  # noqa: E402
 
-
 # Every gate function run_gates calls by default, with the context it declares.
 # This mapping is what the test holds run_gates to; it is derived from the
 # functions' own Check(...) context, so if a gate's context changes the test
