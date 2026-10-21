@@ -32,11 +32,59 @@ control below is not decoration -- it is the test.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PRE_PUSH = REPO_ROOT / "githooks" / "pre-push"
+
+# An inherited GIT_DIR makes `git -C <scratch>` operate on the repository
+# GIT_DIR points at instead of the scratch repo -- so the four config calls in
+# _repo_with_a_merged_main can land on the REAL repository and rewrite it:
+#
+#   core.hooksPath = /tmp/pytest-of-.../nohooks   -> every hook silently disabled
+#   commit.gpgsign = false                        -> commit signing switched off
+#
+# Both were observed in this repository during the session that added this file.
+# The helpers therefore must not inherit that environment.
+#
+# To be precise about the trigger, because the obvious guess is wrong: **git
+# does not export GIT_DIR to hooks.** A hook receives GIT_INDEX_FILE, GIT_PREFIX
+# and GIT_AUTHOR_*, but no GIT_DIR. GIT_DIR arrives from the invoking
+# environment -- a shell or tool working against a bare repository, or a wrapper
+# that exported it. That is exactly why a test must not depend on it being
+# absent.
+_GIT_ENV_DROP = frozenset(
+    {
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_COMMON_DIR",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_CONFIG",
+        "GIT_CONFIG_GLOBAL",
+        "GIT_CONFIG_SYSTEM",
+        "GIT_CONFIG_NOSYSTEM",
+    }
+)
+
+
+def _clean_env() -> dict[str, str]:
+    """Environment for scratch-repo git calls: no inherited repo, no user config.
+
+    Dropping the GIT_* variables keeps a scratch repo from being redirected at
+    the real one. Pinning the global and system config to nothing keeps the
+    result from depending on the developer's identity, signing key or
+    init.defaultBranch -- the test sets everything it needs explicitly.
+    """
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_ENV_DROP}
+    env["GIT_CONFIG_GLOBAL"] = os.devnull
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    return env
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -45,6 +93,7 @@ def _git(repo: Path, *args: str) -> str:
         capture_output=True,
         text=True,
         check=True,
+        env=_clean_env(),
     ).stdout.strip()
 
 
@@ -122,9 +171,7 @@ def test_the_hook_excludes_published_commits_from_the_signature_check() -> None:
         for line in text.splitlines()
         if "rev-list" in line and "%G?" in text and not line.strip().startswith("#")
     ]
-    signature_stage = [
-        line for line in rev_list_lines if "--not --remotes=origin" in line
-    ]
+    signature_stage = [line for line in rev_list_lines if "--not --remotes=origin" in line]
     assert signature_stage, (
         "the signature stage no longer excludes published commits -- "
         "a branch that merged main would become unpushable again"
@@ -146,13 +193,63 @@ def test_published_commits_are_excluded_and_new_ones_are_not(tmp_path: Path) -> 
 
     # The fix: it is excluded.
     filtered = _rev_list(work, rev, "--not", "--remotes=origin")
-    assert sha_c not in filtered, (
-        "a commit already published on origin is still being re-verified"
-    )
+    assert sha_c not in filtered, "a commit already published on origin is still being re-verified"
 
     # The negative control: the new merge commit is NOT excluded, so the hook
     # still has to verify it. Without this, the change would be indistinguishable
     # from switching the signature check off.
-    assert sha_merge in filtered, (
-        "the new commit is excluded too -- the signature check has been weakened"
-    )
+    assert (
+        sha_merge in filtered
+    ), "the new commit is excluded too -- the signature check has been weakened"
+
+
+def test_scratch_helpers_cannot_be_redirected_by_an_inherited_git_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A GIT_DIR in the environment must not redirect these helpers.
+
+    This is the regression that matters. Before the helpers sanitised their
+    environment, the config calls in ``_repo_with_a_merged_main`` operated on
+    the real repository instead of the scratch one whenever ``GIT_DIR`` was set,
+    and rewrote it:
+
+    - ``core.hooksPath`` to a pytest temporary directory, which disables **every
+      hook** in the repository (the path does not exist, so nothing runs), and
+    - ``commit.gpgsign`` to ``false``, which disables commit signing.
+
+    So the test that exists to protect the signature rule could silently switch
+    the signature rule off on the machine. Both effects were observed in this
+    repository.
+
+    ``GIT_DIR`` is not set by git for hooks -- see the note at the top of this
+    file -- so the trigger is the invoking environment, which is exactly what
+    makes depending on its absence unsafe.
+
+    A decoy repository stands in for the real one: if the helpers are ever
+    redirected again, the writes land there and this fails -- without the test
+    itself being able to damage the developer's repository.
+    """
+    decoy = tmp_path / "decoy"
+    decoy.mkdir()
+    _git(decoy, "init", "-q")
+    decoy_config = decoy / ".git" / "config"
+
+    monkeypatch.setenv("GIT_DIR", str(decoy / ".git"))
+
+    work = tmp_path / "work"
+    work.mkdir()
+    _git(work, "init", "-q")
+    _git(work, "config", "user.name", "Scratch")
+    _git(work, "config", "commit.gpgsign", "false")
+
+    # The writes went to the scratch repo...
+    assert _git(work, "config", "--local", "user.name") == "Scratch"
+
+    # ...and not to the repository GIT_DIR pointed at.
+    text = decoy_config.read_text(encoding="utf-8")
+    assert (
+        "user.name" not in text
+    ), "the helper wrote to the GIT_DIR repository instead of the scratch one"
+    assert (
+        "gpgsign" not in text
+    ), "the helper wrote to the GIT_DIR repository instead of the scratch one"

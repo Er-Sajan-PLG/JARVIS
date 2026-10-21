@@ -77,13 +77,44 @@ INJECTION_LIKE_REFS = [
     "",
 ]
 
-# A hermetic git environment: the developer's global/system config (hooks,
-# commit.gpgsign, init.defaultBranch) must not decide the outcome.
+# A hermetic git environment: neither the developer's global/system config
+# (hooks, commit.gpgsign, init.defaultBranch) nor an inherited repository
+# pointer may decide the outcome.
+#
+# The GIT_* variables below must be *dropped*, not merely overridden. An
+# inherited GIT_DIR takes precedence over the cwd this helper passes, so the
+# ``git_repo`` fixture's add/commit calls operate on whichever repository
+# GIT_DIR names instead of the scratch one. Reproduced by setting
+# ``GIT_DIR=<this repo>/.git``: the fixture's writes created "first commit" and
+# "second commit" on whatever branch was checked out -- two such commits were
+# observed on an unrelated branch during this session -- and with GIT_DIR set
+# this file went from passing to 15 errors before the environment was sanitised.
+#
+# What does NOT set this, contrary to the obvious guess: **git does not export
+# GIT_DIR to hooks.** A hook receives GIT_INDEX_FILE, GIT_PREFIX, GIT_EDITOR and
+# GIT_AUTHOR_*, but no GIT_DIR. GIT_DIR arrives from the invoking environment
+# instead -- a shell or tool working against a bare repository, or a wrapper
+# that exported it. That is precisely why these helpers must not depend on it.
 _GIT_ENV = {
     "GIT_CONFIG_NOSYSTEM": "1",
     "GIT_CONFIG_GLOBAL": os.devnull,
     "GIT_TERMINAL_PROMPT": "0",
 }
+
+_GIT_ENV_DROP = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)
+
+
+def _git_env() -> dict[str, str]:
+    """Environment for scratch-repo git calls, with no inherited repository."""
+    inherited = {k: v for k, v in os.environ.items() if k not in _GIT_ENV_DROP}
+    return {**inherited, **_GIT_ENV}
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -93,7 +124,7 @@ def _git(repo: Path, *args: str) -> str:
         cwd=repo,
         capture_output=True,
         text=True,
-        env={**os.environ, **_GIT_ENV},
+        env=_git_env(),
         check=True,
     )
     return completed.stdout.strip()
@@ -102,6 +133,15 @@ def _git(repo: Path, *args: str) -> str:
 @pytest.fixture
 def git_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """A throwaway repo: two commits, a branch, a tag and a remote-tracking ref."""
+    # The app's git tools (app.tools.git_tools) shell out without sanitising
+    # their own environment, so an inherited pointer has to be removed from
+    # os.environ and not only from this module's helper env -- otherwise those
+    # calls read whichever repository GIT_DIR names. Verified: with GIT_DIR set,
+    # exactly the three tests that call app.tools.git_tools failed while the
+    # rest passed.
+    for var in _GIT_ENV_DROP:
+        monkeypatch.delenv(var, raising=False)
+
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init", "-q", "-b", "main")
@@ -245,3 +285,64 @@ def test_ref_arguments_are_terminated_in_git_argv(
     assert argv[-1] == "--", argv
     assert [arg for arg in argv[2:guard] if not arg.startswith("-")] == [], argv
     assert sha in argv[guard + 1 : -1], argv
+
+
+def test_scratch_repo_is_not_redirected_by_an_inherited_git_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An inherited ``GIT_DIR`` must not redirect these writes.
+
+    Git exports ``GIT_DIR`` into the environment of every hook it runs, and
+    ``githooks/pre-push`` runs this suite. ``GIT_DIR`` takes precedence over the
+    ``cwd`` the helper passes, so before the environment was sanitised the
+    ``git_repo`` fixture's ``add``/``commit`` calls operated on the *real*
+    repository and created ``first commit`` and ``second commit`` on whatever
+    branch was checked out. Two such commits were observed on an unrelated
+    branch while the suite ran from a hook.
+
+    A decoy repository stands in for the real one, so a regression fails this
+    test instead of writing to somebody's repository.
+    """
+    decoy = tmp_path / "decoy"
+    decoy.mkdir()
+    _git(decoy, "init", "-q", "-b", "main")
+    (decoy / "decoy.txt").write_text("d\n", encoding="utf-8")
+    _git(decoy, "add", "decoy.txt")
+    _git(
+        decoy,
+        "-c",
+        "user.name=Decoy",
+        "-c",
+        "user.email=decoy@example.invalid",
+        "commit",
+        "-qm",
+        "decoy base",
+    )
+    decoy_head = _git(decoy, "rev-parse", "HEAD")
+
+    monkeypatch.setenv("GIT_DIR", str(decoy / ".git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(decoy))
+
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    _git(scratch, "init", "-q", "-b", "main")
+    (scratch / "only-here.txt").write_text("x\n", encoding="utf-8")
+    _git(scratch, "add", "only-here.txt")
+    _git(
+        scratch,
+        "-c",
+        "user.name=Ref Safety",
+        "-c",
+        "user.email=refsafety@example.invalid",
+        "commit",
+        "-qm",
+        "scratch commit",
+    )
+
+    # The commit exists in the scratch repo...
+    assert _git(scratch, "rev-parse", "HEAD") != decoy_head
+    assert "only-here.txt" in _git(scratch, "show", "--stat", "--format=", "HEAD")
+
+    # ...and the decoy is untouched: still unborn, still no new commit.
+    assert _git(decoy, "rev-parse", "HEAD") == decoy_head
+    assert "only-here" not in _git(decoy, "ls-tree", "-r", "--name-only", "HEAD~0")
