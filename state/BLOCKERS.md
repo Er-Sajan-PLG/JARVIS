@@ -108,6 +108,62 @@ environment lacked but the code uses (`tiktoken`, `psycopg`, `psycopg2-binary`,
 
 ---
 
+## B-007 — `[NEEDS HUMAN]` All merges to `main` are frozen: signed commits cannot verify
+
+**Severity**: HIGH · **Status**: `ACTIVE` · **Blocks**: every merge, including 12 open Dependabot security PRs
+
+**What**: The `protect-main` ruleset requires signed commits (`required_signatures`).
+GitHub cannot verify the signature on any commit, so every PR is `BLOCKED`:
+
+```
+3f4369bd verified=False reason=unknown_key
+```
+
+**Cause, in two layers** — the first is fixed, the second needs you:
+
+1. ~~`git config user.email` was `gurungsajan0228gmail.com`~~ — **missing the `@`**.
+   13 recent commits carried it, against 7 older ones with the correct address.
+   GitHub therefore reported `reason=no_user`. Corrected globally and locally.
+2. The SSH key in `user.signingkey` (`~/.ssh/id_ed25519.pub`) is registered on the
+   account as an **authentication** key only, not a **signing** key. The reason now
+   reads `unknown_key`, which is the remaining blocker.
+
+**Registering it needs a scope the current token lacks.** Both endpoints 404:
+
+```
+user/ssh_signing_keys  needs admin:ssh_signing_key
+user/gpg_keys          needs admin:gpg_key
+```
+
+**Resolution — run one of these:**
+
+```bash
+# Option A: CLI
+gh auth refresh -h github.com -s admin:ssh_signing_key
+gh api --method POST user/ssh_signing_keys \
+  -f title="Arch Linux (git signing)" \
+  -f key="$(cat ~/.ssh/id_ed25519.pub)"
+```
+
+**Option B:** Settings → SSH and GPG keys → New SSH key → **Key type: Signing Key**
+→ paste `~/.ssh/id_ed25519.pub`.
+
+A GPG key also exists locally (`4705983D407DEB9C`, `Sajan Gurung
+<gurungsajan0228@gmail.com>`) and is likewise unregistered; uploading it via
+`admin:gpg_key` and switching `gpg.format` to `openpgp` would work equally well.
+
+**This was my sequencing error, and it is worth recording as one.** The rule was
+enabled before checking that its precondition held. RISK-011 had said signatures
+were "not enforced" for months, so the unenforced state was mistaken for a missing
+*rule* rather than a missing *key registration*. A rule that cannot be satisfied
+does not enforce anything — it just blocks, including the 12 security updates now
+stuck behind it.
+
+**Do not resolve this by removing the rule and calling it done.** Remove it only
+as a documented, temporary measure, and re-enable the moment the key is registered.
+
+---
+
 ## B-006 — `osv-scanner` never installs in CI
 
 **Severity**: LOW · **Status**: `ACTIVE` · **Blocks**: nothing (the check is non-blocking)
