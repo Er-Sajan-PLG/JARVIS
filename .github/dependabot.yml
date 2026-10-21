@@ -17,11 +17,24 @@ updates:
         patterns: ["pytest*", "pytest-*", "hypothesis", "faker"]
       linting:
         patterns: ["ruff", "mypy", "pyright"]
-      # ChromaDB: ignore pre-auth CVEs — JARVIS only uses PersistentClient (local-only, no HTTP server)
-      # The CVEs require an exposed ChromaDB HTTP server, which JARVIS never starts.
+
+    # NOTE: `ignore` is a SIBLING of `groups`, not a child of it. Until
+    # 2026-10-21 this block was indented under `groups`, which made it a no-op —
+    # Dependabot does not read an `ignore` key nested inside `groups`, so the
+    # chromadb entry below had never suppressed anything.
+    ignore:
+      # ChromaDB: the pre-auth CVEs require an exposed HTTP server. JARVIS only
+      # ever uses PersistentClient (local-only), so they are not reachable.
       # See: https://github.com/Er-Sajan-PLG/JARVIS/security/dependabot
-      ignore:
-        - dependency-name: "chromadb"
+      - dependency-name: "chromadb"
+
+      # CUDA runtime libraries. These are transitive to torch's `cuda-toolkit`
+      # extra, NOT direct dependencies, so raising one alone is unresolvable by
+      # construction:
+      #   ERROR: Cannot install -r requirements.txt (line 217) and nvidia-nvshmem-cu13==3.8.0
+      #   ERROR: ResolutionImpossible
+      # They move when torch moves. PRs #132 and #126 were closed for this reason.
+      - dependency-name: "nvidia-*"
 
   # npm dependencies (frontend)
   - package-ecosystem: "npm"

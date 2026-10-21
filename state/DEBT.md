@@ -39,6 +39,7 @@ acting on a number; the counts were verified 2026-10-01 and may have moved.
 | D-R6 | Actions pinned to mutable tags (SUP-010) | `gate_action_pinning` (ADR-004) |
 | D-R7 | `urllib3==2.7.0` carried CVE-2026-97687 / CVE-2026-97689 (both fixed in 2.8.0) | `0ec6128` |
 | D-R8 | The ruff ratchet reported *checked* files as *failing* files | `59fd80c` |
+| D-R9 | `dependabot.yml`'s `ignore:` block was indented **under** `groups:`, so Dependabot never read it — the chromadb suppression had never applied | session `20261021-0430-HERM` |
 
 ---
 
