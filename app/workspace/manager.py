@@ -91,7 +91,14 @@ class WorkspaceManager:
             return files
 
         for p in self.active_project.root_path.rglob("*"):
-            if p.is_file() and not any(part.startswith(".") for part in p.parts):
+            if p.is_file():
+                # Check hidden files/dirs relative to project root, not absolute path
+                try:
+                    rel = p.relative_to(self.active_project.root_path)
+                except ValueError:
+                    continue
+                if any(part.startswith(".") for part in rel.parts):
+                    continue
                 if extension_filter:
                     if p.suffix.lower() in [ext.lower() for ext in extension_filter]:
                         files.append(p)

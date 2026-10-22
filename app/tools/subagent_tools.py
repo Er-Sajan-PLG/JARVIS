@@ -62,8 +62,21 @@ def _resolve_workdir(workdir: str) -> Path:
     candidate = Path(workdir) if Path(workdir).is_absolute() else Path.cwd() / workdir
     resolved = candidate.resolve()
     roots = [_REPO_ROOT]
+    # Standard system temp directories (Unix)
+    for p in ("/tmp", "/var/temp", "/var/tmp"):
+        with contextlib.suppress(OSError):
+            roots.append(Path(p).resolve())
+    # Python's configured temp dir (may differ from /tmp, e.g. TMPDIR override)
     with contextlib.suppress(OSError):
         roots.append(Path(tempfile.gettempdir()).resolve())
+    # Deduplicate while preserving order
+    seen: set[Path] = set()
+    deduped: list[Path] = []
+    for r in roots:
+        if r not in seen:
+            seen.add(r)
+            deduped.append(r)
+    roots = deduped
     if not any(
         resolved == r or resolved.is_relative_to(r)
         for r in roots  # noqa: FBT
