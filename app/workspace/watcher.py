@@ -30,6 +30,13 @@ class FileWatcher:
 
         # Simple file scan
         for p in self.root_path.rglob("*"):
-            if p.is_file() and not any(part.startswith(".") for part in p.parts):
+            if p.is_file():
+                # Check hidden files/dirs relative to root, not absolute path
+                try:
+                    rel = p.relative_to(self.root_path)
+                except ValueError:
+                    continue
+                if any(part.startswith(".") for part in rel.parts):
+                    continue
                 changes.append((p, "modified"))
         return changes
