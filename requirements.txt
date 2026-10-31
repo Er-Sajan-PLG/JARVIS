@@ -159,7 +159,7 @@ propcache==0.5.2
 protobuf==7.36.1
 psycopg2-binary==2.9.13
 psycopg==3.2.3
-pyasn1==0.6.4
+pyasn1==0.6.5
 pyasn1_modules==0.4.2
 pybase64==1.5.0
 pycparser==3.0
