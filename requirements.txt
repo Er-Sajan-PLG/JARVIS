@@ -93,7 +93,7 @@ jsonschema-specifications==2025.9.1
 kubernetes==36.0.3
 langchain-core==1.6.3
 langchain-protocol==0.0.19
-langgraph==1.2.11
+langgraph==1.2.19
 langgraph-checkpoint==4.2.0
 langgraph-prebuilt==1.1.0
 langgraph-sdk==0.4.4
