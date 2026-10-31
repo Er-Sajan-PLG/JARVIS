@@ -6,7 +6,7 @@
 **Reviewed**: 2026-09-14
 **Source**: `scripts/doc_governance.py` + `scripts/doc_review_due.py` + `scripts/doc_type_table.py` + `scripts/check_docs.py` at HEAD
 
-Inspired by [Universal_Software_Auditor](https://github.com/Er-Sajan-PLG/Universal_Software_Auditor)'s docs-sync system (ADR-0020), adapted to JARVIS's Python conventions.
+Inspired by Universal_Software_Auditor's docs-sync system (ADR-0020), adapted to JARVIS's Python conventions.
 
 ## Two failure classes
 
@@ -19,8 +19,8 @@ Inspired by [Universal_Software_Auditor](https://github.com/Er-Sajan-PLG/Univers
 
 **Inline value** (HTML comments, survive Prettier, render invisibly):
 ```markdown
-Tests: <!--fact:test_count-->2163<!--/fact-->
-Coverage: <!--fact:coverage-->87<!--/fact-->
+Tests: <!--fact:test_count-->2178<!--/fact-->
+Coverage: <!--fact:coverage-->88<!--/fact-->
 Gates: <!--fact:gate_count-->29<!--/fact-->
 ```
 
