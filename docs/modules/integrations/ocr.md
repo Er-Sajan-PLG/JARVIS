@@ -3,7 +3,8 @@
 **Status**: ACTIVE
 **Type**: reference
 **Source**: `app/integrations/ocr/`, `app/api/ocr/routes.py`, `app/config/settings.py` (`OCRConfig`), `app/utils/pdf.py` at HEAD
-**Last Updated**: 2026-09-30
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 
 ---
 

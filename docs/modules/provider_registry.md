@@ -3,45 +3,41 @@
 **Status**: ACTIVE
 **Type**: reference
 **Source**: `app/provider_registry.py` at HEAD
-**Last Updated**: 2026-09-17
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 
 ---
 
 ## Overview
 
-Registry for managing LLM provider configurations. Provides a unified interface for listing, adding, updating, and removing providers without restarting JARVIS.
+Registry for managing LLM provider configurations and live model catalogs.
+Provides a unified interface for listing providers, their status, API-key
+requirements, capabilities and fetched model lists.
 
-## Architecture
+## Classes
 
-```
-provider_registry.py (ProviderRegistry)
-├── get_provider(name) → ProviderSpec
-├── list_providers() → list[ProviderSpec]
-├── register_provider(name, spec)
-├── update_provider(name, spec)
-└── remove_provider(name)
-```
+- `ProviderStatus` — status constants (`available`, `unavailable`,
+  `keys_missing`, `config_error`)
+- `ProviderCapability` — capability flags (OpenAI-compatible, reasoning,
+  code generation, free models, context window, max output tokens, …)
+- `AIProvider` — one provider: metadata, status, model list, key check
+- `ProviderRegistry` — the registry; constructed once, cached by
+  `get_provider_registry()`
 
-## Data Model
+## Key methods (`ProviderRegistry`)
 
-```python
-class ProviderSpec:
-    name: str
-    display_name: str
-    api_key_env: str
-    base_url: str | None
-    models: list[str]
-    enabled: bool
-    capabilities: list[str]  # ["chat", "embeddings", "images"]
-```
+- `get_all_providers(force_refresh=False)` → list[dict]
+- `get_provider(provider_key)` → dict | None
+- `get_providers_by_category(category)` → list[dict]
+- `search_providers(query)` → list[dict]
+- `check_provider_status(provider_key)` → AIProvider
 
 ## Configuration
 
-Providers are stored in two places:
-1. **Static config**: `app/resources/manager.py` (shipped defaults)
-2. **Runtime overrides**: `~/jarvis_providers.json` (user customizations)
-
-Runtime overrides take precedence.
+Providers are initialised in `ProviderRegistry._initialize_providers()` from
+shipped defaults; some fetch live catalogs (OpenRouter, Google, Groq, …).
+Runtime overrides are not stored in `~/jarvis_providers.json` — earlier
+versions of this document described that, but it does not exist.
 
 ## API
 
@@ -49,13 +45,12 @@ Runtime overrides take precedence.
 from app.provider_registry import get_provider_registry
 
 registry = get_provider_registry()
-providers = registry.list_providers()
-registry.register_provider("my-provider", ProviderSpec(...))
+providers = registry.get_all_providers()
+one = registry.get_provider("openrouter")
 ```
 
 ## Validation
 
-- API key env var must be set (or explicitly marked as local/no-key)
-- Base URL must be valid URL (if provided)
-- At least one model must be specified
-- Duplicate names rejected
+- API key env var must be set (or the provider is marked `keys_missing`)
+- At least the shipped default model list is present
+- Duplicate provider keys are not registered

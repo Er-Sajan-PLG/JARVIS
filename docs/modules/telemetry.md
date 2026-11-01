@@ -3,7 +3,8 @@
 **Status**: ACTIVE
 **Type**: reference
 **Source**: `app/telemetry/` at HEAD
-**Last Updated**: 2026-09-17
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 
 ---
 
@@ -27,7 +28,7 @@ telemetry/
 │   ├── increment_counter(name, labels)
 │   ├── record_histogram(name, value)
 │   └── gauge(name, value)
-└── logger.py (StructuredLogger)
+└── logger.py (EventLogger)
     ├── info(message, **kwargs)
     ├── error(message, **kwargs)
     └── with_context(**kwargs)
@@ -56,9 +57,9 @@ Prometheus-compatible metrics:
 - Histograms (request_duration_seconds)
 - Gauges (active_sessions)
 
-### Logger
+### EventLogger
 
-Structured JSON logging via `structlog`:
+Structured event logging via `EventLogger` (OTEL_AGENT_NAME / OTEL_TOOL_NAME / OTEL_GUARDRAIL_RESULT constants):
 - Automatic trace ID injection
 - Level-based filtering
 - Output: stderr (configurable)
