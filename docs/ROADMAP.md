@@ -2,8 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: roadmap
-**Last Updated**: 2026-09-18
-**Reviewed**: 2026-09-18
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 
 **Workflow Orchestration**: n8n (CI/CD, automation, approval) + local CI plane (`scripts/ci_gate.py`)
 
@@ -40,7 +40,7 @@
 | Task | Status |
 |------|--------|
 | CI plane (<!--fact:gate_count-->29<!--/fact--> gates, 9 contexts) | ✅ VERIFIED |
-| Branch protection | ⛔ BLOCKED (GitHub 403) |
+| Branch protection | ✅ VERIFIED (platform-enforced since 2026-10-01) |
 | Dependabot | ✅ VERIFIED |
 | Security scanning | ✅ VERIFIED |
 | Container scan (Trivy) | ✅ VERIFIED |
@@ -60,7 +60,7 @@
 | Observability (health/ready/metrics) | ✅ VERIFIED |
 | Release automation | ✅ VERIFIED |
 | SBOM (CycloneDX) | ✅ VERIFIED |
-| Test coverage (98% measured 2026-09-13; unmeasured at HEAD — see §11) | ✅ VERIFIED (dated) |
+| Test coverage (86% line+branch, gate, 2026-09-30) | ✅ VERIFIED (dated) |
 | Integration tests | ✅ VERIFIED |
 
 ---
@@ -73,7 +73,7 @@
 |------------|--------|
 | Cognitive Engine (LangGraph + streaming + OTel) | ✅ 95% |
 | Memory (4-stage pipeline + MemoryItem) | ✅ 90% |
-| MCP Client (stdio + HTTP) | ✅ 100% |
+| MCP Client (stdio + HTTP) | ⚠️ components exist, unwired (see DEAD-CODE-REGISTER) |
 | Eval Suite (10 evals + CI) | ✅ 100% |
 | Session/Checkpoint + context trimming | ✅ 90% |
 | OTel spans | ✅ 95% |
@@ -206,7 +206,7 @@ own docs update (the push gate enforces the last part).
 | TD-003 | Missing API key | ✅ RESOLVED |
 | TD-004 | WS auth bypass | ✅ RESOLVED |
 | TD-005 | No CI pipeline | ✅ RESOLVED |
-| TD-006 | No branch protection | ⛔ BLOCKED (GitHub 403) |
+| TD-006 | No branch protection | ✅ RESOLVED (ruleset installed) |
 | TD-007 | No security scanning | ✅ RESOLVED |
 | TD-008 | No container image | ✅ RESOLVED |
 | TD-009 | No release automation | ✅ RESOLVED |
@@ -241,7 +241,7 @@ Week 13-14: ██████████████████████�
 |--------|--------|---------|--------|
 | Time to working dev env | < 5 min | ~2 min | ✅ |
 | CI pass rate | 100% | 100% | ✅ |
-| Test coverage | ≥ 80% | unmeasured at HEAD (2026-09-18); last measured 98% on 2026-09-13 — see `docs/CHANGELOG.md` v3.1.2 | ⚠️ |
+| Test coverage | ≥ 80% | 86% line+branch (gate, 2026-09-30) | ✅ |
 | Capability Contract | 100% | ~92% | ✅ |
 | Deploy frequency | On every tag | Configured | ✅ |
 | Security scan pass | 100% | 100% | ✅ |
@@ -255,7 +255,7 @@ Week 13-14: ██████████████████████�
 | Python 3.14 breaks deps | ✅ MITIGATED (3.11 recreated) |
 | Legacy servers confusion | ✅ MITIGATED (archived) |
 | Capability Contract drift | ✅ MITIGATED (quarterly review) |
-| Branch protection 403 | ⛔ ACCEPTED (GitHub free-tier limitation) |
+| Branch protection 403 | ✅ RESOLVED (repo public, ruleset enforced) |
 
 ---
 

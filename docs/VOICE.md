@@ -2,7 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: guide
-**Last Updated**: 2026-09-18
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 **Source**: `app/adapters/web/voice_routes.py`, `frontend/assets/voice.js`, `app/integrations/telegram/__init__.py`, `tgcall/` at HEAD
 
 > Drift trap for this type: Teaches a workflow that the reader then finds does not exist, which is worse for a beginner than no guide at all.
