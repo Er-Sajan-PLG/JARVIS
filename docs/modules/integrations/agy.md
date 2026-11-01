@@ -3,7 +3,8 @@
 **Status**: ACTIVE
 **Type**: reference
 **Source**: `app/adapters/integrations/agy.py` at HEAD
-**Last Updated**: 2026-09-30
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 
 ---
 
@@ -55,9 +56,9 @@ has no native upload yet (inline + cap, MIME hint inlined).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/agy/models` | List available AGY models |
-| GET | `/agy/status` | Get AGY CLI status |
-| POST | `/agy/analyze-file` | Analyze a file with AGY |
+| GET | `/api/agy/models` | List available AGY models |
+| GET | `/api/agy/status` | Get AGY CLI status |
+| POST | `/api/agy/analyze-file` | Analyze a file with AGY |
 
 ## Path sandbox
 
@@ -69,7 +70,7 @@ returns the resolved path**, and the caller opens exactly what was checked.
 A refused path raises `PermissionError` — never an empty string, and never a
 generic `RuntimeError("File analysis failed")`. It is raised *outside* the
 `try`, so a refusal is distinguishable from a genuine analysis failure.
-`POST /agy/analyze-file` pre-checks the same policy and maps it to **`403`**;
+`POST /api/agy/analyze-file` pre-checks the same policy and maps it to **`403`**;
 without that pre-check the route's blanket `except Exception` would answer
 **`200`** with an error string, and a blocked exfiltration would read as
 success.

@@ -2,7 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: reference
-**Last Updated**: 2026-09-19
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 **Source**: `app/integrations/mcp/server.py`, `app/tools/subagent_tools.py`, `app/adapters/integrations/agy.py` at HEAD
 
 > Drift trap for this type: The fastest-rotting type. Every default, field and endpoint is duplicated from code, so every code change makes it stale.

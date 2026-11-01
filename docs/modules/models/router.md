@@ -3,25 +3,30 @@
 **Status**: ACTIVE
 **Type**: reference
 **Source**: `app/models/router.py` at HEAD
-**Last Updated**: 2026-09-17
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 
 ---
 
-## Overview
+## Status: abandoned (unwired)
 
-Routes LLM requests across multiple providers (OpenAI, Anthropic, Ollama, OpenRouter, etc.) with circuit breakers, fallback chains, and intelligent provider selection.
+`ModelRouter` (`app/models/router.py`) is **not on the request path**.
+Nothing in `app/` constructs it; `tests/unit/test_router_call_sites.py`
+asserts that no call site exists, and `tests/unit/test_dead_code_register.py`
+covers the surrounding abandoned components. The live model path is
+`container.create_model_client(config)` in `app/adapters/web/router.py`
+(see ADR-019).
 
-## Architecture
+This document is retained as a record of the intended design and the
+interface the tests exercise, not as a description of running behaviour.
+
+## Intended architecture (not live)
 
 ```
 models/
 ├── client.py (ModelClient Protocol)
-├── router.py (ModelRouter)
-│   ├── generate(request) → ModelResponse
-│   ├── register_provider(provider)
-│   └── get_client(provider_name) → ModelClient
+├── router.py (ModelRouter)   # abandoned
 ├── factory.py (create_client)
-│   └── create_client(provider, config) → ModelClient
 └── providers/
     ├── openai_provider.py
     ├── anthropic_provider.py
@@ -29,38 +34,25 @@ models/
     └── openrouter_provider.py
 ```
 
-## Provider Selection Strategy
+## Provider selection strategy (intended, never wired)
 
-1. **Intent-based routing**: DIRECT_CHAT → fast provider, MULTI_STEP → capable provider
-2. **Circuit breaker**: Failed provider → 30-second cooldown
-3. **Fallback chain**: Primary → Secondary → Tertiary
-4. **Cost optimization**: Prefer cheaper providers for simple tasks
+1. Intent-based routing: DIRECT_CHAT → fast provider, MULTI_STEP → capable provider
+2. Circuit breaker: failed provider → 30-second cooldown
+3. Fallback chain: primary → secondary → tertiary
+4. Cost optimization: prefer cheaper providers for simple tasks
 
-## Configuration
-
-Provider configurations stored in `app/resources/manager.py`:
-```python
-# Providers defined in ProviderRegistry class
-providers = {
-    "openai": {"api_key_env": "OPENAI_API_KEY", "models": [...]},
-    "ollama": {"base_url": "http://localhost:11434", "models": [...]},
-}
-```
-
-## API
-
-```python
-from app.models.router import ModelRouter
-
-router = ModelRouter()
-response = await router.generate(
-    messages=[{"role": "user", "content": "Hello"}],
-    provider="openai",  # optional, auto-selected if None
-)
-```
-
-## Error Handling
+## Error handling (intended)
 
 - All provider errors wrapped in `ProviderError`
 - Circuit breaker prevents cascading failures
 - Automatic retry with exponential backoff (max 3 attempts)
+
+## Do not use
+
+```python
+# NOT live — construction is prohibited by test_router_call_sites.py
+from app.models.router import ModelRouter
+router = ModelRouter()
+```
+
+Use `container.create_model_client(config)` instead.

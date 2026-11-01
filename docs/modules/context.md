@@ -3,58 +3,52 @@
 **Status**: ACTIVE
 **Type**: reference
 **Source**: `app/context/` at HEAD
-**Last Updated**: 2026-09-17
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 
 ---
 
 ## Overview
 
-Builds and manages context for LLM conversations — retrieves relevant memories, session history, and system prompts to include in each model call.
-
-## Architecture
-
-```
-context/
-├── __init__.py
-├── builder.py (ContextBuilder)
-│   ├── build_context(messages, session_id)
-│   ├── retrieve_memories(query)
-│   └── format_for_model(messages)
-└── manager.py (ContextManager)
-    ├── cache_context(session_id, context)
-    └── get_cached_context(session_id)
-```
+Assembles prompt context for LLM conversations within a model token budget,
+and trims conversation history to fit.
 
 ## Components
 
-### ContextBuilder
+### ContextBuilder (`app/context/builder.py`)
 
-Assembles the final prompt context from:
-1. System prompt (from `app/prompt/`)
-2. Conversation history (from `app/session/`)
-3. Relevant memories (from `app/memory/`)
-4. Tool definitions (from `app/tools/`)
+Exported from `app.context`. Assembles the final message list from a system
+prompt, conversation history, retrieved memories and attached content sources.
 
-### ContextManager
+- `build_system_prompt(session, assistant_name="JARVIS")` → str
+- `assemble_context(session, conversation, sources=None, memories=None, max_context_tokens=8192)` → list[dict]
 
-Manages context caching to avoid redundant retrieval:
-- In-memory LRU cache (max 100 sessions)
-- TTL: 5 minutes
-- Auto-invalidate on new messages
+Memories are rendered with temporal status suffixes (ADR-015).
+
+### ContextWindowManager (`app/context/manager.py`)
+
+Trims conversation messages in user/assistant pairs (never splitting an
+exchange) so the total stays within `max_tokens`. Not exported from
+`app.context`; import from `app.context.manager`.
+
+- `count_tokens(messages)` / `count_tokens_text(text)`
+- `fit(messages, max_tokens=None)` → fitted list
 
 ## Configuration
 
-- `JARVIS_CONTEXT_MAX_MEMORIES`: Max memories per context (default: 5)
-- `JARVIS_CONTEXT_CACHE_TTL`: Cache TTL in seconds (default: 300)
+- `JARVIS_CONTEXT_MAX_MEMORIES` is **not** read by this package; memory count
+  is controlled by callers. Earlier versions of this document listed env vars
+  and an LRU cache/TTL that do not exist here.
 
 ## API
 
 ```python
-from app.context import ContextBuilder, ContextManager
+from app.context import ContextBuilder
+from app.context.manager import ContextWindowManager
 
-builder = ContextBuilder(memory_service, session_service)
-context = await builder.build_context(messages, session_id)
+builder = ContextBuilder()
+messages = builder.assemble_context(session, conversation, memories=mems)
 
-manager = ContextManager()
-manager.cache_context(session_id, context)
+trimmer = ContextWindowManager(max_tokens=4096)
+fitted = trimmer.fit(messages)
 ```

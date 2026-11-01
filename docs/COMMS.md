@@ -2,7 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: reference
-**Last Updated**: 2026-09-18
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 **Source**: `app/adapters/web/notify_routes.py`, `app/adapters/web/brief_routes.py`, `app/adapters/web/email_routes.py`, `app/adapters/web/push_routes.py` at HEAD
 
 > Drift trap for this type: The fastest-rotting type. Every default, field and endpoint is duplicated from code, so every code change makes it stale.

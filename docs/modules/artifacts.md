@@ -3,38 +3,34 @@
 **Status**: ACTIVE
 **Type**: reference
 **Source**: `app/artifacts/` at HEAD
-**Last Updated**: 2026-09-17
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 
 ---
 
 ## Overview
 
-Manages execution artifacts — intermediate files, outputs, and results from plan execution steps. Provides persistent storage and retrieval for traceability.
+Manages disk spillover storage for binary content artifacts (PDFs, images,
+repositories, uploads). Spills in-memory bytes to disk and returns
+`ContentSource` / `ArtifactHandle` domain models for downstream use.
 
 ## Architecture
 
 ```
 artifacts/
-├── __init__.py
+├── __init__.py          # exports ArtifactManager
 └── manager.py (ArtifactManager)
-    ├── store_artifact(plan_id, step_id, data)
-    ├── get_artifact(artifact_id)
-    ├── list_artifacts(plan_id)
-    └── delete_artifact(artifact_id)
+    ├── spill_bytes(content_bytes, filename, mime_type, metadata)
+    ├── spill_stream(stream, filename, mime_type)
+    └── get_artifact_bytes(artifact)
 ```
 
 ## Storage
 
-- Backend: filesystem (`~/jarvis_artifacts/` by default)
-- Format: JSON-serialized step outputs
-- Configurable via `JARVIS_ARTIFACT_PATH` env var
-
-## Lifecycle
-
-1. Plan execution starts → artifacts directory created per plan
-2. Each step stores output as `<step_id>.json`
-3. Plan completion → artifacts retained for audit
-4. Manual cleanup via `delete_workspace_path` tool
+- Backend: filesystem (`data/artifacts/` by default)
+- Format: raw bytes written under a content-hash filename
+- Configurable via constructor `storage_dir` (no env var; the default is
+  `data/artifacts`)
 
 ## API
 
@@ -42,6 +38,15 @@ artifacts/
 from app.artifacts import ArtifactManager
 
 manager = ArtifactManager()
-artifact_id = await manager.store_artifact("plan-123", "step-1", {"output": "data"})
-result = await manager.get_artifact(artifact_id)
+handle = manager.spill_bytes(b"...raw bytes...", "report.pdf", "application/pdf")
+data = manager.get_artifact_bytes(handle)
 ```
+
+## Notes
+
+- Artifact IDs are derived from the SHA-256 of the content (first 16 hex
+  chars), so identical content is stored once.
+- `spill_stream` reads the whole stream into memory before spilling.
+- There is no `store_artifact` / `get_artifact` / `list_artifacts` /
+  `delete_artifact` API and no `JARVIS_ARTIFACT_PATH` env var; earlier
+  versions of this document described them, but they never existed.

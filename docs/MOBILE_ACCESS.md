@@ -2,7 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: runbook
-**Last Updated**: 2026-09-17
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 **Source**: `app/main.py`, `frontend/assets/service-worker.js`, `frontend/assets/manifest.json`, `frontend/assets/voice.js`, `frontend/index.html`, `frontend/assets/core.js`, `app/adapters/web/push_routes.py`, `app/adapters/web/voice_routes.py`, `mobile/package.json`, `mobile/capacitor.config.json`, `mobile/android/app/src/main/AndroidManifest.xml` at HEAD
 
 > Drift trap for this type: The command or endpoint changes and the runbook keeps instructing the old one, so following it fails at the worst moment.

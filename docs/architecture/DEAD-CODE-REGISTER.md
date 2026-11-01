@@ -2,7 +2,8 @@
 
 **Status**: ACTIVE
 **Type**: register
-**Last Updated**: 2026-09-30
+**Last Updated**: 2026-11-01
+**Reviewed**: 2026-11-01
 
 > Drift trap for this type: Rows are added and never re-reviewed, so it becomes a
 > list of things that were true once, presented as things that are true now.
